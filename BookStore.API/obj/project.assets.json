@@ -88,6 +88,26 @@
         "frameworkReferences": [
           "Microsoft.AspNetCore.App"
         ]
+      },
+      "BookStore.Common/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/BookStore.Common.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/BookStore.Common.dll": {}
+        }
+      },
+      "BookStore.Services/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/BookStore.Services.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/BookStore.Services.dll": {}
+        }
       }
     }
   },
@@ -439,10 +459,22 @@
         "swashbuckle.aspnetcore.swaggerui.6.6.2.nupkg.sha512",
         "swashbuckle.aspnetcore.swaggerui.nuspec"
       ]
+    },
+    "BookStore.Common/1.0.0": {
+      "type": "project",
+      "path": "../BookStore.Common/BookStore.Common.csproj",
+      "msbuildProject": "../BookStore.Common/BookStore.Common.csproj"
+    },
+    "BookStore.Services/1.0.0": {
+      "type": "project",
+      "path": "../BookStore.Services/BookStore.Services.csproj",
+      "msbuildProject": "../BookStore.Services/BookStore.Services.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "BookStore.Common >= 1.0.0",
+      "BookStore.Services >= 1.0.0",
       "Swashbuckle.AspNetCore >= 6.6.2"
     ]
   },
@@ -478,7 +510,14 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Common\\BookStore.Common.csproj": {
+              "projectPath": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Common\\BookStore.Common.csproj"
+            },
+            "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\BookStore.Services.csproj": {
+              "projectPath": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\BookStore.Services.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

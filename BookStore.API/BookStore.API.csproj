@@ -15,5 +15,10 @@
     <Folder Include="DTO\Request\" />
     <Folder Include="Middleware\" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\BookStore.Common\BookStore.Common.csproj" />
+    <ProjectReference Include="..\BookStore.Services\BookStore.Services.csproj" />
+  </ItemGroup>
 
 </Project>
