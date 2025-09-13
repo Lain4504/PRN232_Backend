@@ -1,12 +1,207 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "E:\\ranoku\\prn232\\backend\\BookStore\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{DFEEF453-0B41-46C9-B3FD-44B471F45D90}|BookStore.Common\\BookStore.Common.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.common\\genericresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{DFEEF453-0B41-46C9-B3FD-44B471F45D90}|BookStore.Common\\BookStore.Common.csproj|solutionrelative:bookstore.common\\genericresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{75D09965-6980-441D-90D7-F9AA891A1F9A}|BookStore.API\\BookStore.API.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.api\\bookstore.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{75D09965-6980-441D-90D7-F9AA891A1F9A}|BookStore.API\\BookStore.API.csproj|solutionrelative:bookstore.api\\bookstore.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.services\\service\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|solutionrelative:bookstore.services\\service\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.services\\iservices\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|solutionrelative:bookstore.services\\iservices\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{75D09965-6980-441D-90D7-F9AA891A1F9A}|BookStore.API\\BookStore.API.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.api\\controllers\\weatherforecastcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{75D09965-6980-441D-90D7-F9AA891A1F9A}|BookStore.API\\BookStore.API.csproj|solutionrelative:bookstore.api\\controllers\\weatherforecastcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.services\\bookstore.services.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|solutionrelative:bookstore.services\\bookstore.services.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.repositories\\repository\\userrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|solutionrelative:bookstore.repositories\\repository\\userrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.repositories\\irepositories\\iuserrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|solutionrelative:bookstore.repositories\\irepositories\\iuserrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.repositories\\bookstore.repositories.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|solutionrelative:bookstore.repositories\\bookstore.repositories.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EAE64F9C-F981-4020-904C-08D58DEE07D1}|BookStore.Data\\BookStore.Data.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.data\\model\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{EAE64F9C-F981-4020-904C-08D58DEE07D1}|BookStore.Data\\BookStore.Data.csproj|solutionrelative:bookstore.data\\model\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EAE64F9C-F981-4020-904C-08D58DEE07D1}|BookStore.Data\\BookStore.Data.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.data\\bookstore.data.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{EAE64F9C-F981-4020-904C-08D58DEE07D1}|BookStore.Data\\BookStore.Data.csproj|solutionrelative:bookstore.data\\bookstore.data.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "GenericResponse.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Common\\GenericResponse.cs",
+              "RelativeDocumentMoniker": "BookStore.Common\\GenericResponse.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Common\\GenericResponse.cs",
+              "RelativeToolTip": "BookStore.Common\\GenericResponse.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T15:19:36.355Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "IUserService.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\IServices\\IUserService.cs",
+              "RelativeDocumentMoniker": "BookStore.Services\\IServices\\IUserService.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\IServices\\IUserService.cs",
+              "RelativeToolTip": "BookStore.Services\\IServices\\IUserService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAhAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T15:18:12.477Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "BookStore.API",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.API\\BookStore.API.csproj",
+              "RelativeDocumentMoniker": "BookStore.API\\BookStore.API.csproj",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.API\\BookStore.API.csproj",
+              "RelativeToolTip": "BookStore.API\\BookStore.API.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAOAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-09-13T15:17:55.058Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "WeatherForecastController.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.API\\Controllers\\WeatherForecastController.cs",
+              "RelativeDocumentMoniker": "BookStore.API\\Controllers\\WeatherForecastController.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.API\\Controllers\\WeatherForecastController.cs",
+              "RelativeToolTip": "BookStore.API\\Controllers\\WeatherForecastController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T15:17:50.879Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "BookStore.Services",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\BookStore.Services.csproj",
+              "RelativeDocumentMoniker": "BookStore.Services\\BookStore.Services.csproj",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\BookStore.Services.csproj",
+              "RelativeToolTip": "BookStore.Services\\BookStore.Services.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-09-13T15:17:08.449Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "UserRepository.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\Repository\\UserRepository.cs",
+              "RelativeDocumentMoniker": "BookStore.Repositories\\Repository\\UserRepository.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\Repository\\UserRepository.cs",
+              "RelativeToolTip": "BookStore.Repositories\\Repository\\UserRepository.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAfAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T15:16:24.405Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "UserService.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\Service\\UserService.cs",
+              "RelativeDocumentMoniker": "BookStore.Services\\Service\\UserService.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\Service\\UserService.cs",
+              "RelativeToolTip": "BookStore.Services\\Service\\UserService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T07:44:44.664Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "BookStore.Repositories",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\BookStore.Repositories.csproj",
+              "RelativeDocumentMoniker": "BookStore.Repositories\\BookStore.Repositories.csproj",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\BookStore.Repositories.csproj",
+              "RelativeToolTip": "BookStore.Repositories\\BookStore.Repositories.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-09-13T15:16:15.659Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "BookStore.Data",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Data\\BookStore.Data.csproj",
+              "RelativeDocumentMoniker": "BookStore.Data\\BookStore.Data.csproj",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Data\\BookStore.Data.csproj",
+              "RelativeToolTip": "BookStore.Data\\BookStore.Data.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-09-13T15:15:29.627Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "IUserRepository.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\IRepositories\\IUserRepository.cs",
+              "RelativeDocumentMoniker": "BookStore.Repositories\\IRepositories\\IUserRepository.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\IRepositories\\IUserRepository.cs",
+              "RelativeToolTip": "BookStore.Repositories\\IRepositories\\IUserRepository.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAkAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T07:44:32.012Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "User.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Data\\Model\\User.cs",
+              "RelativeDocumentMoniker": "BookStore.Data\\Model\\User.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Data\\Model\\User.cs",
+              "RelativeToolTip": "BookStore.Data\\Model\\User.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T07:44:17.324Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -1,12 +1,71 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "E:\\ranoku\\prn232\\backend\\BookStore\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.services\\class1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{60239418-81AF-440D-8616-A91AFD255E68}|BookStore.Services\\BookStore.Services.csproj|solutionrelative:bookstore.services\\class1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.repositories\\class1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{67D29757-5348-45ED-8B7A-40D8A7CD5507}|BookStore.Repositories\\BookStore.Repositories.csproj|solutionrelative:bookstore.repositories\\class1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EAE64F9C-F981-4020-904C-08D58DEE07D1}|BookStore.Data\\BookStore.Data.csproj|e:\\ranoku\\prn232\\backend\\bookstore\\bookstore.data\\class1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{EAE64F9C-F981-4020-904C-08D58DEE07D1}|BookStore.Data\\BookStore.Data.csproj|solutionrelative:bookstore.data\\class1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Class1.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\Class1.cs",
+              "RelativeDocumentMoniker": "BookStore.Services\\Class1.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Services\\Class1.cs",
+              "RelativeToolTip": "BookStore.Services\\Class1.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T07:44:44.664Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Class1.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\Class1.cs",
+              "RelativeDocumentMoniker": "BookStore.Repositories\\Class1.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Repositories\\Class1.cs",
+              "RelativeToolTip": "BookStore.Repositories\\Class1.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T07:44:32.012Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Class1.cs",
+              "DocumentMoniker": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Data\\Class1.cs",
+              "RelativeDocumentMoniker": "BookStore.Data\\Class1.cs",
+              "ToolTip": "E:\\ranoku\\prn232\\backend\\BookStore\\BookStore.Data\\Class1.cs",
+              "RelativeToolTip": "BookStore.Data\\Class1.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-13T07:44:17.324Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }
