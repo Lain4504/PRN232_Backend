@@ -6,7 +6,8 @@ namespace BookStore.Data.Model
     public class User
     {
         [Key]
-        public Guid Id { get; set; }
+        [Required]
+        public string Id { get; set; } = Guid.NewGuid().ToString();
 
         [Required]
         [MaxLength(100)]
