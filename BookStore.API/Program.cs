@@ -1,11 +1,13 @@
 using BookStore.API.Middleware;
 using BookStore.API.Mapping;
+using BookStore.API.Validators;
 using BookStore.Data;
 using Microsoft.EntityFrameworkCore;
 using BookStore.Repositories.IRepositories;
 using BookStore.Repositories.Repository;
 using BookStore.Services;
 using BookStore.Services.Service;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +43,9 @@ builder.Services.AddSwaggerGen();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(UserMappingProfile));
+
+// Add FluentValidation
+builder.Services.AddValidatorsFromAssemblyContaining<CreateUserRequestDtoValidator>();
 
 // DI registrations
 builder.Services.AddScoped<IUserRepository, UserRepository>();
