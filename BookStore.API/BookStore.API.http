@@ -1,2 +1,35 @@
-@BookStore.API_HostAddress = http://localhost:5283
+### Test Create User API
+POST https://localhost:7000/api/users
+Content-Type: application/json
 
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "password123",
+  "fullName": "Test User",
+  "phoneNumber": "0123456789",
+  "address": "123 Test Street",
+  "role": 0
+}
+
+### Test Create User API - Validation Error (missing required fields)
+POST https://localhost:7000/api/users
+Content-Type: application/json
+
+{
+  "username": "",
+  "email": "invalid-email",
+  "password": "123"
+}
+
+### Test Get User Manual Mapping (thiếu PhoneNumber và Address)
+GET https://localhost:7000/api/users/{{userId}}/manual
+
+### Test Get User AutoMapper (đầy đủ fields)
+GET https://localhost:7000/api/users/{{userId}}/automapper
+
+### Test Get User AutoMapper Selective (chỉ một số fields)
+GET https://localhost:7000/api/users/{{userId}}/automapper-selective
+
+### Test Get User - Not Found
+GET https://localhost:7000/api/users/nonexistent-id/manual

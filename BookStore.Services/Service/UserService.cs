@@ -16,5 +16,10 @@ namespace BookStore.Services.Service
         {
             return _userRepository.GetByIdAsync(id, cancellationToken);
         }
+
+        public async Task<User> CreateUserAsync(User user, CancellationToken cancellationToken = default)
+        {
+            return await _userRepository.CreateAsync(user, cancellationToken);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using BookStore.API.Middleware;
+using BookStore.API.Mapping;
 using BookStore.Data;
 using Microsoft.EntityFrameworkCore;
 using BookStore.Repositories.IRepositories;
@@ -37,6 +38,9 @@ builder.Services.AddCors(options =>
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(UserMappingProfile));
 
 // DI registrations
 builder.Services.AddScoped<IUserRepository, UserRepository>();

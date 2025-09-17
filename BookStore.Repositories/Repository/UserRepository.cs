@@ -20,5 +20,12 @@ namespace BookStore.Repositories.Repository
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         }
+
+        public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
+        {
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return user;
+        }
     }
 }

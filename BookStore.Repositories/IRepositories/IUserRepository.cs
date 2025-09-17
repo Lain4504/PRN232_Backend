@@ -5,5 +5,6 @@ namespace BookStore.Repositories.IRepositories
     public interface IUserRepository
     {
         Task<User?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
+        Task<User> CreateAsync(User user, CancellationToken cancellationToken = default);
     }
 }
