@@ -1,9 +1,20 @@
 using BookStore.API.Middleware;
+using BookStore.API.Services;
+using BookStore.Common.Models;
+using BookStore.Repositories;
+using BookStore.Repositories.IRepositories;
+using BookStore.Repositories.Repository;
+using BookStore.Services.IServices;
+using BookStore.Services.Service;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -12,18 +23,103 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
+// Configure Facebook Settings
+builder.Services.Configure<FacebookSettings>(
+    builder.Configuration.GetSection("FacebookSettings"));
+
+// Add Entity Framework
+builder.Services.AddDbContext<BookStoreContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add HTTP Client for API calls
+builder.Services.AddHttpClient();
+
+// Add repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
+builder.Services.AddScoped<ISocialTargetRepository, SocialTargetRepository>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+
+// Add services
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
+
+// Add provider services
+builder.Services.AddScoped<IProviderService, FacebookProvider>();
+
+// Add background services
+builder.Services.AddHostedService<ScheduledPostProcessorService>();
+
+// Add JWT Authentication
+var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";
+var key = Encoding.UTF8.GetBytes(secretKey);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "BookStore.API",
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "BookStore.Client",
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 // Add CORS policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", 
-        builder => builder
+        corsBuilder => corsBuilder
             .AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
+    { 
+        Title = "BookStore Social Media API", 
+        Version = "v1",
+        Description = "API for managing social media integration and posting"
+    });
+    
+    // Configure Bearer token authentication for Swagger
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -35,13 +131,13 @@ if (app.Environment.IsDevelopment())
 }
 
 // Add global exception handling middleware
-app.UseExceptionHandlerMiddleware();
-
-// Use CORS
-app.UseCors("AllowAll");
+app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowAll");
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
