@@ -174,7 +174,8 @@ namespace BookStore.API.Controllers
         }
 
         /// <summary>
-        /// Link Facebook Page directly using Page Access Token
+        /// [TEMP] Link Facebook Page directly using Page Access Token for testing posting capability.
+        /// This is a temporary endpoint and will be removed/replaced by the official OAuth flow later.
         /// </summary>
         [HttpPost("link-page-token")]
         public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkPageByToken(

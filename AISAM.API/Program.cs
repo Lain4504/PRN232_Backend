@@ -1,5 +1,4 @@
 using BookStore.API.Middleware;
-using BookStore.API.Services;
 using BookStore.Common.Models;
 using BookStore.Repositories;
 using BookStore.Repositories.IRepositories;
@@ -93,8 +92,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
-// Add background services
-builder.Services.AddHostedService<ScheduledPostProcessorService>();
+// Background services removed for now
 
 // Add JWT Authentication
 var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";

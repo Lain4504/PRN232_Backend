@@ -70,38 +70,6 @@ namespace BookStore.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Sync targets from provider for a social account
-        /// </summary>
-        [HttpPost("targets/sync/{socialAccountId}")]
-        public async Task<ActionResult<GenericResponse<IEnumerable<SocialTargetDto>>>> SyncAccountTargets(int socialAccountId)
-        {
-            try
-            {
-                var targets = await _socialService.SyncAccountTargetsAsync(socialAccountId);
-                return Ok(new GenericResponse<IEnumerable<SocialTargetDto>>
-                {
-                    Success = true,
-                    Data = targets
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new GenericResponse<IEnumerable<SocialTargetDto>>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing targets for account {AccountId}", socialAccountId);
-                return StatusCode(500, new GenericResponse<IEnumerable<SocialTargetDto>>
-                {
-                    Success = false,
-                    Message = "Internal server error"
-                });
-            }
-        }
+        
     }
 }
