@@ -6,9 +6,9 @@ namespace BookStore.Repositories.Repository
 {
     public class SocialTargetRepository : ISocialTargetRepository
     {
-        private readonly BookStoreContext _context;
+        private readonly AISAMContext _context;
 
-        public SocialTargetRepository(BookStoreContext context)
+        public SocialTargetRepository(AISAMContext context)
         {
             _context = context;
         }

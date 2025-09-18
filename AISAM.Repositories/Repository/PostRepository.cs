@@ -6,9 +6,9 @@ namespace BookStore.Repositories.Repository
 {
     public class PostRepository : IPostRepository
     {
-        private readonly BookStoreContext _context;
+        private readonly AISAMContext _context;
 
-        public PostRepository(BookStoreContext context)
+        public PostRepository(AISAMContext context)
         {
             _context = context;
         }

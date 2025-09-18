@@ -6,9 +6,9 @@ namespace BookStore.Repositories.Repository
 {
     public class UserRepository : IUserRepository
     {
-        private readonly BookStoreContext _context;
+        private readonly AISAMContext _context;
 
-        public UserRepository(BookStoreContext context)
+        public UserRepository(AISAMContext context)
         {
             _context = context;
         }

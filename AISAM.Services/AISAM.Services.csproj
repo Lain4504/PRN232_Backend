@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\BookStore.Common\BookStore.Common.csproj" />
-    <ProjectReference Include="..\BookStore.Data\BookStore.Data.csproj" />
-    <ProjectReference Include="..\BookStore.Repositories\BookStore.Repositories.csproj" />
+    <ProjectReference Include="..\AISAM.Common\AISAM.Common.csproj" />
+    <ProjectReference Include="..\AISAM.Data\AISAM.Data.csproj" />
+    <ProjectReference Include="..\AISAM.Repositories\AISAM.Repositories.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +17,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>BookStore.Services</RootNamespace>
   </PropertyGroup>
 
 </Project>

@@ -72,7 +72,7 @@ builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
 
 // Add Entity Framework
-builder.Services.AddDbContext<BookStoreContext>(options =>
+builder.Services.AddDbContext<AISAMContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add HTTP Client for API calls

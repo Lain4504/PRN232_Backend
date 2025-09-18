@@ -3,15 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookStore.API", "BookStore.API\BookStore.API.csproj", "{75D09965-6980-441D-90D7-F9AA891A1F9A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AISAM.API", "AISAM.API\AISAM.API.csproj", "{75D09965-6980-441D-90D7-F9AA891A1F9A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookStore.Data", "BookStore.Data\BookStore.Data.csproj", "{EAE64F9C-F981-4020-904C-08D58DEE07D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AISAM.Data", "AISAM.Data\AISAM.Data.csproj", "{EAE64F9C-F981-4020-904C-08D58DEE07D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookStore.Repositories", "BookStore.Repositories\BookStore.Repositories.csproj", "{67D29757-5348-45ED-8B7A-40D8A7CD5507}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AISAM.Repositories", "AISAM.Repositories\AISAM.Repositories.csproj", "{67D29757-5348-45ED-8B7A-40D8A7CD5507}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookStore.Services", "BookStore.Services\BookStore.Services.csproj", "{60239418-81AF-440D-8616-A91AFD255E68}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AISAM.Services", "AISAM.Services\AISAM.Services.csproj", "{60239418-81AF-440D-8616-A91AFD255E68}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookStore.Common", "BookStore.Common\BookStore.Common.csproj", "{DFEEF453-0B41-46C9-B3FD-44B471F45D90}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AISAM.Common", "AISAM.Common\AISAM.Common.csproj", "{DFEEF453-0B41-46C9-B3FD-44B471F45D90}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BookStore.Repositories
 {
-    public class BookStoreContext : DbContext
+    public class AISAMContext : DbContext
     {
-        public BookStoreContext(DbContextOptions<BookStoreContext> options) : base(options)
+        public AISAMContext(DbContextOptions<AISAMContext> options) : base(options)
         {
         }
 

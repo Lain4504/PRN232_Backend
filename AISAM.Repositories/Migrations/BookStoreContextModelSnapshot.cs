@@ -3,7 +3,6 @@ using System;
 using BookStore.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,12 +10,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace BookStore.Repositories.Migrations
 {
-    [DbContext(typeof(BookStoreContext))]
-    [Migration("20250918030436_thtty")]
-    partial class thtty
+    [DbContext(typeof(AISAMContext))]
+    partial class BookStoreContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -25,7 +22,7 @@ namespace BookStore.Repositories.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("BookStore.Data.Model.Post", b =>
+            modelBuilder.Entity("AISAM.Data.Model.Post", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -98,7 +95,7 @@ namespace BookStore.Repositories.Migrations
                     b.ToTable("Posts");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.SocialAccount", b =>
+            modelBuilder.Entity("AISAM.Data.Model.SocialAccount", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -154,7 +151,7 @@ namespace BookStore.Repositories.Migrations
                     b.ToTable("SocialAccounts");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.SocialTarget", b =>
+            modelBuilder.Entity("AISAM.Data.Model.SocialTarget", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -209,7 +206,7 @@ namespace BookStore.Repositories.Migrations
                     b.ToTable("SocialTargets");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.User", b =>
+            modelBuilder.Entity("AISAM.Data.Model.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -223,6 +220,9 @@ namespace BookStore.Repositories.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -242,19 +242,19 @@ namespace BookStore.Repositories.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.Post", b =>
+            modelBuilder.Entity("AISAM.Data.Model.Post", b =>
                 {
-                    b.HasOne("BookStore.Data.Model.SocialAccount", "SocialAccount")
+                    b.HasOne("AISAM.Data.Model.SocialAccount", "SocialAccount")
                         .WithMany("Posts")
                         .HasForeignKey("SocialAccountId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("BookStore.Data.Model.SocialTarget", "SocialTarget")
+                    b.HasOne("AISAM.Data.Model.SocialTarget", "SocialTarget")
                         .WithMany("Posts")
                         .HasForeignKey("SocialTargetId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("BookStore.Data.Model.User", "User")
+                    b.HasOne("AISAM.Data.Model.User", "User")
                         .WithMany("Posts")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -267,9 +267,9 @@ namespace BookStore.Repositories.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.SocialAccount", b =>
+            modelBuilder.Entity("AISAM.Data.Model.SocialAccount", b =>
                 {
-                    b.HasOne("BookStore.Data.Model.User", "User")
+                    b.HasOne("AISAM.Data.Model.User", "User")
                         .WithMany("SocialAccounts")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -278,9 +278,9 @@ namespace BookStore.Repositories.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.SocialTarget", b =>
+            modelBuilder.Entity("AISAM.Data.Model.SocialTarget", b =>
                 {
-                    b.HasOne("BookStore.Data.Model.SocialAccount", "SocialAccount")
+                    b.HasOne("AISAM.Data.Model.SocialAccount", "SocialAccount")
                         .WithMany("SocialTargets")
                         .HasForeignKey("SocialAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -289,19 +289,19 @@ namespace BookStore.Repositories.Migrations
                     b.Navigation("SocialAccount");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.SocialAccount", b =>
+            modelBuilder.Entity("AISAM.Data.Model.SocialAccount", b =>
                 {
                     b.Navigation("Posts");
 
                     b.Navigation("SocialTargets");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.SocialTarget", b =>
+            modelBuilder.Entity("AISAM.Data.Model.SocialTarget", b =>
                 {
                     b.Navigation("Posts");
                 });
 
-            modelBuilder.Entity("BookStore.Data.Model.User", b =>
+            modelBuilder.Entity("AISAM.Data.Model.User", b =>
                 {
                     b.Navigation("Posts");
 

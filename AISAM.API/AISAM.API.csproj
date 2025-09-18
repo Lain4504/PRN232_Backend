@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BookStore.API</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,10 +24,10 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\BookStore.Common\BookStore.Common.csproj" />
-    <ProjectReference Include="..\BookStore.Services\BookStore.Services.csproj" />
-    <ProjectReference Include="..\BookStore.Data\BookStore.Data.csproj" />
-    <ProjectReference Include="..\BookStore.Repositories\BookStore.Repositories.csproj" />
+    <ProjectReference Include="..\AISAM.Common\AISAM.Common.csproj" />
+    <ProjectReference Include="..\AISAM.Services\AISAM.Services.csproj" />
+    <ProjectReference Include="..\AISAM.Data\AISAM.Data.csproj" />
+    <ProjectReference Include="..\AISAM.Repositories\AISAM.Repositories.csproj" />
   </ItemGroup>
 
 </Project>
