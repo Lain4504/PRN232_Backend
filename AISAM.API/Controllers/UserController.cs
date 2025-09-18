@@ -5,11 +5,14 @@ using BookStore.Services.IServices;
 using BookStore.Services.Service;
 using BookStore.Common.Models;
 using System.Security.Claims;
+using BookStore.API.Validators;
+using FluentValidation;
+using FluentValidation.Results;
 
 namespace BookStore.API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/users")]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -30,21 +33,7 @@ namespace BookStore.API.Controllers
             {
                 _logger.LogInformation("User registration attempt for email: {Email}", registerDto.Email);
 
-                if (!ModelState.IsValid)
-                {
-                    var errors = ModelState
-                        .Where(x => x.Value.Errors.Count > 0)
-                        .ToDictionary(
-                            kvp => kvp.Key,
-                            kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToList()
-                        );
-
-                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError(
-                        "Dữ liệu không hợp lệ",
-                        System.Net.HttpStatusCode.BadRequest,
-                        "VALIDATION_ERROR"
-                    ));
-                }
+                // Model validation is handled by FluentValidation / automatic model validation
 
                 var user = await _userService.RegisterUserAsync(registerDto.Email, registerDto.Username, registerDto.Password);
                 var token = _jwtService.GenerateToken(user);

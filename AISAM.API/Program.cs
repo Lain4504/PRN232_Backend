@@ -11,6 +11,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using DotNetEnv;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using BookStore.API.Validators;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -65,6 +68,10 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.WriteIndented = true;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
+
+// Enable FluentValidation auto-validation and register validators
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserDtoValidator>();
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(

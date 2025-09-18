@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookStore.API.Controllers
 {
     [ApiController]
-    [Route("auth")]
+    [Route("api/auth")]
     public class SocialAuthController : ControllerBase
     {
         private readonly ISocialService _socialService;
