@@ -1,6 +1,8 @@
 using AISAM.Common;
 using AISAM.Common.Models;
 using AISAM.Services.IServices;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AISAM.API.Controllers
@@ -11,11 +13,13 @@ namespace AISAM.API.Controllers
     {
         private readonly IPostService _postService;
         private readonly ILogger<PostController> _logger;
+        private readonly IValidator<CreatePostRequest> _createPostValidator;
 
-        public PostController(IPostService postService, ILogger<PostController> logger)
+        public PostController(IPostService postService, ILogger<PostController> logger, IValidator<CreatePostRequest> createPostValidator)
         {
             _postService = postService;
             _logger = logger;
+            _createPostValidator = createPostValidator;
         }
 
         /// <summary>
@@ -26,6 +30,22 @@ namespace AISAM.API.Controllers
         {
             try
             {
+                // Manual FluentValidation to return GenericResponse with detailed validation errors
+                ValidationResult validationResult = await _createPostValidator.ValidateAsync(request);
+                if (!validationResult.IsValid)
+                {
+                    var flatList = validationResult.Errors.Select(e => e.ErrorMessage).Distinct().ToList();
+                    var bad = GenericResponse<PostResponseDto>.CreateError(
+                        "FluentValidation failed",
+                        System.Net.HttpStatusCode.BadRequest,
+                        "FLUENT_VALIDATION_ERROR");
+                    bad.Error.ValidationErrors = new Dictionary<string, List<string>>
+                    {
+                        { "FluentValidationErrors", flatList }
+                    };
+                    return StatusCode(bad.StatusCode, bad);
+                }
+
                 var result = await _postService.CreatePostAsync(request);
                 return Ok(new GenericResponse<PostResponseDto>
                 {

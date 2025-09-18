@@ -45,6 +45,11 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
+        public IQueryable<User> Query()
+        {
+            return _context.Users.AsQueryable();
+        }
+
         public async Task<User> CreateAsync(User user)
         {
             user.CreatedAt = DateTime.UtcNow;

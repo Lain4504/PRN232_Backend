@@ -10,6 +10,7 @@ namespace AISAM.Services.IServices
         Task<UserDto?> GetUserByUsernameAsync(string username);
         Task<UserDto?> GetUserByEmailOrUsernameAsync(string emailOrUsername);
         Task<IEnumerable<UserDto>> GetAllUsersAsync();
+        IQueryable<AISAM.Data.Model.User> Query();
         Task<UserDto> CreateUserAsync(string? email, string? username);
         Task<UserDto> RegisterUserAsync(string email, string username, string password);
         Task<UserDto?> LoginUserAsync(string emailOrUsername, string password);

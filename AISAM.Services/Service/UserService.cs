@@ -49,6 +49,11 @@ namespace AISAM.Services.Service
             return users.Select(MapToDto);
         }
 
+        public IQueryable<User> Query()
+        {
+            return _userRepository.Query();
+        }
+
         public async Task<UserDto> CreateUserAsync(string? email, string? username)
         {
             var user = new User

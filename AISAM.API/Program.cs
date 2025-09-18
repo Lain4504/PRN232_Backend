@@ -14,6 +14,11 @@ using DotNetEnv;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using AISAM.API.Validators;
+using Microsoft.AspNetCore.OData;
+using Microsoft.OData.ModelBuilder;
+using Microsoft.OData.Edm;
+using AISAM.Data.Model;
+using Microsoft.AspNetCore.Mvc;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -62,6 +67,11 @@ if (!string.IsNullOrEmpty(facebookAppSecret))
 
 // Add services to the container.
 builder.Services.AddControllers()
+    .AddOData(options =>
+    {
+        options.Select().Filter().OrderBy().Expand().Count().SetMaxTop(null)
+            .AddRouteComponents("odata", GetEdmModel());
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -69,8 +79,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
-// Enable FluentValidation auto-validation and register validators
-builder.Services.AddFluentValidationAutoValidation();
+// Register validators for DI (manual validation in controllers)
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserDtoValidator>();
 
 // Configure Facebook Settings
@@ -123,6 +132,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Disable automatic 400 for model validation to allow custom GenericResponse
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
+
 // Add CORS policy
 builder.Services.AddCors(options =>
 {
@@ -168,16 +183,17 @@ builder.Services.AddSwaggerGen(c =>
             new string[] {}
         }
     });
+
+    // Add OData query options to Swagger for actions with [EnableQuery]
+    c.OperationFilter<AISAM.API.Swagger.ODataQueryOptionsOperationFilter>();
 });
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger UI in all environments for easier testing of OData queries
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
@@ -192,3 +208,19 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+IEdmModel GetEdmModel()
+{
+    var odataBuilder = new ODataConventionModelBuilder();
+
+    var users = odataBuilder.EntitySet<User>("Users");
+    users.EntityType.HasKey(u => u.Id);
+    users.EntityType.Expand(5);
+
+    // Optional: expose related sets if needed for $expand
+    odataBuilder.EntitySet<SocialAccount>("SocialAccounts");
+    odataBuilder.EntitySet<SocialTarget>("SocialTargets");
+    odataBuilder.EntitySet<Post>("Posts");
+
+    return odataBuilder.GetEdmModel();
+}
