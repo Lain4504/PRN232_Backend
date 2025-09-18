@@ -1,5 +1,110 @@
 # 📱 BookStore Social Media Management API
 
+## 🧪 OData + Swagger: Quick Demo (Copy & Paste)
+
+Bạn có thể test nhanh toàn bộ OData query trực tiếp trên Swagger cho endpoint:
+- Base: `GET /api/users/odata`
+- Swagger UI hiển thị sẵn các tham số `$filter`, `$select`, `$orderby`, `$expand`, `$top`, `$skip`, `$count`, `$search`
+
+Lưu ý: Thêm `Authorization: Bearer <JWT>` nếu endpoint yêu cầu.
+
+### 1) Lấy danh sách cơ bản
+```bash
+GET /api/users/odata
+```
+
+### 2) Phân trang đơn giản
+```bash
+GET /api/users/odata?$top=10&$skip=0
+GET /api/users/odata?$top=10&$skip=10
+```
+
+### 3) Sắp xếp
+```bash
+GET /api/users/odata?$orderby=createdAt desc
+GET /api/users/odata?$orderby=username asc,createdAt desc
+```
+
+### 4) Chỉ chọn các trường cần thiết ($select)
+```bash
+GET /api/users/odata?$select=id,username,email,createdAt
+```
+
+### 5) Đếm tổng số bản ghi ($count)
+```bash
+GET /api/users/odata?$count=true
+GET /api/users/odata?$count=true&$top=5&$skip=5
+```
+
+### 6) Lọc nâng cao ($filter)
+```bash
+# So sánh chuỗi / ngày / số
+GET /api/users/odata?$filter=username eq 'admin'
+GET /api/users/odata?$filter=contains(username,'an')
+GET /api/users/odata?$filter=createdAt ge 2024-01-01 and createdAt lt 2025-01-01
+
+# Kết hợp nhiều điều kiện
+GET /api/users/odata?$filter=(contains(email,'@gmail.com') or contains(username,'test')) and createdAt gt 2024-06-01
+
+# Kiểm tra null
+GET /api/users/odata?$filter=email ne null
+```
+
+### 7) Mở rộng quan hệ ($expand)
+Các quan hệ khả dụng (xem EDM trong `Program.cs`): `socialAccounts`, `socialTargets`, `posts` (tùy model). Với user → socialAccounts → targets.
+```bash
+# Expand 1 cấp
+GET /api/users/odata?$expand=socialAccounts
+
+# Expand 2 cấp + select nội bộ
+GET /api/users/odata?$expand=socialAccounts($select=id,provider,providerUserId;$expand=targets($select=id,name,type))
+
+# Expand + filter nội bộ (nếu provider hỗ trợ filter nested)
+GET /api/users/odata?$expand=socialAccounts($filter=provider eq 'facebook')
+```
+
+### 8) Tìm kiếm toàn văn ($search)
+```bash
+# Tùy thuộc vào cấu hình Search, có thể không khả dụng với tất cả providers
+GET /api/users/odata?$search=admin
+```
+
+### 9) Kết hợp đầy đủ cho bảng demo
+```bash
+GET /api/users/odata?
+  $select=id,username,email,createdAt&
+  $filter=contains(username,'an') and createdAt gt 2024-01-01&
+  $orderby=createdAt desc&
+  $expand=socialAccounts($select=id,provider;$expand=targets($select=id,name,type))&
+  $top=10&$skip=0&$count=true
+```
+
+### 10) Dành cho Swagger UI (điền vào các input param)
+- `$select`: `id,username,email,createdAt`
+- `$filter`: `contains(username,'an') and createdAt gt 2024-01-01`
+- `$orderby`: `createdAt desc`
+- `$expand`: `socialAccounts($select=id,provider;$expand=targets($select=id,name,type))`
+- `$top`: `10`
+- `$skip`: `0`
+- `$count`: `true`
+- `$search`: `admin` (tùy chọn)
+
+### 11) cURL mẫu (đổi token cho phù hợp)
+```bash
+curl -X GET "https://localhost:7079/api/users/odata?\
+$select=id,username,email,createdAt&\
+$filter=contains(username,'an')%20and%20createdAt%20gt%202024-01-01&\
+$orderby=createdAt%20desc&\
+$expand=socialAccounts($select=id,provider;$expand=targets($select=id,name,type))&\
+$top=10&$skip=0&$count=true" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+Mẹo:
+- Nếu gặp lỗi liên quan đến tên trường, kiểm tra lại casing trong JSON trả về (API dùng camelCase).
+- `$search` có thể không hoạt động nếu backend/provider chưa bật search.
+- Nếu `expand` quá sâu gây nặng, hãy giới hạn bằng `$select` bên trong.
+
 ## 🎯 Tổng quan hệ thống
 
 Hệ thống quản lý đăng bài lên các mạng xã hội với kiến trúc multi-provider. Hiện tại hỗ trợ Facebook Pages, có thể mở rộng cho Instagram, TikTok trong tương lai.

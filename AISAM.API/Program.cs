@@ -1,17 +1,24 @@
-using BookStore.API.Middleware;
-using BookStore.API.Services;
-using BookStore.Common.Models;
-using BookStore.Repositories;
-using BookStore.Repositories.IRepositories;
-using BookStore.Repositories.Repository;
-using BookStore.Services.IServices;
-using BookStore.Services.Service;
+using AISAM.API.Middleware;
+using AISAM.Common.Models;
+using AISAM.Repositories;
+using AISAM.Repositories.IRepositories;
+using AISAM.Repositories.Repository;
+using AISAM.Services.IServices;
+using AISAM.Services.Service;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using DotNetEnv;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using AISAM.API.Validators;
+using Microsoft.AspNetCore.OData;
+using Microsoft.OData.ModelBuilder;
+using Microsoft.OData.Edm;
+using AISAM.Data.Model;
+using Microsoft.AspNetCore.Mvc;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -60,12 +67,20 @@ if (!string.IsNullOrEmpty(facebookAppSecret))
 
 // Add services to the container.
 builder.Services.AddControllers()
+    .AddOData(options =>
+    {
+        options.Select().Filter().OrderBy().Expand().Count().SetMaxTop(null)
+            .AddRouteComponents("odata", GetEdmModel());
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.WriteIndented = true;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
+
+// Register validators for DI (manual validation in controllers)
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserDtoValidator>();
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
@@ -93,8 +108,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
-// Add background services
-builder.Services.AddHostedService<ScheduledPostProcessorService>();
+// Background services removed for now
 
 // Add JWT Authentication
 var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";
@@ -108,15 +122,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "BookStore.API",
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "AISAM.API",
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "BookStore.Client",
+            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "AISAM.Client",
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
     });
 
 builder.Services.AddAuthorization();
+
+// Disable automatic 400 for model validation to allow custom GenericResponse
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
 
 // Add CORS policy
 builder.Services.AddCors(options =>
@@ -134,7 +154,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
     { 
-        Title = "BookStore Social Media API", 
+        Title = "AISAM Social Media API", 
         Version = "v1",
         Description = "API for managing social media integration and posting"
     });
@@ -163,16 +183,17 @@ builder.Services.AddSwaggerGen(c =>
             new string[] {}
         }
     });
+
+    // Add OData query options to Swagger for actions with [EnableQuery]
+    c.OperationFilter<AISAM.API.Swagger.ODataQueryOptionsOperationFilter>();
 });
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger UI in all environments for easier testing of OData queries
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
@@ -187,3 +208,19 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+IEdmModel GetEdmModel()
+{
+    var odataBuilder = new ODataConventionModelBuilder();
+
+    var users = odataBuilder.EntitySet<User>("Users");
+    users.EntityType.HasKey(u => u.Id);
+    users.EntityType.Expand(5);
+
+    // Optional: expose related sets if needed for $expand
+    odataBuilder.EntitySet<SocialAccount>("SocialAccounts");
+    odataBuilder.EntitySet<SocialTarget>("SocialTargets");
+    odataBuilder.EntitySet<Post>("Posts");
+
+    return odataBuilder.GetEdmModel();
+}

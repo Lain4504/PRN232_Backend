@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace BookStore.Common.Models
+namespace AISAM.Common.Models
 {
     public class FacebookTokenResponse
     {

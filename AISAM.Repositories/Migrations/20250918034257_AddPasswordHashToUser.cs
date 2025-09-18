@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace BookStore.Repositories.Migrations
+namespace AISAM.Repositories.Migrations
 {
     /// <inheritdoc />
     public partial class AddPasswordHashToUser : Migration

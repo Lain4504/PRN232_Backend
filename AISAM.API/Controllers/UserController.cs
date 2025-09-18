@@ -1,26 +1,35 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using BookStore.Common;
-using BookStore.Services.IServices;
-using BookStore.Services.Service;
-using BookStore.Common.Models;
+using AISAM.Common;
+using AISAM.Services.IServices;
+using AISAM.Services.Service;
+using AISAM.Common.Models;
 using System.Security.Claims;
+using AISAM.API.Validators;
+using FluentValidation;
+using FluentValidation.Results;
+using AISAM.Repositories;
+using Microsoft.AspNetCore.OData.Query;
 
-namespace BookStore.API.Controllers
+namespace AISAM.API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/users")]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IJwtService _jwtService;
         private readonly ILogger<UserController> _logger;
+        private readonly AISAMContext _dbContext;
+        private readonly IValidator<RegisterUserDto> _registerValidator;
 
-        public UserController(IUserService userService, IJwtService jwtService, ILogger<UserController> logger)
+        public UserController(IUserService userService, IJwtService jwtService, ILogger<UserController> logger, AISAMContext dbContext, IValidator<RegisterUserDto> registerValidator)
         {
             _userService = userService;
             _jwtService = jwtService;
             _logger = logger;
+            _dbContext = dbContext;
+            _registerValidator = registerValidator;
         }
 
         [HttpPost("register")]
@@ -30,20 +39,30 @@ namespace BookStore.API.Controllers
             {
                 _logger.LogInformation("User registration attempt for email: {Email}", registerDto.Email);
 
-                if (!ModelState.IsValid)
+                // Explicit FluentValidation validation -> return GenericResponse with dictionary
+                var validationResult = await _registerValidator.ValidateAsync(registerDto);
+                if (!validationResult.IsValid)
                 {
-                    var errors = ModelState
-                        .Where(x => x.Value.Errors.Count > 0)
-                        .ToDictionary(
-                            kvp => kvp.Key,
-                            kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToList()
-                        );
-
-                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError(
-                        "Dữ liệu không hợp lệ",
+                    var flatList = validationResult.Errors.Select(e => e.ErrorMessage).Distinct().ToList();
+                    var badRequest = GenericResponse<object>.CreateError(
+                        "FluentValidation failed",
                         System.Net.HttpStatusCode.BadRequest,
-                        "VALIDATION_ERROR"
-                    ));
+                        "FLUENT_VALIDATION_ERROR");
+                    badRequest.Error.ValidationErrors = new Dictionary<string, List<string>>
+                    {
+                        { "FluentValidationErrors", flatList }
+                    };
+                    return StatusCode(badRequest.StatusCode, badRequest);
+                }
+
+                // Manual uniqueness checks (removed async rules from FluentValidation)
+                if (await _userService.EmailExistsAsync(registerDto.Email))
+                {
+                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError("Email đã được sử dụng"));
+                }
+                if (await _userService.UsernameExistsAsync(registerDto.Username))
+                {
+                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError("Username đã được sử dụng"));
                 }
 
                 var user = await _userService.RegisterUserAsync(registerDto.Email, registerDto.Username, registerDto.Password);
@@ -257,6 +276,15 @@ namespace BookStore.API.Controllers
                     "Đã xảy ra lỗi khi lấy danh sách tài khoản mạng xã hội"
                 ));
             }
+        }
+
+        // OData endpoint within UserController as requested
+        [HttpGet("odata")]
+        [EnableQuery]
+        public IActionResult GetUsersOData()
+        {
+            // Prefer exposing repository/service IQueryable for testability and separation of concerns
+            return Ok(_userService.Query());
         }
     }
 }

@@ -1,12 +1,12 @@
-using BookStore.Common;
-using BookStore.Common.Models;
-using BookStore.Services.IServices;
+using AISAM.Common;
+using AISAM.Common.Models;
+using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookStore.API.Controllers
+namespace AISAM.API.Controllers
 {
     [ApiController]
-    [Route("auth")]
+    [Route("api/auth")]
     public class SocialAuthController : ControllerBase
     {
         private readonly ISocialService _socialService;
@@ -174,7 +174,8 @@ namespace BookStore.API.Controllers
         }
 
         /// <summary>
-        /// Link Facebook Page directly using Page Access Token
+        /// [TEMP] Link Facebook Page directly using Page Access Token for testing posting capability.
+        /// This is a temporary endpoint and will be removed/replaced by the official OAuth flow later.
         /// </summary>
         [HttpPost("link-page-token")]
         public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkPageByToken(

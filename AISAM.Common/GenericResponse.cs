@@ -4,7 +4,7 @@ using System.Net;
 using System.Collections.Generic;
 // ReSharper disable InvalidXmlDocComment
 
-namespace BookStore.Common
+namespace AISAM.Common
 {
     public class GenericResponse<T>
     {

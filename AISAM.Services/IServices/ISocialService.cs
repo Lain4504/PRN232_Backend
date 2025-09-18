@@ -1,6 +1,6 @@
-using BookStore.Common.Models;
+using AISAM.Common.Models;
 
-namespace BookStore.Services.IServices
+namespace AISAM.Services.IServices
 {
     public interface ISocialService
     {
@@ -33,10 +33,5 @@ namespace BookStore.Services.IServices
         /// Get all targets for a social account
         /// </summary>
         Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(int socialAccountId);
-        
-        /// <summary>
-        /// Sync targets for a social account
-        /// </summary>
-        Task<IEnumerable<SocialTargetDto>> SyncAccountTargetsAsync(int socialAccountId);
     }
 }

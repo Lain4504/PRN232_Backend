@@ -1,7 +1,7 @@
-using BookStore.Common.Models;
-using BookStore.Data.Model;
+using AISAM.Common.Models;
+using AISAM.Data.Model;
 
-namespace BookStore.Services.IServices
+namespace AISAM.Services.IServices
 {
     public interface IProviderService
     {
@@ -23,12 +23,16 @@ namespace BookStore.Services.IServices
         Task<IEnumerable<SocialTargetDto>> GetTargetsAsync(string accessToken);
         
         /// <summary>
-        /// Get page information from page access token
+        /// [TEMP] Facebook-specific: Get page information from a Page Access Token.
+        /// Used only by temporary endpoint /auth/link-page-token to validate/link a Page.
+        /// Will be removed when the official OAuth flow replaces the temp API.
         /// </summary>
         Task<FacebookPageInfo> GetPageInfoFromTokenAsync(string pageAccessToken);
         
         /// <summary>
-        /// Get user information from user access token
+        /// [TEMP] Facebook-specific: Get user information from a User Access Token.
+        /// Supporting method for the temporary /auth/link-page-token flow.
+        /// Will be deleted once the temp API is retired.
         /// </summary>
         Task<FacebookUserInfo> GetUserInfoFromTokenAsync(string userAccessToken);
         

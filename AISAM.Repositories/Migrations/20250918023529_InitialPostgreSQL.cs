@@ -4,7 +4,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace BookStore.Repositories.Migrations
+namespace AISAM.Repositories.Migrations
 {
     /// <inheritdoc />
     public partial class InitialPostgreSQL : Migration

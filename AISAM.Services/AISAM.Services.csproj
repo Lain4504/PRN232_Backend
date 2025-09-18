@@ -17,7 +17,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>BookStore.Services</RootNamespace>
+    <RootNamespace>AISAM.Services</RootNamespace>
   </PropertyGroup>
 
 </Project>

@@ -1,7 +1,7 @@
-﻿using BookStore.Common.Models;
-using BookStore.Data.Model;
+﻿using AISAM.Common.Models;
+using AISAM.Data.Model;
 
-namespace BookStore.Services.IServices
+namespace AISAM.Services.IServices
 {
     public interface IUserService
     {
@@ -10,6 +10,7 @@ namespace BookStore.Services.IServices
         Task<UserDto?> GetUserByUsernameAsync(string username);
         Task<UserDto?> GetUserByEmailOrUsernameAsync(string emailOrUsername);
         Task<IEnumerable<UserDto>> GetAllUsersAsync();
+        IQueryable<AISAM.Data.Model.User> Query();
         Task<UserDto> CreateUserAsync(string? email, string? username);
         Task<UserDto> RegisterUserAsync(string email, string username, string password);
         Task<UserDto?> LoginUserAsync(string emailOrUsername, string password);

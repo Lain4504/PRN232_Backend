@@ -1,6 +1,6 @@
-﻿using BookStore.Data.Model;
+﻿using AISAM.Data.Model;
 
-namespace BookStore.Repositories.IRepositories
+namespace AISAM.Repositories.IRepositories
 {
     public interface IUserRepository
     {
@@ -8,6 +8,7 @@ namespace BookStore.Repositories.IRepositories
         Task<User?> GetByEmailAsync(string email);
         Task<User?> GetByUsernameAsync(string username);
         Task<IEnumerable<User>> GetAllAsync();
+        IQueryable<User> Query();
         Task<User> CreateAsync(User user);
         Task UpdateAsync(User user);
         Task DeleteAsync(int id);

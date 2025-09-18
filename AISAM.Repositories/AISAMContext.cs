@@ -1,7 +1,7 @@
-using BookStore.Data.Model;
+using AISAM.Data.Model;
 using Microsoft.EntityFrameworkCore;
 
-namespace BookStore.Repositories
+namespace AISAM.Repositories
 {
     public class AISAMContext : DbContext
     {

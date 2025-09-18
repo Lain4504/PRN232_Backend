@@ -1,10 +1,10 @@
-using BookStore.Common.Models;
-using BookStore.Data.Model;
-using BookStore.Repositories.IRepositories;
-using BookStore.Services.IServices;
+using AISAM.Common.Models;
+using AISAM.Data.Model;
+using AISAM.Repositories.IRepositories;
+using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 
-namespace BookStore.Services.Service
+namespace AISAM.Services.Service
 {
     public class SocialService : ISocialService
     {
@@ -234,59 +234,7 @@ namespace BookStore.Services.Service
             return targets.Select(MapToDto);
         }
 
-        public async Task<IEnumerable<SocialTargetDto>> SyncAccountTargetsAsync(int socialAccountId)
-        {
-            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
-            if (account == null)
-            {
-                throw new ArgumentException("Social account not found");
-            }
-
-            if (!_providers.TryGetValue(account.Provider, out var providerService))
-            {
-                throw new ArgumentException($"Provider '{account.Provider}' is not supported");
-            }
-
-            // Get current targets from provider
-            var providerTargets = await providerService.GetTargetsAsync(account.AccessToken);
-            
-            // Get existing targets
-            var existingTargets = await _socialTargetRepository.GetBySocialAccountIdAsync(socialAccountId);
-            var existingTargetIds = existingTargets.Select(t => t.ProviderTargetId).ToHashSet();
-
-            // Add new targets
-            foreach (var targetDto in providerTargets)
-            {
-                if (!existingTargetIds.Contains(targetDto.ProviderTargetId))
-                {
-                    var target = new SocialTarget
-                    {
-                        SocialAccountId = socialAccountId,
-                        ProviderTargetId = targetDto.ProviderTargetId,
-                        Name = targetDto.Name,
-                        Type = targetDto.Type,
-                        Category = targetDto.Category,
-                        ProfilePictureUrl = targetDto.ProfilePictureUrl,
-                        IsActive = targetDto.IsActive
-                    };
-
-                    await _socialTargetRepository.CreateAsync(target);
-                }
-            }
-
-            // Mark missing targets as inactive
-            var providerTargetIds = providerTargets.Select(t => t.ProviderTargetId).ToHashSet();
-            foreach (var existingTarget in existingTargets)
-            {
-                if (!providerTargetIds.Contains(existingTarget.ProviderTargetId) && existingTarget.IsActive)
-                {
-                    existingTarget.IsActive = false;
-                    await _socialTargetRepository.UpdateAsync(existingTarget);
-                }
-            }
-
-            return providerTargets;
-        }
+        
 
         private string GetRedirectUri(string provider)
         {

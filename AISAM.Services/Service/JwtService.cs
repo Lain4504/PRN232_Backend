@@ -3,9 +3,9 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using BookStore.Common.Models;
+using AISAM.Common.Models;
 
-namespace BookStore.Services.Service
+namespace AISAM.Services.Service
 {
     public interface IJwtService
     {
@@ -25,8 +25,8 @@ namespace BookStore.Services.Service
         {
             _configuration = configuration;
             _secretKey = _configuration["JwtSettings:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";
-            _issuer = _configuration["JwtSettings:Issuer"] ?? "BookStore.API";
-            _audience = _configuration["JwtSettings:Audience"] ?? "BookStore.Client";
+            _issuer = _configuration["JwtSettings:Issuer"] ?? "AISAM.API";
+            _audience = _configuration["JwtSettings:Audience"] ?? "AISAM.Client";
             _expirationHours = int.Parse(_configuration["JwtSettings:ExpirationHours"] ?? "24");
         }
 
