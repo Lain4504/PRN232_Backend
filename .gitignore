@@ -10,6 +10,15 @@
 *.vssscc
 .builds
 
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# User secrets
+secrets.json
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
