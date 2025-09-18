@@ -21,12 +21,28 @@ namespace BookStore.Repositories.Repository
                 .FirstOrDefaultAsync(sa => sa.Id == id);
         }
 
+        public async Task<SocialAccount?> GetByIdWithTargetsAsync(int id)
+        {
+            return await _context.SocialAccounts
+                .Include(sa => sa.User)
+                .Include(sa => sa.SocialTargets)
+                .FirstOrDefaultAsync(sa => sa.Id == id);
+        }
+
         public async Task<SocialAccount?> GetByProviderAndUserIdAsync(string provider, string providerUserId)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
                 .Include(sa => sa.SocialTargets)
                 .FirstOrDefaultAsync(sa => sa.Provider == provider && sa.ProviderUserId == providerUserId);
+        }
+
+        public async Task<SocialAccount?> GetByUserIdAndProviderAsync(int userId, string provider)
+        {
+            return await _context.SocialAccounts
+                .Include(sa => sa.User)
+                .Include(sa => sa.SocialTargets)
+                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Provider == provider);
         }
 
         public async Task<IEnumerable<SocialAccount>> GetByUserIdAsync(int userId)

@@ -6,6 +6,7 @@ namespace BookStore.Repositories.IRepositories
     {
         Task<SocialTarget?> GetByIdAsync(int id);
         Task<SocialTarget?> GetByProviderTargetIdAsync(int socialAccountId, string providerTargetId);
+        Task<SocialTarget?> GetByProviderTargetIdAsync(string providerTargetId);
         Task<IEnumerable<SocialTarget>> GetBySocialAccountIdAsync(int socialAccountId);
         Task<IEnumerable<SocialTarget>> GetByUserIdAsync(int userId);
         Task<SocialTarget> CreateAsync(SocialTarget target);

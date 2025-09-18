@@ -91,6 +91,17 @@ namespace BookStore.Common.Models
         public string? State { get; set; }
     }
 
+    public class LinkPageByTokenRequest
+    {
+        [Required]
+        public int UserId { get; set; }
+        
+        [Required]
+        public string PageAccessToken { get; set; } = string.Empty;
+        
+        public string? UserAccessToken { get; set; }
+    }
+
     public class AuthUrlResponse
     {
         public string AuthUrl { get; set; } = string.Empty;

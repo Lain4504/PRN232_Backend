@@ -174,6 +174,54 @@ namespace BookStore.API.Controllers
         }
 
         /// <summary>
+        /// Link Facebook Page directly using Page Access Token
+        /// </summary>
+        [HttpPost("link-page-token")]
+        public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkPageByToken(
+            [FromBody] LinkPageByTokenRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Linking Facebook page by token for user {UserId}", request.UserId);
+                
+                var result = await _socialService.LinkPageByTokenAsync(request);
+                return Ok(new GenericResponse<SocialAccountDto>
+                {
+                    Success = true,
+                    Data = result,
+                    Message = "Facebook page linked successfully"
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid argument for link page by token: {Message}", ex.Message);
+                return BadRequest(new GenericResponse<SocialAccountDto>
+                {
+                    Success = false,
+                    Message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Invalid operation for link page by token: {Message}", ex.Message);
+                return BadRequest(new GenericResponse<SocialAccountDto>
+                {
+                    Success = false,
+                    Message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error linking Facebook page by token for user {UserId}", request.UserId);
+                return StatusCode(500, new GenericResponse<SocialAccountDto>
+                {
+                    Success = false,
+                    Message = "Internal server error"
+                });
+            }
+        }
+
+        /// <summary>
         /// Unlink social account from user
         /// </summary>
         [HttpDelete("unlink/{userId}/{socialAccountId}")]

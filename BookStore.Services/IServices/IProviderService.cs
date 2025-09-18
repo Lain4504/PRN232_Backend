@@ -23,6 +23,16 @@ namespace BookStore.Services.IServices
         Task<IEnumerable<SocialTargetDto>> GetTargetsAsync(string accessToken);
         
         /// <summary>
+        /// Get page information from page access token
+        /// </summary>
+        Task<FacebookPageInfo> GetPageInfoFromTokenAsync(string pageAccessToken);
+        
+        /// <summary>
+        /// Get user information from user access token
+        /// </summary>
+        Task<FacebookUserInfo> GetUserInfoFromTokenAsync(string userAccessToken);
+        
+        /// <summary>
         /// Publish a post to the specified target
         /// </summary>
         Task<PublishResultDto> PublishAsync(SocialAccount account, SocialTarget target, PostDto post);

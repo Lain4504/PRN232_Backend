@@ -91,4 +91,20 @@ namespace BookStore.Common.Models
         [JsonPropertyName("fbtrace_id")]
         public string? FbTraceId { get; set; }
     }
+    
+    // Additional models for token-based operations
+    public class FacebookPageInfo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Category { get; set; }
+        public FacebookPicture? Picture { get; set; }
+    }
+    
+    public class FacebookUserInfo  
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Email { get; set; }
+    }
 }

@@ -104,6 +104,112 @@ namespace BookStore.Services.Service
             return MapToDto(socialAccount);
         }
 
+        public async Task<SocialAccountDto> LinkPageByTokenAsync(LinkPageByTokenRequest request)
+        {
+            try
+            {
+                // Verify user exists
+                var user = await _userRepository.GetByIdAsync(request.UserId);
+                if (user == null)
+                {
+                    throw new ArgumentException("User not found");
+                }
+
+                // Get Facebook provider
+                if (!_providers.TryGetValue("facebook", out var facebookProvider))
+                {
+                    throw new ArgumentException("Facebook provider is not available");
+                }
+
+                // Use Facebook provider to get page info from page access token
+                var pageInfo = await facebookProvider.GetPageInfoFromTokenAsync(request.PageAccessToken);
+                
+                // Try to get user info if user access token is provided
+                string userFacebookId = "unknown";
+                if (!string.IsNullOrEmpty(request.UserAccessToken))
+                {
+                    try
+                    {
+                        var userInfo = await facebookProvider.GetUserInfoFromTokenAsync(request.UserAccessToken);
+                        userFacebookId = userInfo.Id;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Could not get user info from user token: {Error}", ex.Message);
+                        // Continue with unknown user ID
+                    }
+                }
+
+                // Check if social account exists for this user and provider
+                var existingSocialAccount = await _socialAccountRepository.GetByUserIdAndProviderAsync(request.UserId, "facebook");
+                
+                SocialAccount socialAccount;
+                if (existingSocialAccount != null)
+                {
+                    // Update existing social account
+                    socialAccount = existingSocialAccount;
+                    if (!string.IsNullOrEmpty(request.UserAccessToken))
+                    {
+                        socialAccount.AccessToken = request.UserAccessToken; // Store user token
+                        socialAccount.UpdatedAt = DateTime.UtcNow;
+                        await _socialAccountRepository.UpdateAsync(socialAccount);
+                    }
+                }
+                else
+                {
+                    // Create new social account
+                    socialAccount = new SocialAccount
+                    {
+                        UserId = request.UserId,
+                        Provider = "facebook",
+                        ProviderUserId = userFacebookId,
+                        AccessToken = request.UserAccessToken ?? "manual_link", 
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _socialAccountRepository.CreateAsync(socialAccount);
+                }
+
+                // Check if this page target already exists
+                var existingTarget = await _socialTargetRepository.GetByProviderTargetIdAsync(pageInfo.Id);
+                if (existingTarget != null && existingTarget.SocialAccountId == socialAccount.Id)
+                {
+                    throw new InvalidOperationException("This Facebook page is already linked to your account");
+                }
+
+                // Create new social target (Facebook Page)
+                var socialTarget = new SocialTarget
+                {
+                    SocialAccountId = socialAccount.Id,
+                    ProviderTargetId = pageInfo.Id,
+                    Name = pageInfo.Name,
+                    Type = "page",
+                    AccessToken = request.PageAccessToken, // Store page access token
+                    Category = pageInfo.Category,
+                    ProfilePictureUrl = pageInfo.Picture?.Data?.Url,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _socialTargetRepository.CreateAsync(socialTarget);
+
+                // Reload social account with targets
+                socialAccount = await _socialAccountRepository.GetByIdWithTargetsAsync(socialAccount.Id);
+                
+                _logger.LogInformation("Successfully linked Facebook page {PageName} (ID: {PageId}) to user {UserId}", 
+                    pageInfo.Name, pageInfo.Id, request.UserId);
+
+                return MapToDto(socialAccount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error linking Facebook page by token for user {UserId}", request.UserId);
+                throw;
+            }
+        }
+
         public async Task<bool> UnlinkAccountAsync(int userId, int socialAccountId)
         {
             var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);

@@ -15,6 +15,11 @@ namespace BookStore.Services.IServices
         Task<SocialAccountDto> LinkAccountAsync(LinkSocialAccountRequest request);
         
         /// <summary>
+        /// Link Facebook Page by access token directly
+        /// </summary>
+        Task<SocialAccountDto> LinkPageByTokenAsync(LinkPageByTokenRequest request);
+        
+        /// <summary>
         /// Unlink a social account from a user
         /// </summary>
         Task<bool> UnlinkAccountAsync(int userId, int socialAccountId);

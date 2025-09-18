@@ -11,8 +11,52 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using DotNetEnv;
+
+// Load environment variables from .env file
+DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load environment variables into configuration
+var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING");
+if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
+}
+else
+{
+    // Fallback to building connection string from parts
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+    var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
+    var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+    var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+    
+    if (!string.IsNullOrEmpty(dbHost))
+    {
+        builder.Configuration["ConnectionStrings:DefaultConnection"] = 
+            $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
+    }
+}
+
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+if (!string.IsNullOrEmpty(jwtSecret))
+{
+    builder.Configuration["JwtSettings:SecretKey"] = jwtSecret;
+}
+
+var facebookAppId = Environment.GetEnvironmentVariable("FACEBOOK_APP_ID");
+if (!string.IsNullOrEmpty(facebookAppId))
+{
+    builder.Configuration["FacebookSettings:AppId"] = facebookAppId;
+}
+
+var facebookAppSecret = Environment.GetEnvironmentVariable("FACEBOOK_APP_SECRET");
+if (!string.IsNullOrEmpty(facebookAppSecret))
+{
+    builder.Configuration["FacebookSettings:AppSecret"] = facebookAppSecret;
+}
 
 // Add services to the container.
 builder.Services.AddControllers()

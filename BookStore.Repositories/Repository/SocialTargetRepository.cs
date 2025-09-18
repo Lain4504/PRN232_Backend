@@ -28,6 +28,13 @@ namespace BookStore.Repositories.Repository
                 .FirstOrDefaultAsync(st => st.SocialAccountId == socialAccountId && st.ProviderTargetId == providerTargetId);
         }
 
+        public async Task<SocialTarget?> GetByProviderTargetIdAsync(string providerTargetId)
+        {
+            return await _context.SocialTargets
+                .Include(st => st.SocialAccount)
+                .FirstOrDefaultAsync(st => st.ProviderTargetId == providerTargetId);
+        }
+
         public async Task<IEnumerable<SocialTarget>> GetBySocialAccountIdAsync(int socialAccountId)
         {
             return await _context.SocialTargets
