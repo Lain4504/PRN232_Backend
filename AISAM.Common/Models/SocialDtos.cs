@@ -1,4 +1,4 @@
-namespace BookStore.Common.Models
+namespace AISAM.Common.Models
 {
     public class SocialAccountDto
     {

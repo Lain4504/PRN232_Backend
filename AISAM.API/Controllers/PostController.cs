@@ -1,9 +1,9 @@
-using BookStore.Common;
-using BookStore.Common.Models;
-using BookStore.Services.IServices;
+using AISAM.Common;
+using AISAM.Common.Models;
+using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookStore.API.Controllers
+namespace AISAM.API.Controllers
 {
     [ApiController]
     [Route("api/posts")]

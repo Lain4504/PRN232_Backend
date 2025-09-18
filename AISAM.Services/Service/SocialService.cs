@@ -1,10 +1,10 @@
-using BookStore.Common.Models;
-using BookStore.Data.Model;
-using BookStore.Repositories.IRepositories;
-using BookStore.Services.IServices;
+using AISAM.Common.Models;
+using AISAM.Data.Model;
+using AISAM.Repositories.IRepositories;
+using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 
-namespace BookStore.Services.Service
+namespace AISAM.Services.Service
 {
     public class SocialService : ISocialService
     {

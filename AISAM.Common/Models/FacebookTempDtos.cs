@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace BookStore.Common.Models
+namespace AISAM.Common.Models
 {
     // [TEMP] Facebook-only DTOs to support the temporary token-based linking flow.
     // Will be removed when the official OAuth flow replaces /auth/link-page-token.

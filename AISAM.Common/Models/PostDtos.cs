@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace BookStore.Common.Models
+namespace AISAM.Common.Models
 {
     public class CreatePostRequest
     {

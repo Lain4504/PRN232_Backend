@@ -1,11 +1,11 @@
-using BookStore.Common.Models;
-using BookStore.Data.Model;
-using BookStore.Services.IServices;
+using AISAM.Common.Models;
+using AISAM.Data.Model;
+using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
-namespace BookStore.Services.Service
+namespace AISAM.Services.Service
 {
     public class FacebookProvider : IProviderService
     {

@@ -1,7 +1,7 @@
-﻿using BookStore.Common.Models;
-using BookStore.Data.Model;
+﻿using AISAM.Common.Models;
+using AISAM.Data.Model;
 
-namespace BookStore.Services.IServices
+namespace AISAM.Services.IServices
 {
     public interface IUserService
     {

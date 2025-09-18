@@ -1,8 +1,8 @@
-using BookStore.Common.Models;
-using BookStore.Services.IServices;
+using AISAM.Common.Models;
+using AISAM.Services.IServices;
 using FluentValidation;
 
-namespace BookStore.API.Validators
+namespace AISAM.API.Validators
 {
     public class RegisterUserDtoValidator : AbstractValidator<RegisterUserDto>
     {

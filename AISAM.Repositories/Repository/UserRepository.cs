@@ -1,8 +1,8 @@
-using BookStore.Data.Model;
-using BookStore.Repositories.IRepositories;
+using AISAM.Data.Model;
+using AISAM.Repositories.IRepositories;
 using Microsoft.EntityFrameworkCore;
 
-namespace BookStore.Repositories.Repository
+namespace AISAM.Repositories.Repository
 {
     public class UserRepository : IUserRepository
     {

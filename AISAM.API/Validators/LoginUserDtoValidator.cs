@@ -1,7 +1,7 @@
-using BookStore.Common.Models;
+using AISAM.Common.Models;
 using FluentValidation;
 
-namespace BookStore.API.Validators
+namespace AISAM.API.Validators
 {
     public class LoginUserDtoValidator : AbstractValidator<LoginUserDto>
     {

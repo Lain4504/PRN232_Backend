@@ -1,6 +1,6 @@
-using BookStore.Data.Model;
+using AISAM.Data.Model;
 
-namespace BookStore.Repositories.IRepositories
+namespace AISAM.Repositories.IRepositories
 {
     public interface IPostRepository
     {

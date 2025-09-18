@@ -1,15 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using BookStore.Common;
-using BookStore.Services.IServices;
-using BookStore.Services.Service;
-using BookStore.Common.Models;
+using AISAM.Common;
+using AISAM.Services.IServices;
+using AISAM.Services.Service;
+using AISAM.Common.Models;
 using System.Security.Claims;
-using BookStore.API.Validators;
+using AISAM.API.Validators;
 using FluentValidation;
 using FluentValidation.Results;
 
-namespace BookStore.API.Controllers
+namespace AISAM.API.Controllers
 {
     [ApiController]
     [Route("api/users")]

@@ -1,10 +1,10 @@
-using BookStore.API.Middleware;
-using BookStore.Common.Models;
-using BookStore.Repositories;
-using BookStore.Repositories.IRepositories;
-using BookStore.Repositories.Repository;
-using BookStore.Services.IServices;
-using BookStore.Services.Service;
+using AISAM.API.Middleware;
+using AISAM.Common.Models;
+using AISAM.Repositories;
+using AISAM.Repositories.IRepositories;
+using AISAM.Repositories.Repository;
+using AISAM.Services.IServices;
+using AISAM.Services.Service;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -13,7 +13,7 @@ using System.Text;
 using DotNetEnv;
 using FluentValidation;
 using FluentValidation.AspNetCore;
-using BookStore.API.Validators;
+using AISAM.API.Validators;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -113,9 +113,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "BookStore.API",
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "AISAM.API",
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "BookStore.Client",
+            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "AISAM.Client",
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
@@ -139,7 +139,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
     { 
-        Title = "BookStore Social Media API", 
+        Title = "AISAM Social Media API", 
         Version = "v1",
         Description = "API for managing social media integration and posting"
     });

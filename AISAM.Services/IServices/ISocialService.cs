@@ -1,6 +1,6 @@
-using BookStore.Common.Models;
+using AISAM.Common.Models;
 
-namespace BookStore.Services.IServices
+namespace AISAM.Services.IServices
 {
     public interface ISocialService
     {
