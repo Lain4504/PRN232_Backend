@@ -24,6 +24,7 @@ namespace BookStore.API.Mapping
             CreateMap<CreateUserRequestDto, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore()) // Ignore vì sẽ được tạo tự động
                 .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => BCrypt.Net.BCrypt.HashPassword(src.Password)))
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.Email))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => UserStatusEnum.Active));

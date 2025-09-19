@@ -92,66 +92,9 @@ public class UserController : ControllerBase
         return Ok(response);
     }
 
-    // API Create User với Data Annotations validation
+    // API Create User với FluentValidation (email + password)
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto request, CancellationToken cancellationToken)
-    {
-        // Validation sẽ được thực hiện tự động bởi ModelState
-        if (!ModelState.IsValid)
-        {
-            var errors = ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-
-            var badRequest = GenericResponse<object>.CreateError(
-                "Validation failed", 
-                HttpStatusCode.BadRequest, 
-                "VALIDATION_ERROR");
-            
-            // Thêm validation errors vào ErrorDetails
-            badRequest.Error.ValidationErrors = new Dictionary<string, List<string>>
-            {
-                { "ValidationErrors", errors }
-            };
-            
-            return StatusCode(badRequest.StatusCode, badRequest);
-        }
-
-        try
-        {
-            // Sử dụng AutoMapper để map từ DTO sang Entity
-            var user = _mapper.Map<BookStore.Data.Model.User>(request);
-            
-            // Tạo user
-            var createdUser = await _userService.CreateUserAsync(user, cancellationToken);
-            
-            // Map lại sang DTO để trả về
-            var responseDto = _mapper.Map<UserResponseDto>(createdUser);
-            
-            var response = GenericResponse<UserResponseDto>.CreateSuccess(responseDto);
-            return StatusCode(201, response);
-        }
-        catch (Exception ex)
-        {
-            var error = GenericResponse<object>.CreateError(
-                "Failed to create user", 
-                HttpStatusCode.InternalServerError, 
-                "CREATE_USER_ERROR");
-            
-            // Thêm exception message vào ErrorDetails
-            error.Error.ValidationErrors = new Dictionary<string, List<string>>
-            {
-                { "ExceptionDetails", new List<string> { ex.Message } }
-            };
-            
-            return StatusCode(error.StatusCode, error);
-        }
-    }
-
-    // API Create User với FluentValidation
-    [HttpPost("fluent")]
-    public async Task<IActionResult> CreateUserWithFluentValidation([FromBody] CreateUserRequestDto request, CancellationToken cancellationToken)
     {
         // Sử dụng FluentValidation để validate request
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
@@ -185,7 +128,7 @@ public class UserController : ControllerBase
             // Map lại sang DTO để trả về
             var responseDto = _mapper.Map<UserResponseDto>(createdUser);
             
-            var response = GenericResponse<UserResponseDto>.CreateSuccess(responseDto, "User created successfully with FluentValidation");
+            var response = GenericResponse<UserResponseDto>.CreateSuccess(responseDto, "User created successfully");
             return StatusCode(201, response);
         }
         catch (Exception ex)
