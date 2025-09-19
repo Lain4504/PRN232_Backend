@@ -23,7 +23,7 @@ namespace BookStore.API.Mapping
             // Mapping từ CreateUserRequestDto sang User entity
             CreateMap<CreateUserRequestDto, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore()) // Ignore vì sẽ được tạo tự động
-                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => BCrypt.Net.BCrypt.HashPassword(src.Password)))
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password)) // Password sẽ được hash trong UserService
                 .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.Email))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())

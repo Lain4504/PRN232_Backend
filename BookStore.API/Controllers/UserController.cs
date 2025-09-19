@@ -25,39 +25,9 @@ public class UserController : ControllerBase
         _validator = validator;
     }
 
-    // API 1: Manual mapping - trả về thiếu field (không có PhoneNumber và Address)
-    [HttpGet("{id}/manual")]
-    public async Task<IActionResult> GetByIdManual([FromRoute] string id, CancellationToken cancellationToken)
-    {
-        var user = await _userService.GetByIdAsync(id, cancellationToken);
-        if (user == null)
-        {
-            var notFound = GenericResponse<UserResponseDto>.CreateError("User not found", HttpStatusCode.NotFound, "USER_NOT_FOUND");
-            return StatusCode(notFound.StatusCode, notFound);
-        }
-
-        // Manual mapping - thiếu PhoneNumber và Address
-        var dto = new UserResponseDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            FullName = user.FullName,
-            PhoneNumber = user.PhoneNumber, // Thiếu field này
-            Address = user.Address, // Thiếu field này
-            Role = user.Role.ToString(),
-            Status = user.Status.ToString(),
-            CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
-        };
-
-        var response = GenericResponse<UserResponseDto>.CreateSuccess(dto);
-        return Ok(response);
-    }
-
-    // API 2: AutoMapper - trả về đầy đủ fields
-    [HttpGet("{id}/automapper")]
-    public async Task<IActionResult> GetByIdAutoMapper([FromRoute] string id, CancellationToken cancellationToken)
+    // AutoMapper - trả về đầy đủ fields
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById([FromRoute] string id, CancellationToken cancellationToken)
     {
         var user = await _userService.GetByIdAsync(id, cancellationToken);
         if (user == null)
@@ -67,25 +37,6 @@ public class UserController : ControllerBase
         }
 
         // AutoMapper mapping - đầy đủ fields
-        var dto = _mapper.Map<UserResponseDto>(user);
-
-        var response = GenericResponse<UserResponseDto>.CreateSuccess(dto);
-        return Ok(response);
-    }
-
-    // API 3: AutoMapper với selective mapping (comment/uncomment fields trong AutoMapper profile)
-    [HttpGet("{id}/automapper-selective")]
-    public async Task<IActionResult> GetByIdAutoMapperSelective([FromRoute] string id, CancellationToken cancellationToken)
-    {
-        var user = await _userService.GetByIdAsync(id, cancellationToken);
-        if (user == null)
-        {
-            var notFound = GenericResponse<UserResponseDto>.CreateError("User not found", HttpStatusCode.NotFound, "USER_NOT_FOUND");
-            return StatusCode(notFound.StatusCode, notFound);
-        }
-
-        // AutoMapper mapping - để demo selective mapping, comment các fields trong AutoMapper profile
-        // Ví dụ: comment .ForMember(dest => dest.FullName, opt => opt.Ignore()) để không map FullName
         var dto = _mapper.Map<UserResponseDto>(user);
 
         var response = GenericResponse<UserResponseDto>.CreateSuccess(dto);
