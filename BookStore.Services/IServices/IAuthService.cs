@@ -4,7 +4,7 @@ namespace BookStore.Services.IServices
 {
     public interface IAuthService
     {
-        Task<(bool Success, User? User, string Message)> LoginAsync(string emailOrUsername, string password, string? ipAddress = null);
+        Task<(bool Success, User? User, string Message)> LoginAsync(string email, string password, string? ipAddress = null);
         Task<(bool Success, string? AccessToken, string? RefreshToken, string Message)> RefreshTokenAsync(string refreshToken, string? ipAddress = null);
         Task<bool> LogoutAsync(string refreshToken, string? ipAddress = null);
         Task<bool> LogoutAllAsync(string userId);
