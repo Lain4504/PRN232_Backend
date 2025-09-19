@@ -10,6 +10,8 @@ namespace BookStore.Data
         }
 
         public DbSet<User> Users { get; set; } = null!;
+        public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
+        public DbSet<BlacklistedToken> BlacklistedTokens { get; set; } = null!;
     }
 }
 
