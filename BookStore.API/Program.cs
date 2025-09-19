@@ -1,6 +1,7 @@
 using BookStore.API.Middleware;
 using BookStore.API.Mapping;
 using BookStore.API.Validators;
+using BookStore.API.Filters;
 using BookStore.Data;
 using Microsoft.EntityFrameworkCore;
 using BookStore.Repositories.IRepositories;
@@ -18,7 +19,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ValidationFilter>();
+})
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Disable automatic model validation to let our filter handle it
+        options.SuppressModelStateInvalidFilter = true;
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;

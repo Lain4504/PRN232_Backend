@@ -21,11 +21,11 @@ namespace BookStore.Services.Service
             _refreshTokenExpirationDays = int.Parse(configuration["Jwt:RefreshTokenExpirationDays"] ?? "7");
         }
 
-        public async Task<(bool Success, User? User, string Message)> LoginAsync(string emailOrUsername, string password, string? ipAddress = null)
+        public async Task<(bool Success, User? User, string Message)> LoginAsync(string email, string password, string? ipAddress = null)
         {
-            // Tìm user bằng email hoặc username
+            // Tìm user bằng email
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == emailOrUsername || u.Username == emailOrUsername);
+                .FirstOrDefaultAsync(u => u.Email == email);
 
             if (user == null)
             {

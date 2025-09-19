@@ -38,7 +38,7 @@ namespace BookStore.API.Controllers
             try
             {
                 var ipAddress = GetIpAddress();
-                var (success, user, message) = await _authService.LoginAsync(request.EmailOrUsername, request.Password, ipAddress);
+                var (success, user, message) = await _authService.LoginAsync(request.Email, request.Password, ipAddress);
 
                 if (!success || user == null)
                 {
