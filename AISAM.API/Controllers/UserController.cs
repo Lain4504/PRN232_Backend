@@ -10,6 +10,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using AISAM.Repositories;
 using Microsoft.AspNetCore.OData.Query;
+using AISAM.Data.Model;
 
 namespace AISAM.API.Controllers
 {
@@ -280,10 +281,36 @@ namespace AISAM.API.Controllers
 
         // OData endpoint within UserController as requested
         [HttpGet("odata")]
-        [EnableQuery]
-        public IActionResult GetUsersOData()
+        public IActionResult GetUsersOData(ODataQueryOptions<User> options)
         {
-            // Prefer exposing repository/service IQueryable for testability and separation of concerns
+            try
+            {
+                var baseQuery = _userService.Query();
+                var applied = options.ApplyTo(baseQuery, new ODataQuerySettings
+                {
+                    PageSize = null,
+                    HandleNullPropagation = HandleNullPropagationOption.False
+                }) as IQueryable<User> ?? baseQuery;
+
+                var result = applied.ToList();
+                return Ok(GenericResponse<List<User>>.CreateSuccess(result, "Lấy danh sách người dùng thành công"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying OData query for users");
+                var error = GenericResponse<List<User>>.CreateError(
+                    "Đã xảy ra lỗi khi truy vấn người dùng",
+                    System.Net.HttpStatusCode.InternalServerError,
+                    "ODATA_QUERY_ERROR");
+                return StatusCode(error.StatusCode, error);
+            }
+        }
+
+        // Raw OData endpoint using [EnableQuery] that returns IQueryable directly
+        [HttpGet("odata/raw")]
+        [EnableQuery]
+        public IActionResult GetUsersODataRaw()
+        {
             return Ok(_userService.Query());
         }
     }

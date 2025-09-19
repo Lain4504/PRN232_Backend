@@ -2,6 +2,7 @@ using System.Linq;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using System;
 
 namespace AISAM.API.Swagger
 {
@@ -18,12 +19,31 @@ namespace AISAM.API.Swagger
                     .OfType<EnableQueryAttribute>()
                     .Any();
 
-            if (!hasEnableQuery)
+            // Detect presence of ODataQueryOptions<T> parameter
+            var methodParams = context.MethodInfo.GetParameters();
+            var odataOptionsParamNames = methodParams
+                .Where(p => p.ParameterType.IsGenericType &&
+                            p.ParameterType.GetGenericTypeDefinition() == typeof(ODataQueryOptions<>))
+                .Select(p => p.Name)
+                .ToList();
+
+            var hasODataOptionsParam = odataOptionsParamNames.Any();
+
+            // If method uses OData options param, treat as OData for docs
+            if (!hasEnableQuery && !hasODataOptionsParam)
             {
                 return;
             }
 
             operation.Parameters ??= new System.Collections.Generic.List<OpenApiParameter>();
+
+            // Remove the auto-generated complex "options" query parameter(s) for cleaner docs
+            if (hasODataOptionsParam && operation.Parameters.Count > 0)
+            {
+                operation.Parameters = operation.Parameters
+                    .Where(p => !odataOptionsParamNames.Contains(p.Name, StringComparer.Ordinal))
+                    .ToList();
+            }
 
             void AddQueryParam(string name, string description)
             {
