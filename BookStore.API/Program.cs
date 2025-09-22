@@ -94,7 +94,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Add AutoMapper
-builder.Services.AddAutoMapper(typeof(UserMappingProfile));
+builder.Services.AddAutoMapper(typeof(BookStoreMappingProfile));
 
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateUserRequestDtoValidator>();
@@ -127,6 +127,14 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Author DI registrations
+builder.Services.AddScoped<IAuthorRepository, AuthorRepository>();
+builder.Services.AddScoped<IAuthorService, AuthorService>();
+
+// Publisher DI registrations
+builder.Services.AddScoped<IPublisherRepository, PublisherRepository>();
+builder.Services.AddScoped<IPublisherService, PublisherService>();
 
 var app = builder.Build();
 
