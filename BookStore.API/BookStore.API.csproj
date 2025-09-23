@@ -21,8 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DTO\Response\" />
-    <Folder Include="DTO\Request\" />
     <Folder Include="Middleware\" />
   </ItemGroup>
   

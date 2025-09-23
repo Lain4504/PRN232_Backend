@@ -28,6 +28,22 @@ namespace BookStore.API.Mapping
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => UserStatusEnum.Active));
+
+            // Book mappings
+            CreateMap<Book, BookResponseDto>()
+                .ForMember(dst => dst.SalePrice, opt => opt.MapFrom(src => src.SalePrice));
+            CreateMap<BookRequestDto, Book>()
+                .ForMember(dst => dst.Id, opt => opt.Ignore())
+                .ForMember(dst => dst.CreatedAt, opt => opt.Ignore())
+                .ForMember(dst => dst.UpdatedAt, opt => opt.Ignore())
+                .ForMember(dst => dst.SalePrice, opt => opt.Ignore());
+
+            // Collection mappings
+            CreateMap<Collection, CollectionResponseDto>();
+            CreateMap<CollectionRequestDto, Collection>()
+                .ForMember(dst => dst.Id, opt => opt.Ignore())
+                .ForMember(dst => dst.CreatedAt, opt => opt.Ignore())
+                .ForMember(dst => dst.UpdatedAt, opt => opt.Ignore());
         }
     }
 }
