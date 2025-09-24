@@ -210,7 +210,7 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<bool> UnlinkAccountAsync(int userId, int socialAccountId)
+        public async Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId)
         {
             var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
             if (account == null || account.UserId != userId)
@@ -222,13 +222,13 @@ namespace AISAM.Services.Service
             return true;
         }
 
-        public async Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(int userId)
+        public async Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(Guid userId)
         {
             var accounts = await _socialAccountRepository.GetByUserIdAsync(userId);
             return accounts.Select(MapToDto);
         }
 
-        public async Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(int socialAccountId)
+        public async Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(Guid socialAccountId)
         {
             var targets = await _socialTargetRepository.GetBySocialAccountIdAsync(socialAccountId);
             return targets.Select(MapToDto);

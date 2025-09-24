@@ -2,7 +2,7 @@ namespace AISAM.Common.Models
 {
     public class SocialAccountDto
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string ProviderUserId { get; set; } = string.Empty;
         public bool IsActive { get; set; }
@@ -13,7 +13,7 @@ namespace AISAM.Common.Models
 
     public class SocialTargetDto
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string ProviderTargetId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
@@ -24,7 +24,7 @@ namespace AISAM.Common.Models
 
     public class LinkSocialAccountRequest
     {
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
         public string? State { get; set; }

@@ -47,7 +47,7 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Social target not found or doesn't belong to social account");
 
             // Create post entity
-            var post = new Post
+            var post = new SocialPost
             {
                 UserId = request.UserId,
                 SocialAccountId = request.SocialAccountId,
@@ -81,7 +81,7 @@ namespace AISAM.Services.Service
         }
 
 
-        private async Task<PublishResultDto> PublishToProviderAsync(SocialAccount account, SocialTarget target, Post post)
+        private async Task<PublishResultDto> PublishToProviderAsync(SocialAccount account, SocialTarget target, SocialPost socialPost)
         {
             if (!_providers.TryGetValue(account.Provider, out var provider))
             {
@@ -94,30 +94,30 @@ namespace AISAM.Services.Service
 
             var postDto = new PostDto
             {
-                Message = post.Message,
-                LinkUrl = post.LinkUrl,
-                ImageUrl = post.ImageUrl,
-                Metadata = post.Metadata
+                Message = socialPost.Message,
+                LinkUrl = socialPost.LinkUrl,
+                ImageUrl = socialPost.ImageUrl,
+                Metadata = socialPost.Metadata
             };
 
             return await provider.PublishAsync(account, target, postDto);
         }
 
-        private PostResponseDto MapToDto(Post post)
+        private PostResponseDto MapToDto(SocialPost socialPost)
         {
             return new PostResponseDto
             {
-                Id = post.Id,
-                Provider = post.Provider ?? "",
-                ProviderPostId = post.ProviderPostId,
-                Message = post.Message,
-                LinkUrl = post.LinkUrl,
-                ImageUrl = post.ImageUrl,
-                ScheduledTime = post.ScheduledTime,
-                PostedAt = post.PostedAt,
-                Status = post.Status.ToString(),
-                ErrorMessage = post.ErrorMessage,
-                CreatedAt = post.CreatedAt
+                Id = socialPost.Id,
+                Provider = socialPost.Provider ?? "",
+                ProviderPostId = socialPost.ProviderPostId,
+                Message = socialPost.Message,
+                LinkUrl = socialPost.LinkUrl,
+                ImageUrl = socialPost.ImageUrl,
+                ScheduledTime = socialPost.ScheduledTime,
+                PostedAt = socialPost.PostedAt,
+                Status = socialPost.Status.ToString(),
+                ErrorMessage = socialPost.ErrorMessage,
+                CreatedAt = socialPost.CreatedAt
             };
         }
     }

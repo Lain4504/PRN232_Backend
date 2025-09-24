@@ -3,19 +3,22 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AISAM.Data.Model
 {
-    public class Post
+    public class SocialPost
     {
         [Key]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         
         [ForeignKey("User")]
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         
         [ForeignKey("SocialAccount")]
-        public int? SocialAccountId { get; set; }
+        public Guid? SocialAccountId { get; set; }
         
         [ForeignKey("SocialTarget")]
-        public int? SocialTargetId { get; set; }
+        public Guid? SocialTargetId { get; set; }
+
+        [ForeignKey("Schedule")]
+        public Guid? ScheduleId { get; set; }
         
         [MaxLength(50)]
         public string? Provider { get; set; } // 'facebook', 'instagram', 'tiktok' - denormalized for quick queries
@@ -49,6 +52,7 @@ namespace AISAM.Data.Model
         public virtual User User { get; set; } = null!;
         public virtual SocialAccount? SocialAccount { get; set; }
         public virtual SocialTarget? SocialTarget { get; set; }
+        public virtual Schedule? Schedule { get; set; }
     }
     
     public enum PostStatus

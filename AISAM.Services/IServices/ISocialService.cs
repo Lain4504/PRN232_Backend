@@ -22,16 +22,16 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Unlink a social account from a user
         /// </summary>
-        Task<bool> UnlinkAccountAsync(int userId, int socialAccountId);
+        Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId);
         
         /// <summary>
         /// Get all social accounts for a user
         /// </summary>
-        Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(int userId);
+        Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(Guid userId);
         
         /// <summary>
         /// Get all targets for a social account
         /// </summary>
-        Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(int socialAccountId);
+        Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(Guid socialAccountId);
     }
 }

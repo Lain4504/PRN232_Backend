@@ -13,7 +13,7 @@ namespace AISAM.Repositories.Repository
             _context = context;
         }
 
-        public async Task<SocialAccount?> GetByIdAsync(int id)
+        public async Task<SocialAccount?> GetByIdAsync(Guid id)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
@@ -21,7 +21,7 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(sa => sa.Id == id);
         }
 
-        public async Task<SocialAccount?> GetByIdWithTargetsAsync(int id)
+        public async Task<SocialAccount?> GetByIdWithTargetsAsync(Guid id)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
@@ -37,7 +37,7 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(sa => sa.Provider == provider && sa.ProviderUserId == providerUserId);
         }
 
-        public async Task<SocialAccount?> GetByUserIdAndProviderAsync(int userId, string provider)
+        public async Task<SocialAccount?> GetByUserIdAndProviderAsync(Guid userId, string provider)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
@@ -45,7 +45,7 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Provider == provider);
         }
 
-        public async Task<IEnumerable<SocialAccount>> GetByUserIdAsync(int userId)
+        public async Task<IEnumerable<SocialAccount>> GetByUserIdAsync(Guid userId)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.SocialTargets)
@@ -79,7 +79,7 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(Guid id)
         {
             var account = await _context.SocialAccounts.FindAsync(id);
             if (account != null)

@@ -6,10 +6,10 @@ namespace AISAM.Data.Model
     public class SocialAccount
     {
         [Key]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         
         [ForeignKey("User")]
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         
         [Required]
         [MaxLength(50)]
@@ -39,6 +39,6 @@ namespace AISAM.Data.Model
         // Navigation properties
         public virtual User User { get; set; } = null!;
         public virtual ICollection<SocialTarget> SocialTargets { get; set; } = new List<SocialTarget>();
-        public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
+        public virtual ICollection<SocialPost> Posts { get; set; } = new List<SocialPost>();
     }
 }

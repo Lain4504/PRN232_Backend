@@ -19,164 +19,16 @@ namespace AISAM.API.Controllers
         private readonly IUserService _userService;
         private readonly IJwtService _jwtService;
         private readonly ILogger<UserController> _logger;
-        private readonly AISAMContext _dbContext;
+        private readonly ISocialService _socialService;
         private readonly IValidator<RegisterUserDto> _registerValidator;
 
-        public UserController(IUserService userService, IJwtService jwtService, ILogger<UserController> logger, AISAMContext dbContext, IValidator<RegisterUserDto> registerValidator)
+        public UserController(IUserService userService, IJwtService jwtService, ILogger<UserController> logger, ISocialService socialService, IValidator<RegisterUserDto> registerValidator)
         {
             _userService = userService;
             _jwtService = jwtService;
             _logger = logger;
-            _dbContext = dbContext;
+            _socialService = socialService;
             _registerValidator = registerValidator;
-        }
-
-        [HttpPost("register")]
-        public async Task<ActionResult<GenericResponse<LoginResponseDto>>> Register([FromBody] RegisterUserDto registerDto)
-        {
-            try
-            {
-                _logger.LogInformation("User registration attempt for email: {Email}", registerDto.Email);
-
-                // Explicit FluentValidation validation -> return GenericResponse with dictionary
-                var validationResult = await _registerValidator.ValidateAsync(registerDto);
-                if (!validationResult.IsValid)
-                {
-                    var flatList = validationResult.Errors.Select(e => e.ErrorMessage).Distinct().ToList();
-                    var badRequest = GenericResponse<object>.CreateError(
-                        "FluentValidation failed",
-                        System.Net.HttpStatusCode.BadRequest,
-                        "FLUENT_VALIDATION_ERROR");
-                    badRequest.Error.ValidationErrors = new Dictionary<string, List<string>>
-                    {
-                        { "FluentValidationErrors", flatList }
-                    };
-                    return StatusCode(badRequest.StatusCode, badRequest);
-                }
-
-                // Manual uniqueness checks (removed async rules from FluentValidation)
-                if (await _userService.EmailExistsAsync(registerDto.Email))
-                {
-                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError("Email đã được sử dụng"));
-                }
-                if (await _userService.UsernameExistsAsync(registerDto.Username))
-                {
-                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError("Username đã được sử dụng"));
-                }
-
-                var user = await _userService.RegisterUserAsync(registerDto.Email, registerDto.Username, registerDto.Password);
-                var token = _jwtService.GenerateToken(user);
-
-                var response = new LoginResponseDto
-                {
-                    Token = token,
-                    ExpiresAt = DateTime.UtcNow.AddHours(24),
-                    User = new UserResponseDto
-                    {
-                        Id = user.Id,
-                        Email = user.Email ?? "",
-                        Username = user.Username ?? "",
-                        CreatedAt = user.CreatedAt,
-                        SocialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
-                        {
-                            Id = sa.Id,
-                            Provider = sa.Provider,
-                            ProviderUserId = sa.ProviderUserId,
-                            CreatedAt = sa.CreatedAt,
-                            Targets = sa.Targets?.Select(st => new SocialTargetDto
-                            {
-                                Id = st.Id,
-                                ProviderTargetId = st.ProviderTargetId,
-                                Name = st.Name,
-                                Type = st.Type
-                            }).ToList() ?? new List<SocialTargetDto>()
-                        }).ToList() ?? new List<SocialAccountDto>()
-                    }
-                };
-
-                _logger.LogInformation("User registered successfully: {UserId}", user.Id);
-                return Ok(GenericResponse<LoginResponseDto>.CreateSuccess(response, "Đăng ký thành công"));
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogWarning("Registration failed: {Message}", ex.Message);
-                return BadRequest(GenericResponse<LoginResponseDto>.CreateError(ex.Message));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during user registration");
-                return StatusCode(500, GenericResponse<LoginResponseDto>.CreateError(
-                    "Đã xảy ra lỗi trong quá trình đăng ký",
-                    System.Net.HttpStatusCode.InternalServerError,
-                    "REGISTRATION_ERROR"
-                ));
-            }
-        }
-
-        [HttpPost("login")]
-        public async Task<ActionResult<GenericResponse<LoginResponseDto>>> Login([FromBody] LoginUserDto loginDto)
-        {
-            try
-            {
-                _logger.LogInformation("User login attempt for: {EmailOrUsername}", loginDto.EmailOrUsername);
-
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(GenericResponse<LoginResponseDto>.CreateError("Dữ liệu không hợp lệ"));
-                }
-
-                var user = await _userService.LoginUserAsync(loginDto.EmailOrUsername, loginDto.Password);
-                if (user == null)
-                {
-                    _logger.LogWarning("Login failed for: {EmailOrUsername}", loginDto.EmailOrUsername);
-                    return Unauthorized(GenericResponse<LoginResponseDto>.CreateError(
-                        "Email/Username hoặc mật khẩu không đúng",
-                        System.Net.HttpStatusCode.Unauthorized,
-                        "INVALID_CREDENTIALS"
-                    ));
-                }
-
-                var token = _jwtService.GenerateToken(user);
-
-                var response = new LoginResponseDto
-                {
-                    Token = token,
-                    ExpiresAt = DateTime.UtcNow.AddHours(24),
-                    User = new UserResponseDto
-                    {
-                        Id = user.Id,
-                        Email = user.Email ?? "",
-                        Username = user.Username ?? "",
-                        CreatedAt = user.CreatedAt,
-                        SocialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
-                        {
-                            Id = sa.Id,
-                            Provider = sa.Provider,
-                            ProviderUserId = sa.ProviderUserId,
-                            CreatedAt = sa.CreatedAt,
-                            Targets = sa.Targets?.Select(st => new SocialTargetDto
-                            {
-                                Id = st.Id,
-                                ProviderTargetId = st.ProviderTargetId,
-                                Name = st.Name,
-                                Type = st.Type
-                            }).ToList() ?? new List<SocialTargetDto>()
-                        }).ToList() ?? new List<SocialAccountDto>()
-                    }
-                };
-
-                _logger.LogInformation("User logged in successfully: {UserId}", user.Id);
-                return Ok(GenericResponse<LoginResponseDto>.CreateSuccess(response, "Đăng nhập thành công"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during user login");
-                return StatusCode(500, GenericResponse<LoginResponseDto>.CreateError(
-                    "Đã xảy ra lỗi trong quá trình đăng nhập",
-                    System.Net.HttpStatusCode.InternalServerError,
-                    "LOGIN_ERROR"
-                ));
-            }
         }
 
         [HttpGet("profile")]
@@ -186,7 +38,7 @@ namespace AISAM.API.Controllers
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
                     return Unauthorized(GenericResponse<UserResponseDto>.CreateError("Token không hợp lệ"));
                 }
@@ -237,7 +89,7 @@ namespace AISAM.API.Controllers
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
                     return Unauthorized(GenericResponse<List<SocialAccountDto>>.CreateError("Token không hợp lệ"));
                 }
@@ -277,6 +129,30 @@ namespace AISAM.API.Controllers
             }
         }
 
-        // OData endpoint removed
+        /// <summary>
+        /// Get all targets (pages/profiles) for a social account
+        /// </summary>
+        [HttpGet("account/{socialAccountId}")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<SocialTargetDto>>>> GetAccountTargets(Guid socialAccountId)
+        {
+            try
+            {
+                var targets = await _socialService.GetAccountTargetsAsync(socialAccountId);
+                return Ok(new GenericResponse<IEnumerable<SocialTargetDto>>
+                {
+                    Success = true,
+                    Data = targets
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting targets for account {AccountId}", socialAccountId);
+                return StatusCode(500, new GenericResponse<IEnumerable<SocialTargetDto>>
+                {
+                    Success = false,
+                    Message = "Internal server error"
+                });
+            }
+        }
     }
 }

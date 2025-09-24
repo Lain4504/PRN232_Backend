@@ -4,6 +4,6 @@ namespace AISAM.Repositories.IRepositories
 {
     public interface IPostRepository
     {
-        Task<Post> CreateAsync(Post post);
+        Task<SocialPost> CreateAsync(SocialPost socialPost);
     }
 }

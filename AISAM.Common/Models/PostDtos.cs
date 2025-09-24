@@ -4,9 +4,9 @@ namespace AISAM.Common.Models
 {
     public class CreatePostRequest
     {
-        public int UserId { get; set; }
-        public int SocialAccountId { get; set; }
-        public int SocialTargetId { get; set; }
+        public Guid UserId { get; set; }
+        public Guid SocialAccountId { get; set; }
+        public Guid SocialTargetId { get; set; }
         
         [Required]
         public string Message { get; set; } = string.Empty;
@@ -20,9 +20,9 @@ namespace AISAM.Common.Models
 
     public class SchedulePostRequest
     {
-        public int UserId { get; set; }
-        public int SocialAccountId { get; set; }
-        public int SocialTargetId { get; set; }
+        public Guid UserId { get; set; }
+        public Guid SocialAccountId { get; set; }
+        public Guid SocialTargetId { get; set; }
         
         [Required]
         public string Message { get; set; } = string.Empty;
@@ -37,7 +37,7 @@ namespace AISAM.Common.Models
 
     public class PostResponseDto
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string? ProviderPostId { get; set; }
         public string Message { get; set; } = string.Empty;

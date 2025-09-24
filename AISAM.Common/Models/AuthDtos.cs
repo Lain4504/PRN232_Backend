@@ -22,7 +22,7 @@ namespace AISAM.Common.Models
 
     public class UserDto
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string? Email { get; set; }
         public string? Username { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -31,7 +31,7 @@ namespace AISAM.Common.Models
 
     public class UserResponseDto
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string Email { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
