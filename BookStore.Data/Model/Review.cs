@@ -11,11 +11,11 @@ namespace BookStore.Data.Model
         public string UserId { get; set; } = string.Empty;
         public User? User { get; set; }
         [Required]
-        public string BookId { get; set; } = string.Empty;
+        public long BookId { get; set; } = 0;
         public Book? Book { get; set; }
         [Required]
         [Range(1,5)]
-        public int Rating { get; set; }
+        public int Rating { get; set; } = 0;
         [Required]
         public string Content { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

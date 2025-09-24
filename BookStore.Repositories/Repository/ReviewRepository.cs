@@ -15,7 +15,7 @@ namespace BookStore.Repositories.Repository
             _context = context;
         }
 
-        public async Task<List<Review>> GetReviewsByBookAsync(string bookId, CancellationToken cancellationToken = default)
+        public async Task<List<Review>> GetReviewsByBookAsync(long bookId, CancellationToken cancellationToken = default)
         {
             return await _context.Reviews
                 .Include(r => r.User)

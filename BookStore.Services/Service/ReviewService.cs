@@ -1,6 +1,7 @@
 using BookStore.Data.Model;
 using BookStore.Repositories.IRepositories;
-using System.Threading;
+using BookStore.Services.IServices;
+
 
 namespace BookStore.Services.Service
 {
@@ -13,7 +14,7 @@ namespace BookStore.Services.Service
             _reviewRepository = reviewRepository;
         }
 
-        public async Task<List<Review>> GetReviewsByBookAsync(string bookId, CancellationToken cancellationToken = default)
+        public async Task<List<Review>> GetReviewsByBookAsync(long bookId, CancellationToken cancellationToken = default)
         {
             return await _reviewRepository.GetReviewsByBookAsync(bookId, cancellationToken);
         }

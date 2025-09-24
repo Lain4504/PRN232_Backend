@@ -1,9 +1,3 @@
-namespace PRN232_Backend;
-
-public class ReviewResponseDto
-{
-    
-}
 using BookStore.Data.Model;
 
 namespace BookStore.API.DTO.Response

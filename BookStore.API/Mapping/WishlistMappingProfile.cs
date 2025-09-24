@@ -1,9 +1,4 @@
-namespace PRN232_Backend;
 
-public class WishlistMappingProfile
-{
-    
-}
 using AutoMapper;
 using BookStore.Data.Model;
 using BookStore.API.DTO.Request;
