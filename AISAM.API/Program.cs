@@ -14,10 +14,6 @@ using DotNetEnv;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using AISAM.API.Validators;
-using Microsoft.AspNetCore.OData;
-using Microsoft.OData.ModelBuilder;
-using Microsoft.OData.Edm;
-using AISAM.Data.Model;
 using Microsoft.AspNetCore.Mvc;
 
 // Load environment variables from .env file
@@ -67,11 +63,6 @@ if (!string.IsNullOrEmpty(facebookAppSecret))
 
 // Add services to the container.
 builder.Services.AddControllers()
-    .AddOData(options =>
-    {
-        options.Select().Filter().OrderBy().Expand().Count().SetMaxTop(null)
-            .AddRouteComponents("odata", GetEdmModel());
-    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -184,14 +175,12 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Add OData query options to Swagger for actions with [EnableQuery]
-    c.OperationFilter<AISAM.API.Swagger.ODataQueryOptionsOperationFilter>();
+    // OData removed
 });
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-// Enable Swagger UI in all environments for easier testing of OData queries
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -208,19 +197,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
-IEdmModel GetEdmModel()
-{
-    var odataBuilder = new ODataConventionModelBuilder();
-
-    var users = odataBuilder.EntitySet<User>("Users");
-    users.EntityType.HasKey(u => u.Id);
-    users.EntityType.Expand(5);
-
-    // Optional: expose related sets if needed for $expand
-    odataBuilder.EntitySet<SocialAccount>("SocialAccounts");
-    odataBuilder.EntitySet<SocialTarget>("SocialTargets");
-    odataBuilder.EntitySet<Post>("Posts");
-
-    return odataBuilder.GetEdmModel();
-}

@@ -9,7 +9,6 @@ using AISAM.API.Validators;
 using FluentValidation;
 using FluentValidation.Results;
 using AISAM.Repositories;
-using Microsoft.AspNetCore.OData.Query;
 
 namespace AISAM.API.Controllers
 {
@@ -278,13 +277,6 @@ namespace AISAM.API.Controllers
             }
         }
 
-        // OData endpoint within UserController as requested
-        [HttpGet("odata")]
-        [EnableQuery]
-        public IActionResult GetUsersOData()
-        {
-            // Prefer exposing repository/service IQueryable for testability and separation of concerns
-            return Ok(_userService.Query());
-        }
+        // OData endpoint removed
     }
 }
