@@ -15,6 +15,8 @@ namespace AISAM.Data.Model
         
         public bool IsActive { get; set; } = true;
         
+        public bool isBanned { get; set; } = false;
+        
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -22,7 +24,6 @@ namespace AISAM.Data.Model
         public DateTime? LastLoginAt { get; set; }
         
         public bool MfaEnabled { get; set; } = false;
-        
         public string Role { get; set; } = "user";
         
         // Navigation properties

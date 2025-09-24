@@ -4,11 +4,11 @@ using AISAM.Common;
 using AISAM.Services.IServices;
 using AISAM.Services.Service;
 using AISAM.Common.Models;
+using CommonUserResponseDto = AISAM.Common.Models.UserResponseDto;
 using System.Security.Claims;
 using AISAM.API.Validators;
 using FluentValidation;
 using FluentValidation.Results;
-using AISAM.Repositories;
 
 namespace AISAM.API.Controllers
 {
@@ -33,23 +33,23 @@ namespace AISAM.API.Controllers
 
         [HttpGet("profile")]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<UserResponseDto>>> GetProfile()
+        public async Task<ActionResult<GenericResponse<CommonUserResponseDto>>> GetProfile()
         {
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                 if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
-                    return Unauthorized(GenericResponse<UserResponseDto>.CreateError("Token không hợp lệ"));
+                    return Unauthorized(GenericResponse<CommonUserResponseDto>.CreateError("Token không hợp lệ"));
                 }
 
                 var user = await _userService.GetUserByIdAsync(userId);
                 if (user == null)
                 {
-                    return NotFound(GenericResponse<UserResponseDto>.CreateError("Không tìm thấy người dùng"));
+                    return NotFound(GenericResponse<CommonUserResponseDto>.CreateError("Không tìm thấy người dùng"));
                 }
 
-                var response = new UserResponseDto
+                var response = new CommonUserResponseDto
                 {
                     Id = user.Id,
                     Email = user.Email ?? "",
@@ -61,7 +61,7 @@ namespace AISAM.API.Controllers
                         Provider = sa.Provider,
                         ProviderUserId = sa.ProviderUserId,
                         CreatedAt = sa.CreatedAt,
-                        Targets = sa.Targets?.Select(st => new SocialTargetDto
+                        Targets = sa.SocialTargets?.Select(st => new SocialTargetDto
                         {
                             Id = st.Id,
                             ProviderTargetId = st.ProviderTargetId,
@@ -71,12 +71,12 @@ namespace AISAM.API.Controllers
                     }).ToList() ?? new List<SocialAccountDto>()
                 };
 
-                return Ok(GenericResponse<UserResponseDto>.CreateSuccess(response, "Lấy thông tin thành công"));
+                return Ok(GenericResponse<CommonUserResponseDto>.CreateSuccess(response, "Lấy thông tin thành công"));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user profile");
-                return StatusCode(500, GenericResponse<UserResponseDto>.CreateError(
+                return StatusCode(500, GenericResponse<CommonUserResponseDto>.CreateError(
                     "Đã xảy ra lỗi khi lấy thông tin người dùng"
                 ));
             }
@@ -106,7 +106,7 @@ namespace AISAM.API.Controllers
                     Provider = sa.Provider,
                     ProviderUserId = sa.ProviderUserId,
                     CreatedAt = sa.CreatedAt,
-                    Targets = sa.Targets?.Select(st => new SocialTargetDto
+                    Targets = sa.SocialTargets?.Select(st => new SocialTargetDto
                     {
                         Id = st.Id,
                         ProviderTargetId = st.ProviderTargetId,

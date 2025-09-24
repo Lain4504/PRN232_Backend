@@ -75,8 +75,8 @@ namespace AISAM.API.Controllers
                 if (!userId.HasValue)
                 {
                     var demoUser = await _userService.CreateUserAsync(
-                        email: $"demo_{Guid.NewGuid().ToString("N")[..8]}@example.com",
-                        username: $"user_{Guid.NewGuid().ToString("N")[..8]}"
+                        $"demo_{Guid.NewGuid().ToString("N")[..8]}@example.com",
+                        $"user_{Guid.NewGuid().ToString("N")[..8]}"
                     );
                     userId = demoUser.Id;
                 }
