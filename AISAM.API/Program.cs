@@ -10,11 +10,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using AISAM.API.Filters;
 using DotNetEnv;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using AISAM.API.Validators;
 using Microsoft.AspNetCore.Mvc;
+using AutoMapper;
+using AISAM.API.Profiles;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -43,10 +46,35 @@ else
     }
 }
 
+// JWT environment overrides (align to Jwt:*)
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 if (!string.IsNullOrEmpty(jwtSecret))
 {
-    builder.Configuration["JwtSettings:SecretKey"] = jwtSecret;
+    builder.Configuration["Jwt:SecretKey"] = jwtSecret;
+}
+
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
+if (!string.IsNullOrEmpty(jwtIssuer))
+{
+    builder.Configuration["Jwt:Issuer"] = jwtIssuer;
+}
+
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+if (!string.IsNullOrEmpty(jwtAudience))
+{
+    builder.Configuration["Jwt:Audience"] = jwtAudience;
+}
+
+var jwtAccessMinutes = Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_MINUTES");
+if (!string.IsNullOrEmpty(jwtAccessMinutes))
+{
+    builder.Configuration["Jwt:AccessTokenExpirationMinutes"] = jwtAccessMinutes;
+}
+
+var jwtRefreshDays = Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_DAYS");
+if (!string.IsNullOrEmpty(jwtRefreshDays))
+{
+    builder.Configuration["Jwt:RefreshTokenExpirationDays"] = jwtRefreshDays;
 }
 
 var facebookAppId = Environment.GetEnvironmentVariable("FACEBOOK_APP_ID");
@@ -62,7 +90,10 @@ if (!string.IsNullOrEmpty(facebookAppSecret))
 }
 
 // Add services to the container.
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+        options.Filters.Add<ValidationFilter>();
+})
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -71,7 +102,10 @@ builder.Services.AddControllers()
     });
 
 // Register validators for DI (manual validation in controllers)
-builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserDtoValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateUserRequestDtoValidator>();
+
+// Add AutoMapper (scan profiles)
+builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
@@ -95,14 +129,15 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
 // Background services removed for now
 
-// Add JWT Authentication
-var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";
+// Add JWT Authentication (uses Jwt:*)
+var secretKey = builder.Configuration["Jwt:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";
 var key = Encoding.UTF8.GetBytes(secretKey);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -113,9 +148,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "AISAM.API",
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "AISAM.API",
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "AISAM.Client",
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "AISAM.Client",
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
@@ -143,39 +178,43 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
+    c.SwaggerDoc("v1", new OpenApiInfo 
     { 
         Title = "AISAM Social Media API", 
         Version = "v1",
         Description = "API for managing social media integration and posting"
     });
-    
-    // Configure Bearer token authentication for Swagger
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+
+    // Add JWT Authentication to Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
+        Description = @"JWT Authorization header using the Bearer scheme. 
+                      Enter your token in the text input below.
+                      Example: '12345abcdef'",
         Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
-                }
+                },
+                Scheme = "oauth2",
+                Name = "Bearer",
+                In = ParameterLocation.Header,
             },
-            new string[] {}
+            new List<string>()
         }
     });
-
-    // OData removed
 });
 
 var app = builder.Build();
