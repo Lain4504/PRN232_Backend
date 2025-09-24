@@ -22,7 +22,7 @@ namespace AISAM.API.Controllers
         /// Get all social accounts for a user
         /// </summary>
         [HttpGet("user/{userId}")]
-        public async Task<ActionResult<GenericResponse<IEnumerable<SocialAccountDto>>>> GetUserAccounts(int userId)
+        public async Task<ActionResult<GenericResponse<IEnumerable<SocialAccountDto>>>> GetUserAccounts(Guid userId)
         {
             try
             {

@@ -4,15 +4,15 @@ namespace AISAM.Repositories.IRepositories
 {
     public interface ISocialAccountRepository
     {
-        Task<SocialAccount?> GetByIdAsync(int id);
-        Task<SocialAccount?> GetByIdWithTargetsAsync(int id);
+        Task<SocialAccount?> GetByIdAsync(Guid id);
+        Task<SocialAccount?> GetByIdWithTargetsAsync(Guid id);
         Task<SocialAccount?> GetByProviderAndUserIdAsync(string provider, string providerUserId);
-        Task<SocialAccount?> GetByUserIdAndProviderAsync(int userId, string provider);
-        Task<IEnumerable<SocialAccount>> GetByUserIdAsync(int userId);
+        Task<SocialAccount?> GetByUserIdAndProviderAsync(Guid userId, string provider);
+        Task<IEnumerable<SocialAccount>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<SocialAccount>> GetByProviderAsync(string provider);
         Task<SocialAccount> CreateAsync(SocialAccount account);
         Task UpdateAsync(SocialAccount account);
-        Task DeleteAsync(int id);
+        Task DeleteAsync(Guid id);
         Task<bool> ExistsAsync(string provider, string providerUserId);
     }
 }

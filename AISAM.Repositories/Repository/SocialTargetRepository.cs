@@ -13,7 +13,7 @@ namespace AISAM.Repositories.Repository
             _context = context;
         }
 
-        public async Task<SocialTarget?> GetByIdAsync(int id)
+        public async Task<SocialTarget?> GetByIdAsync(Guid id)
         {
             return await _context.SocialTargets
                 .Include(st => st.SocialAccount)
@@ -21,7 +21,7 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(st => st.Id == id);
         }
 
-        public async Task<SocialTarget?> GetByProviderTargetIdAsync(int socialAccountId, string providerTargetId)
+        public async Task<SocialTarget?> GetByProviderTargetIdAsync(Guid socialAccountId, string providerTargetId)
         {
             return await _context.SocialTargets
                 .Include(st => st.SocialAccount)
@@ -35,14 +35,14 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(st => st.ProviderTargetId == providerTargetId);
         }
 
-        public async Task<IEnumerable<SocialTarget>> GetBySocialAccountIdAsync(int socialAccountId)
+        public async Task<IEnumerable<SocialTarget>> GetBySocialAccountIdAsync(Guid socialAccountId)
         {
             return await _context.SocialTargets
                 .Where(st => st.SocialAccountId == socialAccountId)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<SocialTarget>> GetByUserIdAsync(int userId)
+        public async Task<IEnumerable<SocialTarget>> GetByUserIdAsync(Guid userId)
         {
             return await _context.SocialTargets
                 .Include(st => st.SocialAccount)
@@ -67,7 +67,7 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(Guid id)
         {
             var target = await _context.SocialTargets.FindAsync(id);
             if (target != null)
@@ -77,7 +77,7 @@ namespace AISAM.Repositories.Repository
             }
         }
 
-        public async Task DeleteBySocialAccountIdAsync(int socialAccountId)
+        public async Task DeleteBySocialAccountIdAsync(Guid socialAccountId)
         {
             var targets = await _context.SocialTargets
                 .Where(st => st.SocialAccountId == socialAccountId)
@@ -87,7 +87,7 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
-        public async Task<bool> ExistsAsync(int socialAccountId, string providerTargetId)
+        public async Task<bool> ExistsAsync(Guid socialAccountId, string providerTargetId)
         {
             return await _context.SocialTargets
                 .AnyAsync(st => st.SocialAccountId == socialAccountId && st.ProviderTargetId == providerTargetId);

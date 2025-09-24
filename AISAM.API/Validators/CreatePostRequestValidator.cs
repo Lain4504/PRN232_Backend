@@ -8,13 +8,13 @@ namespace AISAM.API.Validators
         public CreatePostRequestValidator()
         {
             RuleFor(x => x.UserId)
-                .GreaterThan(0).WithMessage("UserId phải > 0");
+                .NotEmpty().WithMessage("UserId không được để trống");
 
             RuleFor(x => x.SocialAccountId)
-                .GreaterThan(0).WithMessage("SocialAccountId phải > 0");
+                .NotEmpty().WithMessage("SocialAccountId không được để trống");
 
             RuleFor(x => x.SocialTargetId)
-                .GreaterThan(0).WithMessage("SocialTargetId phải > 0");
+                .NotEmpty().WithMessage("SocialTargetId không được để trống");
 
             RuleFor(x => x.Message)
                 .NotEmpty().WithMessage("Message không được để trống")

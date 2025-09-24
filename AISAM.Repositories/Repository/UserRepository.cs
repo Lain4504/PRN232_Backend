@@ -13,7 +13,7 @@ namespace AISAM.Repositories.Repository
             _context = context;
         }
 
-        public async Task<User?> GetByIdAsync(int id)
+        public async Task<User?> GetByIdAsync(Guid id)
         {
             return await _context.Users
                 .Include(u => u.SocialAccounts)
@@ -62,7 +62,7 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
             if (user != null)
@@ -72,7 +72,7 @@ namespace AISAM.Repositories.Repository
             }
         }
 
-        public async Task<bool> ExistsAsync(int id)
+        public async Task<bool> ExistsAsync(Guid id)
         {
             return await _context.Users.AnyAsync(u => u.Id == id);
         }

@@ -15,7 +15,7 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
         }
 
-        public async Task<UserDto?> GetUserByIdAsync(int id)
+        public async Task<UserDto?> GetUserByIdAsync(Guid id)
         {
             var user = await _userRepository.GetByIdAsync(id);
             return user != null ? MapToDto(user) : null;
@@ -118,12 +118,12 @@ namespace AISAM.Services.Service
             await _userRepository.UpdateAsync(user);
         }
 
-        public async Task DeleteUserAsync(int id)
+        public async Task DeleteUserAsync(Guid id)
         {
             await _userRepository.DeleteAsync(id);
         }
 
-        public async Task<bool> UserExistsAsync(int id)
+        public async Task<bool> UserExistsAsync(Guid id)
         {
             return await _userRepository.ExistsAsync(id);
         }

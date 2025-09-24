@@ -5,7 +5,7 @@ namespace AISAM.Services.IServices
 {
     public interface IUserService
     {
-        Task<UserDto?> GetUserByIdAsync(int id);
+        Task<UserDto?> GetUserByIdAsync(Guid id);
         Task<UserDto?> GetUserByEmailAsync(string email);
         Task<UserDto?> GetUserByUsernameAsync(string username);
         Task<UserDto?> GetUserByEmailOrUsernameAsync(string emailOrUsername);
@@ -14,8 +14,8 @@ namespace AISAM.Services.IServices
         Task<UserDto> RegisterUserAsync(string email, string username, string password);
         Task<UserDto?> LoginUserAsync(string emailOrUsername, string password);
         Task UpdateUserAsync(UserDto userDto);
-        Task DeleteUserAsync(int id);
-        Task<bool> UserExistsAsync(int id);
+        Task DeleteUserAsync(Guid id);
+        Task<bool> UserExistsAsync(Guid id);
         Task<bool> EmailExistsAsync(string email);
         Task<bool> UsernameExistsAsync(string username);
     }

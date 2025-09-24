@@ -12,7 +12,13 @@ namespace AISAM.Repositories
         public DbSet<User> Users { get; set; }
         public DbSet<SocialAccount> SocialAccounts { get; set; }
         public DbSet<SocialTarget> SocialTargets { get; set; }
-        public DbSet<Post> Posts { get; set; }
+        public DbSet<SocialPost> Posts { get; set; }
+        public DbSet<Organization> Organizations { get; set; }
+        public DbSet<OrganizationMember> OrganizationMembers { get; set; }
+        public DbSet<Brand> Brands { get; set; }
+        public DbSet<Product> Products { get; set; }
+        public DbSet<Schedule> Schedules { get; set; }
+        public DbSet<AdminAuditLog> AdminAuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -23,9 +29,7 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Email).HasMaxLength(255);
-                entity.Property(e => e.Username).HasMaxLength(255);
                 entity.HasIndex(e => e.Email).IsUnique();
-                entity.HasIndex(e => e.Username).IsUnique();
             });
 
             // SocialAccount configuration
@@ -59,7 +63,7 @@ namespace AISAM.Repositories
             });
 
             // Post configuration
-            modelBuilder.Entity<Post>(entity =>
+            modelBuilder.Entity<SocialPost>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Message).IsRequired();
@@ -69,6 +73,7 @@ namespace AISAM.Repositories
                 entity.HasIndex(e => e.UserId);
                 entity.HasIndex(e => e.SocialAccountId);
                 entity.HasIndex(e => e.SocialTargetId);
+                entity.HasIndex(e => e.ScheduleId);
                 entity.HasIndex(e => e.ScheduledTime);
                 entity.HasIndex(e => e.Status);
                 
@@ -85,6 +90,80 @@ namespace AISAM.Repositories
                 entity.HasOne(e => e.SocialTarget)
                     .WithMany(st => st.Posts)
                     .HasForeignKey(e => e.SocialTargetId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.Schedule)
+                    .WithMany()
+                    .HasForeignKey(e => e.ScheduleId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Organization configuration
+            modelBuilder.Entity<Organization>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.BillingInfo).HasColumnType("jsonb");
+                entity.HasMany(e => e.Members)
+                    .WithOne(m => m.Organization)
+                    .HasForeignKey(m => m.OrgId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // OrganizationMember configuration
+            modelBuilder.Entity<OrganizationMember>(entity =>
+            {
+                entity.HasKey(e => new { e.OrgId, e.UserId });
+                entity.Property(e => e.Role).HasMaxLength(50);
+            });
+
+            // Brand configuration
+            modelBuilder.Entity<Brand>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.TargetAudience).HasColumnType("jsonb");
+                entity.Property(e => e.BrandGuidelines).HasColumnType("jsonb");
+                entity.HasMany(e => e.Products)
+                    .WithOne(p => p.Brand)
+                    .HasForeignKey(p => p.BrandId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Product configuration
+            modelBuilder.Entity<Product>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).HasMaxLength(300).IsRequired();
+                entity.Property(e => e.Sku).HasMaxLength(100);
+                entity.Property(e => e.Currency).HasMaxLength(10).HasDefaultValue("USD");
+                entity.Property(e => e.Metadata).HasColumnType("jsonb");
+            });
+
+            // Schedule configuration
+            modelBuilder.Entity<Schedule>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.ScheduledAt).IsRequired();
+                entity.Property(e => e.PublishWindow).HasColumnType("jsonb");
+                entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("scheduled");
+            });
+
+            // AdminAuditLog configuration
+            modelBuilder.Entity<AdminAuditLog>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Action).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.TargetType).HasMaxLength(100);
+                entity.Property(e => e.Details).HasColumnType("jsonb");
+                entity.HasIndex(e => e.AdminUserId);
+                entity.HasIndex(e => e.TargetType);
+                entity.HasIndex(e => e.TargetId);
+                entity.HasIndex(e => e.CreatedAt);
+                
+                entity.HasOne(e => e.AdminUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.AdminUserId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
         }

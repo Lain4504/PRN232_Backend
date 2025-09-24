@@ -13,14 +13,14 @@ namespace AISAM.Repositories.Repository
             _context = context;
         }
 
-        public async Task<Post> CreateAsync(Post post)
+        public async Task<SocialPost> CreateAsync(SocialPost socialPost)
         {
-            post.CreatedAt = DateTime.UtcNow;
-            post.UpdatedAt = DateTime.UtcNow;
+            socialPost.CreatedAt = DateTime.UtcNow;
+            socialPost.UpdatedAt = DateTime.UtcNow;
             
-            _context.Posts.Add(post);
+            _context.Posts.Add(socialPost);
             await _context.SaveChangesAsync();
-            return post;
+            return socialPost;
         }
     }
 }

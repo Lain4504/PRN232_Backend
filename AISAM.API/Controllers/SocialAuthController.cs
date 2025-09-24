@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AISAM.API.Controllers
 {
     [ApiController]
-    [Route("api/auth")]
+    [Route("api/social-auth")]
     public class SocialAuthController : ControllerBase
     {
         private readonly ISocialService _socialService;
@@ -67,7 +67,7 @@ namespace AISAM.API.Controllers
             string provider,
             [FromQuery] string code,
             [FromQuery] string? state = null,
-            [FromQuery] int? userId = null)
+            [FromQuery] Guid? userId = null)
         {
             try
             {
@@ -227,8 +227,8 @@ namespace AISAM.API.Controllers
         /// </summary>
         [HttpDelete("unlink/{userId}/{socialAccountId}")]
         public async Task<ActionResult<GenericResponse<object>>> UnlinkAccount(
-            int userId,
-            int socialAccountId)
+            Guid userId,
+            Guid socialAccountId)
         {
             try
             {
