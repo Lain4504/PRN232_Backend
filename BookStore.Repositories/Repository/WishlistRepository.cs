@@ -30,7 +30,7 @@ public class WishlistRepository : IWishlistRepository
 
 	public async Task DeleteWishlistAsync(long bookId, CancellationToken cancellationToken = default)
 	{
-		var wishlist = await _context.Wishlists.FirstOrDefaultAsync(w => w.Book != null && w.Book.Id == bookId.ToString(), cancellationToken);
+	var wishlist = await _context.Wishlists.FirstOrDefaultAsync(w => w.Book != null && w.Book.Id == bookId, cancellationToken);
 		if (wishlist != null)
 		{
 			_context.Wishlists.Remove(wishlist);

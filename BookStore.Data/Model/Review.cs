@@ -1,9 +1,3 @@
-namespace PRN232_Backend;
-
-public class Review
-{
-    
-}
 using System.ComponentModel.DataAnnotations;
 
 namespace BookStore.Data.Model

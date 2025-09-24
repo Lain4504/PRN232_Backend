@@ -13,6 +13,8 @@ namespace BookStore.Data
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<BlacklistedToken> BlacklistedTokens { get; set; } = null!;
     public DbSet<Wishlist> Wishlists { get; set; } = null!;
+    public DbSet<Review> Reviews { get; set; } = null!;
+    public DbSet<ReviewReply> ReviewReplies { get; set; } = null!;
     }
 }
 
