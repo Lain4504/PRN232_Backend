@@ -1,6 +1,7 @@
 ﻿using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Common.Models;
 
 namespace AISAM.Services.Service
 {
@@ -52,6 +53,16 @@ namespace AISAM.Services.Service
             };
 
             return await _userRepository.CreateAsync(user, cancellationToken);
+        }
+
+        public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request, CancellationToken cancellationToken = default)
+        {
+            // Validate pagination parameters
+            if (request.Page < 1) request.Page = 1;
+            if (request.PageSize < 1) request.PageSize = 10;
+            if (request.PageSize > 100) request.PageSize = 100; // Limit max page size
+
+            return await _userRepository.GetPagedUsersAsync(request, cancellationToken);
         }
     }
 }
