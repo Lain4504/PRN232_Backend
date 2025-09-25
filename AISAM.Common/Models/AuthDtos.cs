@@ -9,14 +9,13 @@ namespace AISAM.Common.Models
     public class RegisterUserDto
     {
         public string Email { get; set; } = string.Empty;
-        public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 
     public class LoginUserDto
     {
-        public string EmailOrUsername { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
 
@@ -24,7 +23,6 @@ namespace AISAM.Common.Models
     {
         public Guid Id { get; set; }
         public string? Email { get; set; }
-        public string? Username { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<SocialAccountDto> SocialAccounts { get; set; } = new();
     }
@@ -33,7 +31,6 @@ namespace AISAM.Common.Models
     {
         public Guid Id { get; set; }
         public string Email { get; set; } = string.Empty;
-        public string Username { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public List<SocialAccountDto> SocialAccounts { get; set; } = new();
     }

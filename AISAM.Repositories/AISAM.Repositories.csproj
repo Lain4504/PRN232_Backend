@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AISAM.Common\AISAM.Common.csproj" />
     <ProjectReference Include="..\AISAM.Data\AISAM.Data.csproj" />
   </ItemGroup>
 

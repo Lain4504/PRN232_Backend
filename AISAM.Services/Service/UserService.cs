@@ -1,6 +1,7 @@
 ﻿using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Common.Models;
 
 namespace AISAM.Services.Service
 {
@@ -27,6 +28,13 @@ namespace AISAM.Services.Service
 
         public async Task<User> CreateUserAsync(User user, CancellationToken cancellationToken = default)
         {
+            // Check if email already exists
+            var existingUser = await _userRepository.GetByEmailAsync(user.Email, cancellationToken);
+            if (existingUser != null)
+            {
+                throw new InvalidOperationException("Email already exists");
+            }
+
             // Hash password before saving
             if (!string.IsNullOrEmpty(user.PasswordHash))
             {
@@ -36,16 +44,25 @@ namespace AISAM.Services.Service
             return await _userRepository.CreateAsync(user, cancellationToken);
         }
 
-        public async Task<User> CreateUserAsync(string email, string username, CancellationToken cancellationToken = default)
+        public async Task<User> CreateUserAsync(string email, CancellationToken cancellationToken = default)
         {
             var user = new User
             {
                 Email = email,
-                Username = username,
                 IsActive = true
             };
 
             return await _userRepository.CreateAsync(user, cancellationToken);
+        }
+
+        public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request, CancellationToken cancellationToken = default)
+        {
+            // Validate pagination parameters
+            if (request.Page < 1) request.Page = 1;
+            if (request.PageSize < 1) request.PageSize = 10;
+            if (request.PageSize > 100) request.PageSize = 100; // Limit max page size
+
+            return await _userRepository.GetPagedUsersAsync(request, cancellationToken);
         }
     }
 }

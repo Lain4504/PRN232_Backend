@@ -3,6 +3,7 @@ using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AISAM.Services.Service
 {
@@ -13,22 +14,25 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
+        private readonly FacebookSettings _facebookSettings;
 
         public SocialService(
             ISocialAccountRepository socialAccountRepository,
             ISocialTargetRepository socialTargetRepository,
             IUserRepository userRepository,
             ILogger<SocialService> logger,
-            IEnumerable<IProviderService> providers)
+            IEnumerable<IProviderService> providers,
+            IOptions<FacebookSettings> facebookSettings)
         {
             _socialAccountRepository = socialAccountRepository;
             _socialTargetRepository = socialTargetRepository;
             _userRepository = userRepository;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
+            _facebookSettings = facebookSettings.Value;
         }
 
-        public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null)
+        public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? userId = null)
         {
             if (!_providers.TryGetValue(provider, out var providerService))
             {
@@ -36,6 +40,10 @@ namespace AISAM.Services.Service
             }
 
             var redirectUri = GetRedirectUri(provider);
+            if (userId.HasValue)
+            {
+                redirectUri = AppendUserIdQuery(redirectUri, userId.Value);
+            }
             var actualState = state ?? Guid.NewGuid().ToString();
             var authUrl = await providerService.GetAuthUrlAsync(actualState, redirectUri);
 
@@ -61,6 +69,8 @@ namespace AISAM.Services.Service
             }
 
             var redirectUri = GetRedirectUri(request.Provider);
+            // Must be IDENTICAL to the redirect_uri used in the OAuth dialog (including userId param)
+            redirectUri = AppendUserIdQuery(redirectUri, request.UserId);
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
             // Check if account already exists
@@ -70,36 +80,18 @@ namespace AISAM.Services.Service
                 throw new InvalidOperationException("This social account is already linked");
             }
 
-            // Create new social account
+            // Create new social account only (opt-in pages later)
             var socialAccount = new SocialAccount
             {
                 UserId = request.UserId,
                 Provider = request.Provider,
                 ProviderUserId = accountData.ProviderUserId,
-                AccessToken = "encrypted_" + Guid.NewGuid().ToString(), // TODO: Implement proper encryption
+                AccessToken = accountData.AccessToken,
                 ExpiresAt = accountData.ExpiresAt,
                 IsActive = true
             };
 
             await _socialAccountRepository.CreateAsync(socialAccount);
-
-            // Get and create targets
-            var targets = await providerService.GetTargetsAsync(socialAccount.AccessToken);
-            foreach (var targetDto in targets)
-            {
-                var target = new SocialTarget
-                {
-                    SocialAccountId = socialAccount.Id,
-                    ProviderTargetId = targetDto.ProviderTargetId,
-                    Name = targetDto.Name,
-                    Type = targetDto.Type,
-                    Category = targetDto.Category,
-                    ProfilePictureUrl = targetDto.ProfilePictureUrl,
-                    IsActive = targetDto.IsActive
-                };
-
-                await _socialTargetRepository.CreateAsync(target);
-            }
 
             return MapToDto(socialAccount);
         }
@@ -212,14 +204,25 @@ namespace AISAM.Services.Service
 
         public async Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId)
         {
-            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
-            if (account == null || account.UserId != userId)
+            try
             {
-                return false;
-            }
+                var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
+                if (account == null || account.UserId != userId)
+                {
+                    return false;
+                }
 
-            await _socialAccountRepository.DeleteAsync(socialAccountId);
-            return true;
+                await _socialAccountRepository.DeleteAsync(socialAccountId);
+                _logger.LogInformation("Successfully unlinked social account {SocialAccountId} for user {UserId}", 
+                    socialAccountId, userId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unlinking social account {SocialAccountId} for user {UserId}", 
+                    socialAccountId, userId);
+                throw;
+            }
         }
 
         public async Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(Guid userId)
@@ -234,12 +237,89 @@ namespace AISAM.Services.Service
             return targets.Select(MapToDto);
         }
 
+        public async Task<IEnumerable<SocialTargetDto>> ListAvailableTargetsAsync(Guid userId, string provider)
+        {
+            if (!_providers.TryGetValue(provider, out var providerService))
+            {
+                throw new ArgumentException($"Provider '{provider}' is not supported");
+            }
+
+            var account = await _socialAccountRepository.GetByUserIdAndProviderAsync(userId, provider);
+            if (account == null)
+            {
+                throw new InvalidOperationException($"No linked {provider} account for this user");
+            }
+
+            var available = await providerService.GetTargetsAsync(account.AccessToken);
+            return available;
+        }
+
+        public async Task<SocialAccountDto> LinkSelectedTargetsAsync(Guid userId, string provider, IEnumerable<string> providerTargetIds)
+        {
+            if (!_providers.TryGetValue(provider, out var providerService))
+            {
+                throw new ArgumentException($"Provider '{provider}' is not supported");
+            }
+
+            var account = await _socialAccountRepository.GetByUserIdAndProviderAsync(userId, provider);
+            if (account == null)
+            {
+                throw new InvalidOperationException($"No linked {provider} account for this user");
+            }
+
+            var available = (await providerService.GetTargetsAsync(account.AccessToken)).ToList();
+            var selectedSet = new HashSet<string>(providerTargetIds);
+            var selected = available.Where(t => selectedSet.Contains(t.ProviderTargetId));
+
+            // Do not fetch/store per-target tokens during linking; we'll lazy-fetch at publish time
+
+            foreach (var targetDto in selected)
+            {
+                var existingTarget = await _socialTargetRepository.GetByProviderTargetIdAsync(targetDto.ProviderTargetId);
+                if (existingTarget != null && existingTarget.SocialAccountId == account.Id)
+                {
+                    continue; // already linked
+                }
+
+                var target = new SocialTarget
+                {
+                    SocialAccountId = account.Id,
+                    ProviderTargetId = targetDto.ProviderTargetId,
+                    Name = targetDto.Name,
+                    Type = targetDto.Type,
+                    AccessToken = null,
+                    Category = targetDto.Category,
+                    ProfilePictureUrl = targetDto.ProfilePictureUrl,
+                    IsActive = true
+                };
+
+                await _socialTargetRepository.CreateAsync(target);
+            }
+
+            var reloaded = await _socialAccountRepository.GetByIdWithTargetsAsync(account.Id);
+            return MapToDto(reloaded);
+        }
+
         
 
         private string GetRedirectUri(string provider)
         {
-            // TODO: Make this configurable
+            // Use configured redirect URI from settings
+            if (provider == "facebook")
+            {
+                // For Facebook, use the configured redirect URI from FacebookSettings
+                return _facebookSettings.RedirectUri;
+            }
+            
+            // For other providers, use the default pattern
             return $"http://localhost:5000/auth/{provider}/callback";
+        }
+
+        private string AppendUserIdQuery(string uri, Guid userId)
+        {
+            if (string.IsNullOrWhiteSpace(uri)) return uri;
+            var separator = uri.Contains("?") ? "&" : "?";
+            return $"{uri}{separator}userId={Uri.EscapeDataString(userId.ToString())}";
         }
 
         private SocialAccountDto MapToDto(SocialAccount account)

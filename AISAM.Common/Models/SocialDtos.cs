@@ -5,6 +5,7 @@ namespace AISAM.Common.Models
         public Guid Id { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string ProviderUserId { get; set; } = string.Empty;
+        public string AccessToken { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public DateTime? ExpiresAt { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -28,6 +29,18 @@ namespace AISAM.Common.Models
         public string Provider { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
         public string? State { get; set; }
+    }
+
+    public class AvailableTargetsResponse
+    {
+        public List<SocialTargetDto> Targets { get; set; } = new();
+    }
+
+    public class LinkSelectedTargetsRequest
+    {
+        public Guid UserId { get; set; }
+        public string Provider { get; set; } = string.Empty;
+        public List<string> ProviderTargetIds { get; set; } = new();
     }
 }
 

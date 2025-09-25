@@ -13,7 +13,6 @@ namespace AISAM.API.Profiles
             CreateMap<CreateUserRequestDto, User>()
                 .ForMember(d => d.Id, o => o.MapFrom(s => Guid.NewGuid()))
                 .ForMember(d => d.Email, o => o.MapFrom(s => s.Email))
-                .ForMember(d => d.Username, o => o.MapFrom(s => s.Email)) // Using email as username
                 .ForMember(d => d.PasswordHash, o => o.MapFrom(s => s.Password)) // Map password to PasswordHash for hashing
                 .ForMember(d => d.IsActive, o => o.MapFrom(s => true))
                 .ForMember(d => d.isBanned, o => o.MapFrom(s => false))
@@ -29,7 +28,6 @@ namespace AISAM.API.Profiles
             CreateMap<User, AISAM.Common.Models.UserResponseDto>()
                 .ForMember(d => d.Id, o => o.MapFrom(s => s.Id))
                 .ForMember(d => d.Email, o => o.MapFrom(s => s.Email ?? string.Empty))
-                .ForMember(d => d.Username, o => o.MapFrom(s => s.Username ?? string.Empty))
                 .ForMember(d => d.CreatedAt, o => o.MapFrom(s => s.CreatedAt))
                 .ForMember(d => d.SocialAccounts, o => o.Ignore());
         }

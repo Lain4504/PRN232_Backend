@@ -2,6 +2,9 @@ using AISAM.Common;
 using AISAM.Common.Models;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Security.Claims;
 
 namespace AISAM.API.Controllers
 {
@@ -27,13 +30,22 @@ namespace AISAM.API.Controllers
         /// Get OAuth authorization URL for a provider
         /// </summary>
         [HttpGet("{provider}")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<GenericResponse<AuthUrlResponse>>> GetAuthUrl(
             string provider,
             [FromQuery] string? state = null)
         {
             try
             {
-                var result = await _socialService.GetAuthUrlAsync(provider, state);
+                Guid? userId = null;
+                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                              ?? User.FindFirst("sub")?.Value;
+                if (Guid.TryParse(nameId, out var parsed))
+                {
+                    userId = parsed;
+                }
+
+                var result = await _socialService.GetAuthUrlAsync(provider, state, userId);
                 return Ok(new GenericResponse<AuthUrlResponse>
                 {
                     Success = true,
@@ -60,7 +72,7 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Handle OAuth callback and link social account to user
+        /// Handle OAuth callback and link social account to user (do not auto-link pages)
         /// </summary>
         [HttpGet("{provider}/callback")]
         public async Task<ActionResult<GenericResponse<object>>> HandleCallback(
@@ -71,14 +83,14 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                // For demo purposes, if no userId provided, create a demo user
+                // Require userId; do not auto-create users when missing
                 if (!userId.HasValue)
                 {
-                    var demoUser = await _userService.CreateUserAsync(
-                        $"demo_{Guid.NewGuid().ToString("N")[..8]}@example.com",
-                        $"user_{Guid.NewGuid().ToString("N")[..8]}"
-                    );
-                    userId = demoUser.Id;
+                    return BadRequest(new GenericResponse<object>
+                    {
+                        Success = false,
+                        Message = "userId is required"
+                    });
                 }
 
                 var linkRequest = new LinkSocialAccountRequest
@@ -99,7 +111,7 @@ namespace AISAM.API.Controllers
                     {
                         User = user,
                         SocialAccount = socialAccount,
-                        Message = $"{provider} account linked successfully"
+                        Message = $"{provider} account linked successfully. Now select pages to link."
                     }
                 });
             }
@@ -127,6 +139,78 @@ namespace AISAM.API.Controllers
                     Success = false,
                     Message = "Internal server error"
                 });
+            }
+        }
+
+        /// <summary>
+        /// List available targets (e.g., Facebook pages) for the linked account of current user
+        /// </summary>
+        [HttpGet("{provider}/available-targets")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<ActionResult<GenericResponse<AvailableTargetsResponse>>> ListAvailableTargets(string provider)
+        {
+            try
+            {
+                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                              ?? User.FindFirst("sub")?.Value;
+                if (!Guid.TryParse(nameId, out var userId))
+                {
+                    return Unauthorized(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = "Invalid user context" });
+                }
+
+                var targets = await _socialService.ListAvailableTargetsAsync(userId, provider);
+                return Ok(new GenericResponse<AvailableTargetsResponse>
+                {
+                    Success = true,
+                    Data = new AvailableTargetsResponse { Targets = targets.ToList() }
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing available targets for {Provider}", provider);
+                return StatusCode(500, new GenericResponse<AvailableTargetsResponse> { Success = false, Message = "Internal server error" });
+            }
+        }
+
+        /// <summary>
+        /// Link selected targets to the user's linked social account
+        /// </summary>
+        [HttpPost("link-selected")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkSelectedTargets([FromBody] LinkSelectedTargetsRequest request)
+        {
+            try
+            {
+                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                              ?? User.FindFirst("sub")?.Value;
+                if (!Guid.TryParse(nameId, out var authenticatedUserId) || authenticatedUserId != request.UserId)
+                {
+                    return Forbid();
+                }
+
+                var result = await _socialService.LinkSelectedTargetsAsync(request.UserId, request.Provider, request.ProviderTargetIds);
+                return Ok(new GenericResponse<SocialAccountDto> { Success = true, Data = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new GenericResponse<SocialAccountDto> { Success = false, Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new GenericResponse<SocialAccountDto> { Success = false, Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error linking selected targets");
+                return StatusCode(500, new GenericResponse<SocialAccountDto> { Success = false, Message = "Internal server error" });
             }
         }
 

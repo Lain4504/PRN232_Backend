@@ -7,6 +7,7 @@ using AISAM.Common.Models;
 using CommonUserResponseDto = AISAM.Common.Models.UserResponseDto;
 using System.Security.Claims;
 using AISAM.API.Validators;
+using AISAM.API.DTO.Request;
 using FluentValidation;
 using FluentValidation.Results;
 
@@ -17,18 +18,14 @@ namespace AISAM.API.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly IJwtService _jwtService;
         private readonly ILogger<UserController> _logger;
         private readonly ISocialService _socialService;
-        private readonly IValidator<RegisterUserDto> _registerValidator;
 
-        public UserController(IUserService userService, IJwtService jwtService, ILogger<UserController> logger, ISocialService socialService, IValidator<RegisterUserDto> registerValidator)
+        public UserController(IUserService userService, ILogger<UserController> logger, ISocialService socialService)
         {
             _userService = userService;
-            _jwtService = jwtService;
             _logger = logger;
             _socialService = socialService;
-            _registerValidator = registerValidator;
         }
 
         [HttpGet("profile")]
@@ -53,7 +50,6 @@ namespace AISAM.API.Controllers
                 {
                     Id = user.Id,
                     Email = user.Email ?? "",
-                    Username = user.Username ?? "",
                     CreatedAt = user.CreatedAt,
                     SocialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
                     {
@@ -152,6 +148,41 @@ namespace AISAM.API.Controllers
                     Success = false,
                     Message = "Internal server error"
                 });
+            }
+        }
+
+        /// <summary>
+        /// Get paginated list of users
+        /// </summary>
+        [HttpGet]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<PagedResult<UserListDto>>>> GetUsers(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] bool sortDescending = false)
+        {
+            try
+            {
+                var request = new PaginationRequest
+                {
+                    Page = page,
+                    PageSize = pageSize,
+                    SearchTerm = searchTerm,
+                    SortBy = sortBy,
+                    SortDescending = sortDescending
+                };
+
+                var result = await _userService.GetPagedUsersAsync(request);
+                return Ok(GenericResponse<PagedResult<UserListDto>>.CreateSuccess(result, "Lấy danh sách người dùng thành công"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting paginated users");
+                return StatusCode(500, GenericResponse<PagedResult<UserListDto>>.CreateError(
+                    "Đã xảy ra lỗi khi lấy danh sách người dùng"
+                ));
             }
         }
     }

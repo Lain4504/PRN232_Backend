@@ -135,6 +135,15 @@ namespace AISAM.API.Controllers
             var response = GenericResponse<UserResponseDto>.CreateSuccess(responseDto, "User created successfully");
             return StatusCode(201, response);
         }
+        catch (InvalidOperationException ex) when (ex.Message == "Email already exists")
+        {
+            var error = GenericResponse<object>.CreateError(
+                "Email already exists", 
+                HttpStatusCode.Conflict, 
+                "EMAIL_ALREADY_EXISTS");
+            
+            return StatusCode(error.StatusCode, error);
+        }
         catch (Exception ex)
         {
             var error = GenericResponse<object>.CreateError(

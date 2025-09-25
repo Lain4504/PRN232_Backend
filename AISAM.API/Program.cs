@@ -164,14 +164,45 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.SuppressModelStateInvalidFilter = true;
 });
 
-// Add CORS policy
+// Add CORS policy (supports credentials and specific origins)
+var configuredOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+
+// Fallback to env var CORS_ALLOWED_ORIGINS (comma-separated) if config is empty
+if (configuredOrigins.Length == 0)
+{
+    var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+    if (!string.IsNullOrWhiteSpace(corsEnv))
+    {
+        configuredOrigins = corsEnv
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+}
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", 
-        corsBuilder => corsBuilder
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+    options.AddPolicy("CorsPolicy",
+        corsBuilder =>
+        {
+            if (configuredOrigins.Length > 0)
+            {
+                corsBuilder
+                    .WithOrigins(configuredOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            }
+            else
+            {
+                // Safe default for development if no origins configured
+                corsBuilder
+                    .WithOrigins("http://localhost:3000")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            }
+        });
 });
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -228,7 +259,7 @@ app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");
+app.UseCors("CorsPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -21,6 +21,13 @@ namespace AISAM.Services.IServices
         /// Get available targets (pages, profiles, channels) for the user
         /// </summary>
         Task<IEnumerable<SocialTargetDto>> GetTargetsAsync(string accessToken);
+
+        /// <summary>
+        /// Server-side only: For given provider target IDs (e.g., Facebook Page IDs),
+        /// return a mapping to target access tokens using the provided user access token.
+        /// Only used during linking to persist per-target tokens.
+        /// </summary>
+        Task<Dictionary<string, string>> GetTargetAccessTokensAsync(string userAccessToken, IEnumerable<string> providerTargetIds);
         
         /// <summary>
         /// [TEMP] Facebook-specific: Get page information from a Page Access Token.
@@ -66,5 +73,7 @@ namespace AISAM.Services.IServices
         public string? ProviderPostId { get; set; }
         public string? ErrorMessage { get; set; }
         public DateTime? PostedAt { get; set; }
+        // If provider had to refresh/fetch a page token to succeed, return it so callers can persist
+        public string? RefreshedTargetAccessToken { get; set; }
     }
 }
