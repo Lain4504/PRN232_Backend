@@ -80,7 +80,7 @@ namespace AISAM.Services.Service
                 throw new InvalidOperationException("This social account is already linked");
             }
 
-            // Create new social account
+            // Create new social account only (opt-in pages later)
             var socialAccount = new SocialAccount
             {
                 UserId = request.UserId,
@@ -92,24 +92,6 @@ namespace AISAM.Services.Service
             };
 
             await _socialAccountRepository.CreateAsync(socialAccount);
-
-            // Get and create targets
-            var targets = await providerService.GetTargetsAsync(accountData.AccessToken);
-            foreach (var targetDto in targets)
-            {
-                var target = new SocialTarget
-                {
-                    SocialAccountId = socialAccount.Id,
-                    ProviderTargetId = targetDto.ProviderTargetId,
-                    Name = targetDto.Name,
-                    Type = targetDto.Type,
-                    Category = targetDto.Category,
-                    ProfilePictureUrl = targetDto.ProfilePictureUrl,
-                    IsActive = targetDto.IsActive
-                };
-
-                await _socialTargetRepository.CreateAsync(target);
-            }
 
             return MapToDto(socialAccount);
         }
@@ -253,6 +235,69 @@ namespace AISAM.Services.Service
         {
             var targets = await _socialTargetRepository.GetBySocialAccountIdAsync(socialAccountId);
             return targets.Select(MapToDto);
+        }
+
+        public async Task<IEnumerable<SocialTargetDto>> ListAvailableTargetsAsync(Guid userId, string provider)
+        {
+            if (!_providers.TryGetValue(provider, out var providerService))
+            {
+                throw new ArgumentException($"Provider '{provider}' is not supported");
+            }
+
+            var account = await _socialAccountRepository.GetByUserIdAndProviderAsync(userId, provider);
+            if (account == null)
+            {
+                throw new InvalidOperationException($"No linked {provider} account for this user");
+            }
+
+            var available = await providerService.GetTargetsAsync(account.AccessToken);
+            return available;
+        }
+
+        public async Task<SocialAccountDto> LinkSelectedTargetsAsync(Guid userId, string provider, IEnumerable<string> providerTargetIds)
+        {
+            if (!_providers.TryGetValue(provider, out var providerService))
+            {
+                throw new ArgumentException($"Provider '{provider}' is not supported");
+            }
+
+            var account = await _socialAccountRepository.GetByUserIdAndProviderAsync(userId, provider);
+            if (account == null)
+            {
+                throw new InvalidOperationException($"No linked {provider} account for this user");
+            }
+
+            var available = (await providerService.GetTargetsAsync(account.AccessToken)).ToList();
+            var selectedSet = new HashSet<string>(providerTargetIds);
+            var selected = available.Where(t => selectedSet.Contains(t.ProviderTargetId));
+
+            // Do not fetch/store per-target tokens during linking; we'll lazy-fetch at publish time
+
+            foreach (var targetDto in selected)
+            {
+                var existingTarget = await _socialTargetRepository.GetByProviderTargetIdAsync(targetDto.ProviderTargetId);
+                if (existingTarget != null && existingTarget.SocialAccountId == account.Id)
+                {
+                    continue; // already linked
+                }
+
+                var target = new SocialTarget
+                {
+                    SocialAccountId = account.Id,
+                    ProviderTargetId = targetDto.ProviderTargetId,
+                    Name = targetDto.Name,
+                    Type = targetDto.Type,
+                    AccessToken = null,
+                    Category = targetDto.Category,
+                    ProfilePictureUrl = targetDto.ProfilePictureUrl,
+                    IsActive = true
+                };
+
+                await _socialTargetRepository.CreateAsync(target);
+            }
+
+            var reloaded = await _socialAccountRepository.GetByIdWithTargetsAsync(account.Id);
+            return MapToDto(reloaded);
         }
 
         

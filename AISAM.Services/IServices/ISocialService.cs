@@ -33,5 +33,15 @@ namespace AISAM.Services.IServices
         /// Get all targets for a social account
         /// </summary>
         Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(Guid socialAccountId);
+
+        /// <summary>
+        /// List available targets (e.g., Facebook pages) for an already linked account
+        /// </summary>
+        Task<IEnumerable<SocialTargetDto>> ListAvailableTargetsAsync(Guid userId, string provider);
+
+        /// <summary>
+        /// Link selected targets by their provider IDs to the user's linked account
+        /// </summary>
+        Task<SocialAccountDto> LinkSelectedTargetsAsync(Guid userId, string provider, IEnumerable<string> providerTargetIds);
     }
 }

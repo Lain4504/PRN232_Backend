@@ -136,37 +136,72 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<Dictionary<string, string>> GetTargetAccessTokensAsync(string userAccessToken, IEnumerable<string> providerTargetIds)
+        {
+            try
+            {
+                var pagesUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/me/accounts?fields=id,access_token&access_token={userAccessToken}";
+                var response = await _httpClient.GetAsync(pagesUrl);
+                response.EnsureSuccessStatusCode();
+
+                var json = await response.Content.ReadAsStringAsync();
+                var pagesData = JsonSerializer.Deserialize<FacebookPageResponse>(json);
+                var idSet = new HashSet<string>(providerTargetIds);
+                var result = new Dictionary<string, string>();
+
+                foreach (var page in pagesData?.Data ?? new List<FacebookPageData>())
+                {
+                    if (!string.IsNullOrEmpty(page.Id) && idSet.Contains(page.Id) && !string.IsNullOrEmpty(page.AccessToken))
+                    {
+                        result[page.Id] = page.AccessToken;
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting Facebook page access tokens");
+                throw;
+            }
+        }
+
         public async Task<PublishResultDto> PublishAsync(SocialAccount account, SocialTarget target, PostDto post)
         {
             try
             {
-                var pageAccessToken = target.AccessToken ?? account.AccessToken;
                 var publishUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{target.ProviderTargetId}/feed";
 
-                var postData = new Dictionary<string, string>
+                async Task<(bool ok, string body)> TryPublishAsync(string accessToken)
                 {
-                    ["message"] = post.Message,
-                    ["access_token"] = pageAccessToken
-                };
+                    var postData = new Dictionary<string, string>
+                    {
+                        ["message"] = post.Message,
+                        ["access_token"] = accessToken
+                    };
 
-                if (!string.IsNullOrEmpty(post.LinkUrl))
-                {
-                    postData["link"] = post.LinkUrl;
+                    if (!string.IsNullOrEmpty(post.LinkUrl))
+                    {
+                        postData["link"] = post.LinkUrl;
+                    }
+
+                    if (!string.IsNullOrEmpty(post.ImageUrl))
+                    {
+                        postData["picture"] = post.ImageUrl;
+                    }
+
+                    var formContent = new FormUrlEncodedContent(postData);
+                    var response = await _httpClient.PostAsync(publishUrl, formContent);
+                    var body = await response.Content.ReadAsStringAsync();
+                    return (response.IsSuccessStatusCode, body);
                 }
 
-                if (!string.IsNullOrEmpty(post.ImageUrl))
+                // 1) Try with existing target token or account token
+                var initialToken = target.AccessToken ?? account.AccessToken;
+                var (ok, body) = await TryPublishAsync(initialToken);
+                if (ok)
                 {
-                    postData["picture"] = post.ImageUrl;
-                }
-
-                var formContent = new FormUrlEncodedContent(postData);
-                var response = await _httpClient.PostAsync(publishUrl, formContent);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseJson = await response.Content.ReadAsStringAsync();
-                    var responseData = JsonSerializer.Deserialize<FacebookPostResponse>(responseJson);
-
+                    var responseData = JsonSerializer.Deserialize<FacebookPostResponse>(body);
                     return new PublishResultDto
                     {
                         Success = true,
@@ -174,17 +209,51 @@ namespace AISAM.Services.Service
                         PostedAt = DateTime.UtcNow
                     };
                 }
-                else
-                {
-                    var errorJson = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Facebook API error: {Error}", errorJson);
 
+                // 2) If failed, detect token/permission error and lazy-fetch fresh page token, then retry once
+                var needsPageToken = false;
+                try
+                {
+                    var errorWrapper = JsonSerializer.Deserialize<FacebookErrorResponse>(body);
+                    var code = errorWrapper?.Error?.Code;
+                    var message = errorWrapper?.Error?.Message ?? string.Empty;
+                    // code 190 = invalid token, code 200 = permissions; message hints posting to page requires page token and proper scopes
+                    needsPageToken = code == 190 || code == 200 ||
+                                     message.Contains("requires page token", StringComparison.OrdinalIgnoreCase) ||
+                                     message.Contains("pages_manage_posts", StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    // ignore parse errors
+                }
+
+                if (!needsPageToken)
+                {
+                    _logger.LogError("Facebook API error: {Error}", body);
                     return new PublishResultDto
                     {
                         Success = false,
-                        ErrorMessage = $"Facebook API error: {response.StatusCode} - {errorJson}"
+                        ErrorMessage = $"Facebook API error: {body}"
                     };
                 }
+
+                // Fetch fresh page token from /me/accounts
+                var tokenMap = await GetTargetAccessTokensAsync(account.AccessToken, new[] { target.ProviderTargetId });
+                if (!tokenMap.TryGetValue(target.ProviderTargetId, out var freshPageToken))
+                {
+                    _logger.LogError("Could not refresh page access token for page {PageId}", target.ProviderTargetId);
+                    return new PublishResultDto { Success = false, ErrorMessage = "Unable to refresh page access token" };
+                }
+
+                var (ok2, body2) = await TryPublishAsync(freshPageToken);
+                if (!ok2)
+                {
+                    _logger.LogError("Facebook API error after refresh: {Error}", body2);
+                    return new PublishResultDto { Success = false, ErrorMessage = $"Facebook API error: {body2}" };
+                }
+
+                var responseData2 = JsonSerializer.Deserialize<FacebookPostResponse>(body2);
+                return new PublishResultDto { Success = true, ProviderPostId = responseData2?.Id, PostedAt = DateTime.UtcNow };
             }
             catch (Exception ex)
             {
