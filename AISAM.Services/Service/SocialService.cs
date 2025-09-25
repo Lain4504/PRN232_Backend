@@ -3,6 +3,7 @@ using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AISAM.Services.Service
 {
@@ -13,19 +14,22 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
+        private readonly FacebookSettings _facebookSettings;
 
         public SocialService(
             ISocialAccountRepository socialAccountRepository,
             ISocialTargetRepository socialTargetRepository,
             IUserRepository userRepository,
             ILogger<SocialService> logger,
-            IEnumerable<IProviderService> providers)
+            IEnumerable<IProviderService> providers,
+            IOptions<FacebookSettings> facebookSettings)
         {
             _socialAccountRepository = socialAccountRepository;
             _socialTargetRepository = socialTargetRepository;
             _userRepository = userRepository;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
+            _facebookSettings = facebookSettings.Value;
         }
 
         public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null)
@@ -76,7 +80,7 @@ namespace AISAM.Services.Service
                 UserId = request.UserId,
                 Provider = request.Provider,
                 ProviderUserId = accountData.ProviderUserId,
-                AccessToken = "encrypted_" + Guid.NewGuid().ToString(), // TODO: Implement proper encryption
+                AccessToken = accountData.AccessToken,
                 ExpiresAt = accountData.ExpiresAt,
                 IsActive = true
             };
@@ -84,7 +88,7 @@ namespace AISAM.Services.Service
             await _socialAccountRepository.CreateAsync(socialAccount);
 
             // Get and create targets
-            var targets = await providerService.GetTargetsAsync(socialAccount.AccessToken);
+            var targets = await providerService.GetTargetsAsync(accountData.AccessToken);
             foreach (var targetDto in targets)
             {
                 var target = new SocialTarget
@@ -212,14 +216,25 @@ namespace AISAM.Services.Service
 
         public async Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId)
         {
-            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
-            if (account == null || account.UserId != userId)
+            try
             {
-                return false;
-            }
+                var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
+                if (account == null || account.UserId != userId)
+                {
+                    return false;
+                }
 
-            await _socialAccountRepository.DeleteAsync(socialAccountId);
-            return true;
+                await _socialAccountRepository.DeleteAsync(socialAccountId);
+                _logger.LogInformation("Successfully unlinked social account {SocialAccountId} for user {UserId}", 
+                    socialAccountId, userId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unlinking social account {SocialAccountId} for user {UserId}", 
+                    socialAccountId, userId);
+                throw;
+            }
         }
 
         public async Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(Guid userId)
@@ -238,7 +253,14 @@ namespace AISAM.Services.Service
 
         private string GetRedirectUri(string provider)
         {
-            // TODO: Make this configurable
+            // Use configured redirect URI from settings
+            if (provider == "facebook")
+            {
+                // For Facebook, use the configured redirect URI from FacebookSettings
+                return _facebookSettings.RedirectUri;
+            }
+            
+            // For other providers, use the default pattern
             return $"http://localhost:5000/auth/{provider}/callback";
         }
 

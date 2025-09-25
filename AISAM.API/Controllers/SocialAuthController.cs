@@ -71,18 +71,14 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                // For demo purposes, if no userId provided, create a demo user
+                // Require userId; do not auto-create users when missing
                 if (!userId.HasValue)
                 {
-                    var demoUser = new AISAM.Data.Model.User
+                    return BadRequest(new GenericResponse<object>
                     {
-                        Id = Guid.NewGuid(),
-                        Email = $"demo_{Guid.NewGuid().ToString("N")[..8]}@example.com",
-                        IsActive = true,
-                        Role = "user"
-                    };
-                    var createdUser = await _userService.CreateUserAsync(demoUser);
-                    userId = createdUser.Id;
+                        Success = false,
+                        Message = "userId is required"
+                    });
                 }
 
                 var linkRequest = new LinkSocialAccountRequest

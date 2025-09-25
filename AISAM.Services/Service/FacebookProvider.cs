@@ -4,6 +4,7 @@ using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
+using System.Linq;
 
 namespace AISAM.Services.Service
 {
@@ -24,8 +25,8 @@ namespace AISAM.Services.Service
 
         public Task<string> GetAuthUrlAsync(string state, string redirectUri)
         {
-            var permissions = string.Join(",", _settings.RequiredPermissions);
-            var authUrl = $"{_settings.OAuthUrl}?" +
+            var permissions = string.Join(",", _settings.RequiredPermissions?.Distinct() ?? Enumerable.Empty<string>());
+            var authUrl = $"{_settings.OAuthUrl}/v20.0/dialog/oauth?" +
                          $"client_id={_settings.AppId}" +
                          $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                          $"&scope={Uri.EscapeDataString(permissions)}" +
@@ -40,21 +41,33 @@ namespace AISAM.Services.Service
             try
             {
                 // Exchange code for access token
-                var tokenUrl = $"{_settings.BaseUrl}/oauth/access_token?" +
+                var tokenUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/oauth/access_token?" +
                               $"client_id={_settings.AppId}" +
                               $"&client_secret={_settings.AppSecret}" +
                               $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                              $"&code={code}";
+                              $"&code={Uri.EscapeDataString(code)}";
+
+                _logger.LogInformation("Exchanging code for token with URL: {TokenUrl}", tokenUrl.Replace(_settings.AppSecret, "***SECRET***"));
 
                 var tokenResponse = await _httpClient.GetAsync(tokenUrl);
-                tokenResponse.EnsureSuccessStatusCode();
+                
+                if (!tokenResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await tokenResponse.Content.ReadAsStringAsync();
+                    _logger.LogError("Facebook token exchange failed with status {StatusCode}: {ErrorContent}", 
+                        tokenResponse.StatusCode, errorContent);
+                    throw new HttpRequestException($"Facebook token exchange failed: {tokenResponse.StatusCode} - {errorContent}");
+                }
 
                 var tokenJson = await tokenResponse.Content.ReadAsStringAsync();
+                _logger.LogInformation("Facebook token response: {TokenResponse}", tokenJson);
+                
                 var tokenData = JsonSerializer.Deserialize<FacebookTokenResponse>(tokenJson);
 
                 if (tokenData?.AccessToken == null)
                 {
-                    throw new InvalidOperationException("Failed to obtain access token from Facebook");
+                    _logger.LogError("Failed to parse access token from response: {TokenJson}", tokenJson);
+                    throw new InvalidOperationException($"Failed to obtain access token from Facebook. Response: {tokenJson}");
                 }
 
                 // Get user info
@@ -74,6 +87,7 @@ namespace AISAM.Services.Service
                 {
                     Provider = ProviderName,
                     ProviderUserId = userData.Id,
+                    AccessToken = tokenData.AccessToken,
                     IsActive = true,
                     ExpiresAt = tokenData.ExpiresIn.HasValue ? DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn.Value) : null,
                     CreatedAt = DateTime.UtcNow,

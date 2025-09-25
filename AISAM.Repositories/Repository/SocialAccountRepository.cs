@@ -81,9 +81,33 @@ namespace AISAM.Repositories.Repository
 
         public async Task DeleteAsync(Guid id)
         {
-            var account = await _context.SocialAccounts.FindAsync(id);
+            var account = await _context.SocialAccounts
+                .Include(sa => sa.SocialTargets)
+                .FirstOrDefaultAsync(sa => sa.Id == id);
+                
             if (account != null)
             {
+                // First, delete all posts associated with the social targets
+                var targetIds = account.SocialTargets.Select(st => st.Id).ToList();
+                if (targetIds.Any())
+                {
+                    var postsToDelete = await _context.Posts
+                        .Where(sp => sp.SocialTargetId.HasValue && targetIds.Contains(sp.SocialTargetId.Value))
+                        .ToListAsync();
+                    
+                    if (postsToDelete.Any())
+                    {
+                        _context.Posts.RemoveRange(postsToDelete);
+                    }
+                }
+                
+                // Then delete the social targets
+                if (account.SocialTargets.Any())
+                {
+                    _context.SocialTargets.RemoveRange(account.SocialTargets);
+                }
+                
+                // Finally delete the social account
                 _context.SocialAccounts.Remove(account);
                 await _context.SaveChangesAsync();
             }
