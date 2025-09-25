@@ -73,5 +73,7 @@ namespace AISAM.Services.IServices
         public string? ProviderPostId { get; set; }
         public string? ErrorMessage { get; set; }
         public DateTime? PostedAt { get; set; }
+        // If provider had to refresh/fetch a page token to succeed, return it so callers can persist
+        public string? RefreshedTargetAccessToken { get; set; }
     }
 }

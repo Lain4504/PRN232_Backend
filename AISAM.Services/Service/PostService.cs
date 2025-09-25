@@ -68,6 +68,13 @@ namespace AISAM.Services.Service
                     post.ProviderPostId = publishResult.ProviderPostId;
                     post.PostedAt = publishResult.PostedAt;
                     post.Status = PostStatus.Posted;
+
+                    // Persist refreshed target token if provider supplied one
+                    if (!string.IsNullOrEmpty(publishResult.RefreshedTargetAccessToken))
+                    {
+                        socialTarget.AccessToken = publishResult.RefreshedTargetAccessToken;
+                        await _socialTargetRepository.UpdateAsync(socialTarget);
+                    }
                 }
                 else
                 {

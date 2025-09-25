@@ -253,7 +253,7 @@ namespace AISAM.Services.Service
                 }
 
                 var responseData2 = JsonSerializer.Deserialize<FacebookPostResponse>(body2);
-                return new PublishResultDto { Success = true, ProviderPostId = responseData2?.Id, PostedAt = DateTime.UtcNow };
+                return new PublishResultDto { Success = true, ProviderPostId = responseData2?.Id, PostedAt = DateTime.UtcNow, RefreshedTargetAccessToken = freshPageToken };
             }
             catch (Exception ex)
             {
