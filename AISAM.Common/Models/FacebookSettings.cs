@@ -5,7 +5,7 @@ namespace AISAM.Common.Models
         public string AppId { get; set; } = string.Empty;
         public string AppSecret { get; set; } = string.Empty;
         public string RedirectUri { get; set; } = string.Empty;
-        public string GraphApiVersion { get; set; } = "v20.0";
+        public string GraphApiVersion { get; set; } = "v23.0";
         public string BaseUrl { get; set; } = "https://graph.facebook.com";
         public string OAuthUrl { get; set; } = "https://www.facebook.com";
         public List<string> RequiredPermissions { get; set; } = new()

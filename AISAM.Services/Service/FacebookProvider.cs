@@ -26,7 +26,7 @@ namespace AISAM.Services.Service
         public Task<string> GetAuthUrlAsync(string state, string redirectUri)
         {
             var permissions = string.Join(",", _settings.RequiredPermissions?.Distinct() ?? Enumerable.Empty<string>());
-            var authUrl = $"{_settings.OAuthUrl}/v20.0/dialog/oauth?" +
+            var authUrl = $"{_settings.OAuthUrl}/{_settings.GraphApiVersion}/dialog/oauth?" +
                          $"client_id={_settings.AppId}" +
                          $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                          $"&scope={Uri.EscapeDataString(permissions)}" +
