@@ -27,6 +27,13 @@ namespace AISAM.Services.Service
 
         public async Task<User> CreateUserAsync(User user, CancellationToken cancellationToken = default)
         {
+            // Check if email already exists
+            var existingUser = await _userRepository.GetByEmailAsync(user.Email, cancellationToken);
+            if (existingUser != null)
+            {
+                throw new InvalidOperationException("Email already exists");
+            }
+
             // Hash password before saving
             if (!string.IsNullOrEmpty(user.PasswordHash))
             {
@@ -36,12 +43,11 @@ namespace AISAM.Services.Service
             return await _userRepository.CreateAsync(user, cancellationToken);
         }
 
-        public async Task<User> CreateUserAsync(string email, string username, CancellationToken cancellationToken = default)
+        public async Task<User> CreateUserAsync(string email, CancellationToken cancellationToken = default)
         {
             var user = new User
             {
                 Email = email,
-                Username = username,
                 IsActive = true
             };
 

@@ -53,7 +53,6 @@ namespace AISAM.API.Controllers
                 {
                     Id = user.Id,
                     Email = user.Email ?? "",
-                    Username = user.Username ?? "",
                     CreatedAt = user.CreatedAt,
                     SocialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
                     {

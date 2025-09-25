@@ -74,11 +74,15 @@ namespace AISAM.API.Controllers
                 // For demo purposes, if no userId provided, create a demo user
                 if (!userId.HasValue)
                 {
-                    var demoUser = await _userService.CreateUserAsync(
-                        $"demo_{Guid.NewGuid().ToString("N")[..8]}@example.com",
-                        $"user_{Guid.NewGuid().ToString("N")[..8]}"
-                    );
-                    userId = demoUser.Id;
+                    var demoUser = new AISAM.Data.Model.User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = $"demo_{Guid.NewGuid().ToString("N")[..8]}@example.com",
+                        IsActive = true,
+                        Role = "user"
+                    };
+                    var createdUser = await _userService.CreateUserAsync(demoUser);
+                    userId = createdUser.Id;
                 }
 
                 var linkRequest = new LinkSocialAccountRequest

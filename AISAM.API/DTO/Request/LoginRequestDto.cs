@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace BookStore.API.DTO.Request
+namespace AISAM.API.DTO.Request
 {
     public class LoginRequestDto
     {

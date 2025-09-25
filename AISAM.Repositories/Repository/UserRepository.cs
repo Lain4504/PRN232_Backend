@@ -20,6 +20,13 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         }
 
+        public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+        {
+            return await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+        }
+
         public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
         {
             _context.Users.Add(user);
