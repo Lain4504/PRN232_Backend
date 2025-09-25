@@ -2,6 +2,9 @@ using AISAM.Common;
 using AISAM.Common.Models;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Security.Claims;
 
 namespace AISAM.API.Controllers
 {
@@ -27,13 +30,22 @@ namespace AISAM.API.Controllers
         /// Get OAuth authorization URL for a provider
         /// </summary>
         [HttpGet("{provider}")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<GenericResponse<AuthUrlResponse>>> GetAuthUrl(
             string provider,
             [FromQuery] string? state = null)
         {
             try
             {
-                var result = await _socialService.GetAuthUrlAsync(provider, state);
+                Guid? userId = null;
+                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                              ?? User.FindFirst("sub")?.Value;
+                if (Guid.TryParse(nameId, out var parsed))
+                {
+                    userId = parsed;
+                }
+
+                var result = await _socialService.GetAuthUrlAsync(provider, state, userId);
                 return Ok(new GenericResponse<AuthUrlResponse>
                 {
                     Success = true,

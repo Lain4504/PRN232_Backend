@@ -32,7 +32,7 @@ namespace AISAM.Services.Service
             _facebookSettings = facebookSettings.Value;
         }
 
-        public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null)
+        public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? userId = null)
         {
             if (!_providers.TryGetValue(provider, out var providerService))
             {
@@ -40,6 +40,10 @@ namespace AISAM.Services.Service
             }
 
             var redirectUri = GetRedirectUri(provider);
+            if (userId.HasValue)
+            {
+                redirectUri = AppendUserIdQuery(redirectUri, userId.Value);
+            }
             var actualState = state ?? Guid.NewGuid().ToString();
             var authUrl = await providerService.GetAuthUrlAsync(actualState, redirectUri);
 
@@ -65,6 +69,8 @@ namespace AISAM.Services.Service
             }
 
             var redirectUri = GetRedirectUri(request.Provider);
+            // Must be IDENTICAL to the redirect_uri used in the OAuth dialog (including userId param)
+            redirectUri = AppendUserIdQuery(redirectUri, request.UserId);
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
             // Check if account already exists
@@ -262,6 +268,13 @@ namespace AISAM.Services.Service
             
             // For other providers, use the default pattern
             return $"http://localhost:5000/auth/{provider}/callback";
+        }
+
+        private string AppendUserIdQuery(string uri, Guid userId)
+        {
+            if (string.IsNullOrWhiteSpace(uri)) return uri;
+            var separator = uri.Contains("?") ? "&" : "?";
+            return $"{uri}{separator}userId={Uri.EscapeDataString(userId.ToString())}";
         }
 
         private SocialAccountDto MapToDto(SocialAccount account)

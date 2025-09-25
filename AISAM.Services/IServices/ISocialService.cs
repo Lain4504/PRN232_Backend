@@ -5,9 +5,9 @@ namespace AISAM.Services.IServices
     public interface ISocialService
     {
         /// <summary>
-        /// Get authorization URL for a provider
+        /// Get authorization URL for a provider. Optionally include userId in callback URL.
         /// </summary>
-        Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null);
+        Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? userId = null);
         
         /// <summary>
         /// Link a social account to a user
