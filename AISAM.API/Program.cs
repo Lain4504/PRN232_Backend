@@ -6,10 +6,7 @@ using AISAM.Repositories.Repository;
 using AISAM.Services.IServices;
 using AISAM.Services.Service;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 using AISAM.API.Filters;
 using DotNetEnv;
 using FluentValidation;
@@ -18,6 +15,7 @@ using AISAM.API.Validators;
 using Microsoft.AspNetCore.Mvc;
 using AutoMapper;
 using AISAM.API.Profiles;
+using Supabase;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -111,7 +109,29 @@ builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
 
-// Add Entity Framework
+// Register Supabase client singleton for future auth/storage usage
+var supabaseUrl = builder.Configuration["Supabase:Url"]
+                  ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
+var supabaseKey = builder.Configuration["Supabase:AnonKey"]
+                  ?? builder.Configuration["Supabase:ServiceKey"]
+                  ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY")
+                  ?? Environment.GetEnvironmentVariable("SUPABASE_KEY");
+if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
+{
+    builder.Services.AddSingleton(provider =>
+    {
+        var opts = new Supabase.SupabaseOptions
+        {
+            AutoConnectRealtime = true
+        };
+        var client = new Client(supabaseUrl, supabaseKey, opts);
+        client.InitializeAsync().GetAwaiter().GetResult();
+        return client;
+    });
+}
+
+// Add Entity Framework - Supabase Postgres via Npgsql
+// Expect connection string from env or appsettings ConnectionStrings:DefaultConnection (Supabase URI)
 builder.Services.AddDbContext<AISAMContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -124,39 +144,19 @@ builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
 builder.Services.AddScoped<ISocialTargetRepository, SocialTargetRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 
-// Add services
+// Add services (auth services removed; Supabase auth will be integrated later)
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
 // Background services removed for now
 
-// Add JWT Authentication (uses Jwt:*)
-var secretKey = builder.Configuration["Jwt:SecretKey"] ?? "BookStore_Social_Media_Secret_Key_2025_Very_Long_Secret";
-var key = Encoding.UTF8.GetBytes(secretKey);
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "AISAM.API",
-            ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "AISAM.Client",
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
-    });
-
-builder.Services.AddAuthorization();
+// Remove JWT auth for now; Supabase auth to be integrated later
+// builder.Services.AddAuthentication(...)
+// builder.Services.AddAuthorization();
 
 // Disable automatic 400 for model validation to allow custom GenericResponse
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -261,8 +261,9 @@ app.UseHttpsRedirection();
 
 app.UseCors("CorsPolicy");
 
-app.UseAuthentication();
-app.UseAuthorization();
+// Auth temporarily disabled pending Supabase integration
+// app.UseAuthentication();
+// app.UseAuthorization();
 
 app.MapControllers();
 

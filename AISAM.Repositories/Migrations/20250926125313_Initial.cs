@@ -12,20 +12,21 @@ namespace AISAM.Repositories.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "BlacklistedTokens",
+                name: "AdVariants",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Token = table.Column<string>(type: "text", nullable: false),
-                    BlacklistedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Reason = table.Column<string>(type: "text", nullable: true),
-                    UserId = table.Column<string>(type: "text", nullable: true),
-                    Jti = table.Column<string>(type: "text", nullable: true)
+                    CreativeId = table.Column<Guid>(type: "uuid", nullable: true),
+                    VariantKey = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    Assets = table.Column<string>(type: "text", nullable: true),
+                    Copy = table.Column<string>(type: "text", nullable: true),
+                    CallToAction = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    TargetSpec = table.Column<string>(type: "text", nullable: true),
+                    Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_BlacklistedTokens", x => x.Id);
+                    table.PrimaryKey("PK_AdVariants", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -65,14 +66,14 @@ namespace AISAM.Repositories.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Email = table.Column<string>(type: "text", nullable: true),
-                    Username = table.Column<string>(type: "text", nullable: true),
-                    PasswordHash = table.Column<string>(type: "text", nullable: true),
+                    Email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    DisplayName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    AvatarUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    isBanned = table.Column<bool>(type: "boolean", nullable: false),
+                    IsBanned = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    LastLoginAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastSignInAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     MfaEnabled = table.Column<bool>(type: "boolean", nullable: false),
                     Role = table.Column<string>(type: "text", nullable: false)
                 },
@@ -156,28 +157,37 @@ namespace AISAM.Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "RefreshTokens",
+                name: "Assets",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Token = table.Column<string>(type: "text", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    RevokedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    RevokedByIp = table.Column<string>(type: "text", nullable: true),
-                    ReplacedByToken = table.Column<string>(type: "text", nullable: true),
-                    ReasonRevoked = table.Column<string>(type: "text", nullable: true)
+                    OrganizationId = table.Column<Guid>(type: "uuid", nullable: true),
+                    UploadedBy = table.Column<Guid>(type: "uuid", nullable: true),
+                    Type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    StoragePath = table.Column<string>(type: "text", nullable: false),
+                    MimeType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    SizeBytes = table.Column<long>(type: "bigint", nullable: true),
+                    Width = table.Column<int>(type: "integer", nullable: true),
+                    Height = table.Column<int>(type: "integer", nullable: true),
+                    DurationSeconds = table.Column<decimal>(type: "numeric", nullable: true),
+                    Metadata = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.PrimaryKey("PK_Assets", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_RefreshTokens_Users_UserId",
-                        column: x => x.UserId,
+                        name: "FK_Assets_Organizations_OrganizationId",
+                        column: x => x.OrganizationId,
+                        principalTable: "Organizations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Assets_Users_UploadedBy",
+                        column: x => x.UploadedBy,
                         principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -316,6 +326,16 @@ namespace AISAM.Repositories.Migrations
                 column: "AdminUserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Assets_OrganizationId",
+                table: "Assets",
+                column: "OrganizationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Assets_UploadedBy",
+                table: "Assets",
+                column: "UploadedBy");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Brands_OrganizationId",
                 table: "Brands",
                 column: "OrganizationId");
@@ -351,11 +371,6 @@ namespace AISAM.Repositories.Migrations
                 column: "BrandId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_RefreshTokens_UserId",
-                table: "RefreshTokens",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_SocialAccounts_UserId",
                 table: "SocialAccounts",
                 column: "UserId");
@@ -364,6 +379,11 @@ namespace AISAM.Repositories.Migrations
                 name: "IX_SocialTargets_SocialAccountId",
                 table: "SocialTargets",
                 column: "SocialAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email");
         }
 
         /// <inheritdoc />
@@ -373,7 +393,10 @@ namespace AISAM.Repositories.Migrations
                 name: "AdminAuditLogs");
 
             migrationBuilder.DropTable(
-                name: "BlacklistedTokens");
+                name: "AdVariants");
+
+            migrationBuilder.DropTable(
+                name: "Assets");
 
             migrationBuilder.DropTable(
                 name: "OrganizationMembers");
@@ -383,9 +406,6 @@ namespace AISAM.Repositories.Migrations
 
             migrationBuilder.DropTable(
                 name: "Products");
-
-            migrationBuilder.DropTable(
-                name: "RefreshTokens");
 
             migrationBuilder.DropTable(
                 name: "Schedules");

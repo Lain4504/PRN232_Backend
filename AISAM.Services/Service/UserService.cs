@@ -8,12 +8,10 @@ namespace AISAM.Services.Service
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
-        private readonly IAuthService _authService;
 
-        public UserService(IUserRepository userRepository, IAuthService authService)
+        public UserService(IUserRepository userRepository)
         {
             _userRepository = userRepository;
-            _authService = authService;
         }
 
         public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -35,11 +33,7 @@ namespace AISAM.Services.Service
                 throw new InvalidOperationException("Email already exists");
             }
 
-            // Hash password before saving
-            if (!string.IsNullOrEmpty(user.PasswordHash))
-            {
-                user.PasswordHash = await _authService.HashPasswordAsync(user.PasswordHash);
-            }
+            // Credentials are managed by Supabase Auth; no password hashing here
             
             return await _userRepository.CreateAsync(user, cancellationToken);
         }
@@ -49,7 +43,6 @@ namespace AISAM.Services.Service
             var user = new User
             {
                 Email = email,
-                IsActive = true
             };
 
             return await _userRepository.CreateAsync(user, cancellationToken);

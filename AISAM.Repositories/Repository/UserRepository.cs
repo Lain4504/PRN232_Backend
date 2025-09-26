@@ -65,7 +65,6 @@ namespace AISAM.Repositories.Repository
                     Id = u.Id,
                     Email = u.Email ?? "",
                     CreatedAt = u.CreatedAt,
-                    IsActive = u.IsActive,
                     SocialAccountsCount = u.SocialAccounts!.Count
                 })
                 .ToListAsync(cancellationToken);

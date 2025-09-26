@@ -29,7 +29,6 @@ namespace AISAM.API.Controllers
         }
 
         [HttpGet("profile")]
-        [Authorize]
         public async Task<ActionResult<GenericResponse<CommonUserResponseDto>>> GetProfile()
         {
             try
@@ -155,7 +154,6 @@ namespace AISAM.API.Controllers
         /// Get paginated list of users
         /// </summary>
         [HttpGet]
-        [Authorize]
         public async Task<ActionResult<GenericResponse<PagedResult<UserListDto>>>> GetUsers(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,

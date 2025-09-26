@@ -144,36 +144,6 @@ namespace AISAM.Repositories.Migrations
                     b.ToTable("Assets");
                 });
 
-            modelBuilder.Entity("AISAM.Data.Model.BlacklistedToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("BlacklistedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Jti")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Reason")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("BlacklistedTokens");
-                });
-
             modelBuilder.Entity("AISAM.Data.Model.Brand", b =>
                 {
                     b.Property<Guid>("Id")
@@ -312,44 +282,6 @@ namespace AISAM.Repositories.Migrations
                     b.HasIndex("BrandId");
 
                     b.ToTable("Products");
-                });
-
-            modelBuilder.Entity("AISAM.Data.Model.RefreshToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ReasonRevoked")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ReplacedByToken")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RevokedByIp")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Schedule", b =>
@@ -566,31 +498,21 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("MfaEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("text");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("isBanned")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("user");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("Role");
 
                     b.ToTable("Users");
                 });
@@ -652,17 +574,6 @@ namespace AISAM.Repositories.Migrations
                         .IsRequired();
 
                     b.Navigation("Brand");
-                });
-
-            modelBuilder.Entity("AISAM.Data.Model.RefreshToken", b =>
-                {
-                    b.HasOne("AISAM.Data.Model.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.SocialAccount", b =>

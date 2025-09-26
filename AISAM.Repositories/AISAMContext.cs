@@ -19,14 +19,23 @@ namespace AISAM.Repositories
         public DbSet<Product> Products { get; set; }
         public DbSet<Schedule> Schedules { get; set; }
         public DbSet<AdminAuditLog> AdminAuditLogs { get; set; }
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
-        public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
+        // Removed legacy JWT-related entities; Supabase Auth will manage tokens
 		public DbSet<Asset> Assets { get; set; }
 		public DbSet<AdVariant> AdVariants { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // User entity indexes and constraints (Supabase-auth anchored)
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.HasKey(u => u.Id);
+                entity.Property(u => u.Email).HasMaxLength(255);
+                entity.HasIndex(u => u.Email);
+                entity.Property(u => u.Role).HasMaxLength(50).HasDefaultValue("user");
+                entity.HasIndex(u => u.Role);
+            });
 
             // Configure OrganizationMember composite primary key
             modelBuilder.Entity<OrganizationMember>()

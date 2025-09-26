@@ -3,7 +3,6 @@ using AISAM.Common.Models;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
 
 namespace AISAM.API.Controllers
@@ -30,7 +29,6 @@ namespace AISAM.API.Controllers
         /// Get OAuth authorization URL for a provider
         /// </summary>
         [HttpGet("{provider}")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<GenericResponse<AuthUrlResponse>>> GetAuthUrl(
             string provider,
             [FromQuery] string? state = null)
@@ -146,7 +144,6 @@ namespace AISAM.API.Controllers
         /// List available targets (e.g., Facebook pages) for the linked account of current user
         /// </summary>
         [HttpGet("{provider}/available-targets")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<GenericResponse<AvailableTargetsResponse>>> ListAvailableTargets(string provider)
         {
             try
@@ -184,7 +181,6 @@ namespace AISAM.API.Controllers
         /// Link selected targets to the user's linked social account
         /// </summary>
         [HttpPost("link-selected")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkSelectedTargets([FromBody] LinkSelectedTargetsRequest request)
         {
             try
