@@ -21,6 +21,8 @@ namespace AISAM.Repositories
         public DbSet<AdminAuditLog> AdminAuditLogs { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
+		public DbSet<Asset> Assets { get; set; }
+		public DbSet<AdVariant> AdVariants { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,6 +38,19 @@ namespace AISAM.Repositories
                 .WithMany()
                 .HasForeignKey(om => om.OrgId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+			// Asset foreign keys with ON DELETE SET NULL behavior
+			modelBuilder.Entity<Asset>()
+				.HasOne(a => a.Organization)
+				.WithMany()
+				.HasForeignKey(a => a.OrganizationId)
+				.OnDelete(DeleteBehavior.SetNull);
+
+			modelBuilder.Entity<Asset>()
+				.HasOne(a => a.User)
+				.WithMany()
+				.HasForeignKey(a => a.UploadedBy)
+				.OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

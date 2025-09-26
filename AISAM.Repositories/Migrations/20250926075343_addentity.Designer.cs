@@ -3,6 +3,7 @@ using System;
 using AISAM.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AISAM.Repositories.Migrations
 {
     [DbContext(typeof(AISAMContext))]
-    partial class AISAMContextModelSnapshot : ModelSnapshot
+    [Migration("20250926075343_addentity")]
+    partial class addentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,42 +24,6 @@ namespace AISAM.Repositories.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("AISAM.Data.Model.AdVariant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Assets")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CallToAction")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Copy")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("CreativeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("TargetSpec")
-                        .HasColumnType("text");
-
-                    b.Property<string>("VariantKey")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("AdVariants");
-                });
 
             modelBuilder.Entity("AISAM.Data.Model.AdminAuditLog", b =>
                 {
@@ -90,58 +57,6 @@ namespace AISAM.Repositories.Migrations
                     b.HasIndex("AdminUserId");
 
                     b.ToTable("AdminAuditLogs");
-                });
-
-            modelBuilder.Entity("AISAM.Data.Model.Asset", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("DurationSeconds")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("Height")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Metadata")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MimeType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid?>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long?>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("StoragePath")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid?>("UploadedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("Width")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.HasIndex("UploadedBy");
-
-                    b.ToTable("Assets");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.BlacklistedToken", b =>
@@ -602,23 +517,6 @@ namespace AISAM.Repositories.Migrations
                         .HasForeignKey("AdminUserId");
 
                     b.Navigation("AdminUser");
-                });
-
-            modelBuilder.Entity("AISAM.Data.Model.Asset", b =>
-                {
-                    b.HasOne("AISAM.Data.Model.Organization", "Organization")
-                        .WithMany()
-                        .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("AISAM.Data.Model.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UploadedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Organization");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Brand", b =>
