@@ -135,13 +135,13 @@ builder.Services.AddHttpClient();
 // Add repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
-builder.Services.AddScoped<ISocialTargetRepository, SocialTargetRepository>();
-builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<ISocialIntegrationRepository, SocialIntegrationRepository>();
+builder.Services.AddScoped<IContentRepository, ContentRepository>();
 
-// Add services (auth services removed; Supabase auth will be integrated later)
+// Add services 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
-builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IContentService, ContentService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();

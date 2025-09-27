@@ -1,10 +1,11 @@
 using AISAM.Common.Models;
-using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Linq;
+using AISAM.Data.Model;
 
 namespace AISAM.Services.Service
 {
@@ -14,7 +15,7 @@ namespace AISAM.Services.Service
         private readonly FacebookSettings _settings;
         private readonly ILogger<FacebookProvider> _logger;
 
-        public string ProviderName => "facebook";
+        public string ProviderName => SocialPlatformEnum.Facebook.ToString().ToLower();
 
         public FacebookProvider(HttpClient httpClient, IOptions<FacebookSettings> settings, ILogger<FacebookProvider> logger)
         {
@@ -166,11 +167,11 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<PublishResultDto> PublishAsync(SocialAccount account, SocialTarget target, PostDto post)
+        public async Task<PublishResultDto> PublishAsync(SocialAccount account, SocialIntegration integration, PostDto post)
         {
             try
             {
-                var publishUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{target.ProviderTargetId}/feed";
+                var publishUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{integration.ExternalId}/feed";
 
                 async Task<(bool ok, string body)> TryPublishAsync(string accessToken)
                 {
@@ -196,8 +197,8 @@ namespace AISAM.Services.Service
                     return (response.IsSuccessStatusCode, body);
                 }
 
-                // 1) Try with existing target token or account token
-                var initialToken = target.AccessToken ?? account.AccessToken;
+                // 1) Try with existing integration token or account token
+                var initialToken = integration.AccessToken ?? account.UserAccessToken;
                 var (ok, body) = await TryPublishAsync(initialToken);
                 if (ok)
                 {
@@ -238,10 +239,10 @@ namespace AISAM.Services.Service
                 }
 
                 // Fetch fresh page token from /me/accounts
-                var tokenMap = await GetTargetAccessTokensAsync(account.AccessToken, new[] { target.ProviderTargetId });
-                if (!tokenMap.TryGetValue(target.ProviderTargetId, out var freshPageToken))
+                var tokenMap = await GetTargetAccessTokensAsync(account.UserAccessToken, new[] { integration.ExternalId ?? "" });
+                if (!tokenMap.TryGetValue(integration.ExternalId ?? "", out var freshPageToken))
                 {
-                    _logger.LogError("Could not refresh page access token for page {PageId}", target.ProviderTargetId);
+                    _logger.LogError("Could not refresh page access token for page {PageId}", integration.ExternalId);
                     return new PublishResultDto { Success = false, ErrorMessage = "Unable to refresh page access token" };
                 }
 

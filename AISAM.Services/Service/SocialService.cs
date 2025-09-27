@@ -1,16 +1,17 @@
 using AISAM.Common.Models;
-using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using AISAM.Data.Model;
 
 namespace AISAM.Services.Service
 {
     public class SocialService : ISocialService
     {
         private readonly ISocialAccountRepository _socialAccountRepository;
-        private readonly ISocialTargetRepository _socialTargetRepository;
+        private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IUserRepository _userRepository;
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
@@ -18,14 +19,14 @@ namespace AISAM.Services.Service
 
         public SocialService(
             ISocialAccountRepository socialAccountRepository,
-            ISocialTargetRepository socialTargetRepository,
+            ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
             ILogger<SocialService> logger,
             IEnumerable<IProviderService> providers,
             IOptions<FacebookSettings> facebookSettings)
         {
             _socialAccountRepository = socialAccountRepository;
-            _socialTargetRepository = socialTargetRepository;
+            _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
@@ -74,7 +75,8 @@ namespace AISAM.Services.Service
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
             // Check if account already exists
-            var existingAccount = await _socialAccountRepository.GetByProviderAndUserIdAsync(request.Provider, accountData.ProviderUserId);
+            var platform = ParseProviderToEnum(request.Provider);
+            var existingAccount = await _socialAccountRepository.GetByPlatformAndAccountIdAsync(platform, accountData.ProviderUserId);
             if (existingAccount != null)
             {
                 throw new InvalidOperationException("This social account is already linked");
@@ -84,9 +86,9 @@ namespace AISAM.Services.Service
             var socialAccount = new SocialAccount
             {
                 UserId = request.UserId,
-                Provider = request.Provider,
-                ProviderUserId = accountData.ProviderUserId,
-                AccessToken = accountData.AccessToken,
+                Platform = platform,
+                AccountId = accountData.ProviderUserId,
+                UserAccessToken = accountData.AccessToken,
                 ExpiresAt = accountData.ExpiresAt,
                 IsActive = true
             };
@@ -133,7 +135,7 @@ namespace AISAM.Services.Service
                 }
 
                 // Check if social account exists for this user and provider
-                var existingSocialAccount = await _socialAccountRepository.GetByUserIdAndProviderAsync(request.UserId, "facebook");
+                var existingSocialAccount = await _socialAccountRepository.GetByUserIdAndPlatformAsync(request.UserId, SocialPlatformEnum.Facebook);
                 
                 SocialAccount socialAccount;
                 if (existingSocialAccount != null)
@@ -142,7 +144,7 @@ namespace AISAM.Services.Service
                     socialAccount = existingSocialAccount;
                     if (!string.IsNullOrEmpty(request.UserAccessToken))
                     {
-                        socialAccount.AccessToken = request.UserAccessToken; // Store user token
+                        socialAccount.UserAccessToken = request.UserAccessToken; // Store user token
                         socialAccount.UpdatedAt = DateTime.UtcNow;
                         await _socialAccountRepository.UpdateAsync(socialAccount);
                     }
@@ -153,9 +155,9 @@ namespace AISAM.Services.Service
                     socialAccount = new SocialAccount
                     {
                         UserId = request.UserId,
-                        Provider = "facebook",
-                        ProviderUserId = userFacebookId,
-                        AccessToken = request.UserAccessToken ?? "manual_link", 
+                        Platform = SocialPlatformEnum.Facebook,
+                        AccountId = userFacebookId,
+                        UserAccessToken = request.UserAccessToken ?? "manual_link", 
                         IsActive = true,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -163,32 +165,32 @@ namespace AISAM.Services.Service
                     await _socialAccountRepository.CreateAsync(socialAccount);
                 }
 
-                // Check if this page target already exists
-                var existingTarget = await _socialTargetRepository.GetByProviderTargetIdAsync(pageInfo.Id);
-                if (existingTarget != null && existingTarget.SocialAccountId == socialAccount.Id)
+                // Check if this integration already exists
+                var existingIntegration = await _socialIntegrationRepository.GetByExternalIdAsync(pageInfo.Id);
+                if (existingIntegration != null && existingIntegration.SocialAccountId == socialAccount.Id)
                 {
                     throw new InvalidOperationException("This Facebook page is already linked to your account");
                 }
 
-                // Create new social target (Facebook Page)
-                var socialTarget = new SocialTarget
+                // Create new social integration (Facebook Page)
+                // Note: BrandId is required in SocialIntegration, using a default brand for now
+                var socialIntegration = new SocialIntegration
                 {
+                    UserId = request.UserId,
+                    BrandId = Guid.NewGuid(), // TODO: This should come from request or default brand
                     SocialAccountId = socialAccount.Id,
-                    ProviderTargetId = pageInfo.Id,
-                    Name = pageInfo.Name,
-                    Type = "page",
+                    Platform = SocialPlatformEnum.Facebook,
                     AccessToken = request.PageAccessToken, // Store page access token
-                    Category = pageInfo.Category,
-                    ProfilePictureUrl = pageInfo.Picture?.Data?.Url,
+                    ExternalId = pageInfo.Id,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                await _socialTargetRepository.CreateAsync(socialTarget);
+                await _socialIntegrationRepository.CreateAsync(socialIntegration);
 
-                // Reload social account with targets
-                socialAccount = await _socialAccountRepository.GetByIdWithTargetsAsync(socialAccount.Id);
+                // Reload social account with integrations
+                socialAccount = await _socialAccountRepository.GetByIdWithIntegrationsAsync(socialAccount.Id);
                 
                 _logger.LogInformation("Successfully linked Facebook page {PageName} (ID: {PageId}) to user {UserId}", 
                     pageInfo.Name, pageInfo.Id, request.UserId);
@@ -233,8 +235,8 @@ namespace AISAM.Services.Service
 
         public async Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(Guid socialAccountId)
         {
-            var targets = await _socialTargetRepository.GetBySocialAccountIdAsync(socialAccountId);
-            return targets.Select(MapToDto);
+            var integrations = await _socialIntegrationRepository.GetBySocialAccountIdAsync(socialAccountId);
+            return integrations.Select(MapToDtoFromIntegration);
         }
 
         public async Task<IEnumerable<SocialTargetDto>> ListAvailableTargetsAsync(Guid userId, string provider)
@@ -244,13 +246,14 @@ namespace AISAM.Services.Service
                 throw new ArgumentException($"Provider '{provider}' is not supported");
             }
 
-            var account = await _socialAccountRepository.GetByUserIdAndProviderAsync(userId, provider);
+            var platform = ParseProviderToEnum(provider);
+            var account = await _socialAccountRepository.GetByUserIdAndPlatformAsync(userId, platform);
             if (account == null)
             {
                 throw new InvalidOperationException($"No linked {provider} account for this user");
             }
 
-            var available = await providerService.GetTargetsAsync(account.AccessToken);
+            var available = await providerService.GetTargetsAsync(account.UserAccessToken);
             return available;
         }
 
@@ -261,13 +264,14 @@ namespace AISAM.Services.Service
                 throw new ArgumentException($"Provider '{provider}' is not supported");
             }
 
-            var account = await _socialAccountRepository.GetByUserIdAndProviderAsync(userId, provider);
+            var platform = ParseProviderToEnum(provider);
+            var account = await _socialAccountRepository.GetByUserIdAndPlatformAsync(userId, platform);
             if (account == null)
             {
                 throw new InvalidOperationException($"No linked {provider} account for this user");
             }
 
-            var available = (await providerService.GetTargetsAsync(account.AccessToken)).ToList();
+            var available = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
             var selectedSet = new HashSet<string>(providerTargetIds);
             var selected = available.Where(t => selectedSet.Contains(t.ProviderTargetId));
 
@@ -275,28 +279,29 @@ namespace AISAM.Services.Service
 
             foreach (var targetDto in selected)
             {
-                var existingTarget = await _socialTargetRepository.GetByProviderTargetIdAsync(targetDto.ProviderTargetId);
-                if (existingTarget != null && existingTarget.SocialAccountId == account.Id)
+                var existingIntegration = await _socialIntegrationRepository.GetByExternalIdAsync(targetDto.ProviderTargetId);
+                if (existingIntegration != null && existingIntegration.SocialAccountId == account.Id)
                 {
                     continue; // already linked
                 }
 
-                var target = new SocialTarget
+                var integration = new SocialIntegration
                 {
+                    UserId = userId,
+                    BrandId = Guid.NewGuid(), // TODO: This should come from request or default brand
                     SocialAccountId = account.Id,
-                    ProviderTargetId = targetDto.ProviderTargetId,
-                    Name = targetDto.Name,
-                    Type = targetDto.Type,
-                    AccessToken = null,
-                    Category = targetDto.Category,
-                    ProfilePictureUrl = targetDto.ProfilePictureUrl,
-                    IsActive = true
+                    Platform = platform,
+                    AccessToken = null, // Will be fetched later
+                    ExternalId = targetDto.ProviderTargetId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
 
-                await _socialTargetRepository.CreateAsync(target);
+                await _socialIntegrationRepository.CreateAsync(integration);
             }
 
-            var reloaded = await _socialAccountRepository.GetByIdWithTargetsAsync(account.Id);
+            var reloaded = await _socialAccountRepository.GetByIdWithIntegrationsAsync(account.Id);
             return MapToDto(reloaded);
         }
 
@@ -322,32 +327,46 @@ namespace AISAM.Services.Service
             return $"{uri}{separator}userId={Uri.EscapeDataString(userId.ToString())}";
         }
 
+        private SocialPlatformEnum ParseProviderToEnum(string provider)
+        {
+            return provider.ToLower() switch
+            {
+                "facebook" => SocialPlatformEnum.Facebook,
+                "instagram" => SocialPlatformEnum.Instagram,
+                "tiktok" => SocialPlatformEnum.TikTok,
+                "twitter" => SocialPlatformEnum.Twitter,
+                _ => throw new ArgumentException($"Unsupported provider: {provider}")
+            };
+        }
+
         private SocialAccountDto MapToDto(SocialAccount account)
         {
             return new SocialAccountDto
             {
                 Id = account.Id,
-                Provider = account.Provider,
-                ProviderUserId = account.ProviderUserId,
+                Provider = account.Platform.ToString().ToLower(),
+                ProviderUserId = account.AccountId ?? string.Empty,
+                AccessToken = account.UserAccessToken,
                 IsActive = account.IsActive,
                 ExpiresAt = account.ExpiresAt,
                 CreatedAt = account.CreatedAt,
-                Targets = account.SocialTargets?.Select(MapToDto).ToList() ?? new List<SocialTargetDto>()
+                Targets = account.SocialIntegrations?.Select(MapToDtoFromIntegration).ToList() ?? new List<SocialTargetDto>()
             };
         }
 
-        private SocialTargetDto MapToDto(SocialTarget target)
+        private SocialTargetDto MapToDtoFromIntegration(SocialIntegration integration)
         {
             return new SocialTargetDto
             {
-                Id = target.Id,
-                ProviderTargetId = target.ProviderTargetId,
-                Name = target.Name,
-                Type = target.Type,
-                Category = target.Category,
-                ProfilePictureUrl = target.ProfilePictureUrl,
-                IsActive = target.IsActive
+                Id = integration.Id,
+                ProviderTargetId = integration.ExternalId ?? string.Empty,
+                Name = $"Page {integration.ExternalId}", // Use ExternalId as name since it's usually the page ID
+                Type = integration.Platform.ToString().ToLower(), // Use platform as type
+                Category = null, // SocialIntegration doesn't have category
+                ProfilePictureUrl = null, // SocialIntegration doesn't have profile picture URL
+                IsActive = integration.IsActive
             };
         }
+
     }
 }

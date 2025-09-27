@@ -1,6 +1,7 @@
-using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using Microsoft.EntityFrameworkCore;
+using AISAM.Data.Model;
 
 namespace AISAM.Repositories.Repository
 {
@@ -17,48 +18,48 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
-                .Include(sa => sa.SocialTargets)
+                .Include(sa => sa.SocialIntegrations)
                 .FirstOrDefaultAsync(sa => sa.Id == id);
         }
 
-        public async Task<SocialAccount?> GetByIdWithTargetsAsync(Guid id)
+        public async Task<SocialAccount?> GetByIdWithIntegrationsAsync(Guid id)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
-                .Include(sa => sa.SocialTargets)
+                .Include(sa => sa.SocialIntegrations)
                 .FirstOrDefaultAsync(sa => sa.Id == id);
         }
 
-        public async Task<SocialAccount?> GetByProviderAndUserIdAsync(string provider, string providerUserId)
+        public async Task<SocialAccount?> GetByPlatformAndAccountIdAsync(SocialPlatformEnum platform, string accountId)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
-                .Include(sa => sa.SocialTargets)
-                .FirstOrDefaultAsync(sa => sa.Provider == provider && sa.ProviderUserId == providerUserId);
+                .Include(sa => sa.SocialIntegrations)
+                .FirstOrDefaultAsync(sa => sa.Platform == platform && sa.AccountId == accountId);
         }
 
-        public async Task<SocialAccount?> GetByUserIdAndProviderAsync(Guid userId, string provider)
+        public async Task<SocialAccount?> GetByUserIdAndPlatformAsync(Guid userId, SocialPlatformEnum platform)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
-                .Include(sa => sa.SocialTargets)
-                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Provider == provider);
+                .Include(sa => sa.SocialIntegrations)
+                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Platform == platform);
         }
 
         public async Task<IEnumerable<SocialAccount>> GetByUserIdAsync(Guid userId)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.SocialTargets)
+                .Include(sa => sa.SocialIntegrations)
                 .Where(sa => sa.UserId == userId)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<SocialAccount>> GetByProviderAsync(string provider)
+        public async Task<IEnumerable<SocialAccount>> GetByPlatformAsync(SocialPlatformEnum platform)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.User)
-                .Include(sa => sa.SocialTargets)
-                .Where(sa => sa.Provider == provider)
+                .Include(sa => sa.SocialIntegrations)
+                .Where(sa => sa.Platform == platform)
                 .ToListAsync();
         }
 
@@ -82,17 +83,17 @@ namespace AISAM.Repositories.Repository
         public async Task DeleteAsync(Guid id)
         {
             var account = await _context.SocialAccounts
-                .Include(sa => sa.SocialTargets)
+                .Include(sa => sa.SocialIntegrations)
                 .FirstOrDefaultAsync(sa => sa.Id == id);
                 
             if (account != null)
             {
-                // First, delete all posts associated with the social targets
-                var targetIds = account.SocialTargets.Select(st => st.Id).ToList();
-                if (targetIds.Any())
+                // First, delete all posts associated with the social integrations
+                var integrationIds = account.SocialIntegrations.Select(si => si.Id).ToList();
+                if (integrationIds.Any())
                 {
                     var postsToDelete = await _context.Posts
-                        .Where(sp => sp.SocialTargetId.HasValue && targetIds.Contains(sp.SocialTargetId.Value))
+                        .Where(p => integrationIds.Contains(p.IntegrationId))
                         .ToListAsync();
                     
                     if (postsToDelete.Any())
@@ -101,10 +102,10 @@ namespace AISAM.Repositories.Repository
                     }
                 }
                 
-                // Then delete the social targets
-                if (account.SocialTargets.Any())
+                // Then delete the social integrations
+                if (account.SocialIntegrations.Any())
                 {
-                    _context.SocialTargets.RemoveRange(account.SocialTargets);
+                    _context.SocialIntegrations.RemoveRange(account.SocialIntegrations);
                 }
                 
                 // Finally delete the social account
@@ -113,10 +114,10 @@ namespace AISAM.Repositories.Repository
             }
         }
 
-        public async Task<bool> ExistsAsync(string provider, string providerUserId)
+        public async Task<bool> ExistsAsync(SocialPlatformEnum platform, string accountId)
         {
             return await _context.SocialAccounts
-                .AnyAsync(sa => sa.Provider == provider && sa.ProviderUserId == providerUserId);
+                .AnyAsync(sa => sa.Platform == platform && sa.AccountId == accountId);
         }
     }
 }

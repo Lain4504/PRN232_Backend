@@ -1,5 +1,5 @@
-﻿using AISAM.Data.Model;
-using AISAM.Common.Models;
+﻿using AISAM.Common.Models;
+using AISAM.Data.Model;
 
 namespace AISAM.Services.IServices
 {
