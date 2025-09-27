@@ -10,7 +10,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AISAM.Repositories.Migrations
 {
-    [DbContext(typeof(AISAMContext))]
+    [DbContext(typeof(AisamContext))]
     partial class AISAMContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

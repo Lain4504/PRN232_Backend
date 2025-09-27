@@ -2,14 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
 using AISAM.Services.IServices;
-using AISAM.Services.Service;
 using AISAM.Common.Models;
 using CommonUserResponseDto = AISAM.Common.Models.UserResponseDto;
 using System.Security.Claims;
-using AISAM.API.Validators;
-using AISAM.API.DTO.Request;
-using FluentValidation;
-using FluentValidation.Results;
 
 namespace AISAM.API.Controllers
 {

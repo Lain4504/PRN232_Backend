@@ -1,15 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace AISAM.Data.Model
+namespace AISAM.Data.Model2
 {
+    [Table("assets")]
     public class Asset
     {
         [Key]
         public Guid Id { get; set; }
-
-        [ForeignKey("Organization")] 
-        public Guid? OrganizationId { get; set; }
 
         [ForeignKey("User")] 
         public Guid? UploadedBy { get; set; }
@@ -36,10 +34,7 @@ namespace AISAM.Data.Model
         public string? Metadata { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        // Navigation
-        public virtual Organization? Organization { get; set; }
-        public virtual User? User { get; set; }
+        public virtual Model.User? User { get; set; }
     }
 }
 

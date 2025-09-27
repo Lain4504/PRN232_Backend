@@ -7,9 +7,9 @@ namespace AISAM.Repositories.Repository
 {
     public class UserRepository : IUserRepository
     {
-        private readonly AISAMContext _context;
+        private readonly AisamContext _context;
 
-        public UserRepository(AISAMContext context)
+        public UserRepository(AisamContext context)
         {
             _context = context;
         }

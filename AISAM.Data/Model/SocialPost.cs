@@ -52,7 +52,6 @@ namespace AISAM.Data.Model
         public virtual User User { get; set; } = null!;
         public virtual SocialAccount? SocialAccount { get; set; }
         public virtual SocialTarget? SocialTarget { get; set; }
-        public virtual Schedule? Schedule { get; set; }
     }
     
     public enum PostStatus

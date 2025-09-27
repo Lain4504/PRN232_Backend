@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AISAM.Repositories.Migrations
 {
-    [DbContext(typeof(AISAMContext))]
+    [DbContext(typeof(AisamContext))]
     [Migration("20250926125313_Initial")]
     partial class Initial
     {
