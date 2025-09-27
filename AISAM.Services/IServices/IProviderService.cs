@@ -1,4 +1,5 @@
 using AISAM.Common.Models;
+using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
 
 namespace AISAM.Services.IServices
@@ -44,9 +45,9 @@ namespace AISAM.Services.IServices
         Task<FacebookUserInfo> GetUserInfoFromTokenAsync(string userAccessToken);
         
         /// <summary>
-        /// Publish a post to the specified target
+        /// Publish a post to the specified social integration
         /// </summary>
-        Task<PublishResultDto> PublishAsync(SocialAccount account, SocialTarget target, PostDto post);
+        Task<PublishResultDto> PublishAsync(SocialAccount account, SocialIntegration integration, PostDto post);
         
         /// <summary>
         /// Refresh access token if needed
@@ -64,6 +65,7 @@ namespace AISAM.Services.IServices
         public string Message { get; set; } = string.Empty;
         public string? LinkUrl { get; set; }
         public string? ImageUrl { get; set; }
+        public string? VideoUrl { get; set; }
         public string? Metadata { get; set; }
     }
 

@@ -1,0 +1,780 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace AISAM.Repositories.Migrations
+{
+    /// <inheritdoc />
+    public partial class Initial : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "users",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    role = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_users", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "admin_logs",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    admin_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    action_type = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    target_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    target_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    notes = table.Column<string>(type: "text", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_admin_logs", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_admin_logs_users_admin_id",
+                        column: x => x.admin_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "assets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UploadedBy = table.Column<Guid>(type: "uuid", nullable: true),
+                    Type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    StoragePath = table.Column<string>(type: "text", nullable: false),
+                    MimeType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    SizeBytes = table.Column<long>(type: "bigint", nullable: true),
+                    Width = table.Column<int>(type: "integer", nullable: true),
+                    Height = table.Column<int>(type: "integer", nullable: true),
+                    DurationSeconds = table.Column<decimal>(type: "numeric", nullable: true),
+                    Metadata = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_assets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_assets_users_UploadedBy",
+                        column: x => x.UploadedBy,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "profiles",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    profile_type = table.Column<int>(type: "integer", nullable: false),
+                    company_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    bio = table.Column<string>(type: "text", nullable: true),
+                    avatar_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_profiles", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_profiles_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "social_accounts",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    platform = table.Column<int>(type: "integer", nullable: false),
+                    account_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    user_access_token = table.Column<string>(type: "text", nullable: false),
+                    refresh_token = table.Column<string>(type: "text", nullable: true),
+                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_social_accounts", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_social_accounts_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "subscriptions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    plan = table.Column<int>(type: "integer", nullable: false),
+                    quota_posts_per_month = table.Column<int>(type: "integer", nullable: false),
+                    quota_storage_gb = table.Column<int>(type: "integer", nullable: false),
+                    start_date = table.Column<DateTime>(type: "date", nullable: false),
+                    end_date = table.Column<DateTime>(type: "date", nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_subscriptions", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_subscriptions_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "teams",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    vendor_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_teams", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_teams_users_vendor_id",
+                        column: x => x.vendor_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "brands",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    logo_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    slogan = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    usp = table.Column<string>(type: "text", nullable: true),
+                    target_audience = table.Column<string>(type: "text", nullable: true),
+                    profile_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_brands", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_brands_profiles_profile_id",
+                        column: x => x.profile_id,
+                        principalTable: "profiles",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "FK_brands_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "team_members",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    team_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    role = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    permissions = table.Column<string>(type: "jsonb", nullable: false),
+                    joined_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_team_members", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_team_members_teams_team_id",
+                        column: x => x.team_id,
+                        principalTable: "teams",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_team_members_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ad_campaigns",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    brand_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ad_account_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    objective = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    budget = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
+                    start_date = table.Column<DateTime>(type: "date", nullable: true),
+                    end_date = table.Column<DateTime>(type: "date", nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ad_campaigns", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_ad_campaigns_brands_brand_id",
+                        column: x => x.brand_id,
+                        principalTable: "brands",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ad_campaigns_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "products",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    brand_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    price = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
+                    images = table.Column<string>(type: "jsonb", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_products", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_products_brands_brand_id",
+                        column: x => x.brand_id,
+                        principalTable: "brands",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "social_integrations",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    brand_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    social_account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    platform = table.Column<int>(type: "integer", nullable: false),
+                    access_token = table.Column<string>(type: "text", nullable: false),
+                    refresh_token = table.Column<string>(type: "text", nullable: true),
+                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    external_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_social_integrations", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_social_integrations_brands_brand_id",
+                        column: x => x.brand_id,
+                        principalTable: "brands",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_social_integrations_social_accounts_social_account_id",
+                        column: x => x.social_account_id,
+                        principalTable: "social_accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_social_integrations_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ad_sets",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    campaign_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    targeting = table.Column<string>(type: "jsonb", nullable: true),
+                    daily_budget = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
+                    start_date = table.Column<DateTime>(type: "date", nullable: true),
+                    end_date = table.Column<DateTime>(type: "date", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ad_sets", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_ad_sets_ad_campaigns_campaign_id",
+                        column: x => x.campaign_id,
+                        principalTable: "ad_campaigns",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "contents",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    brand_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    product_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    ad_type = table.Column<int>(type: "integer", nullable: false),
+                    title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    text_content = table.Column<string>(type: "text", nullable: false),
+                    image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    video_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    style_description = table.Column<string>(type: "text", nullable: true),
+                    context_description = table.Column<string>(type: "text", nullable: true),
+                    representative_character = table.Column<string>(type: "text", nullable: true),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_contents", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_contents_brands_brand_id",
+                        column: x => x.brand_id,
+                        principalTable: "brands",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_contents_products_product_id",
+                        column: x => x.product_id,
+                        principalTable: "products",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ad_creatives",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ad_account_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    creative_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    call_to_action = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ad_creatives", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_ad_creatives_contents_content_id",
+                        column: x => x.content_id,
+                        principalTable: "contents",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "approvals",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    approver_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    notes = table.Column<string>(type: "text", nullable: true),
+                    approved_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_approvals", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_approvals_contents_content_id",
+                        column: x => x.content_id,
+                        principalTable: "contents",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_approvals_users_approver_id",
+                        column: x => x.approver_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "content_calendar",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    scheduled_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    scheduled_time = table.Column<TimeSpan>(type: "interval", nullable: true),
+                    timezone = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    repeat_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_content_calendar", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_content_calendar_contents_content_id",
+                        column: x => x.content_id,
+                        principalTable: "contents",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "posts",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    integration_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    external_post_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    published_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_posts", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_posts_contents_content_id",
+                        column: x => x.content_id,
+                        principalTable: "contents",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_posts_social_integrations_integration_id",
+                        column: x => x.integration_id,
+                        principalTable: "social_integrations",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ads",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ad_set_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    creative_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ad_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ads", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_ads_ad_creatives_creative_id",
+                        column: x => x.creative_id,
+                        principalTable: "ad_creatives",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ads_ad_sets_ad_set_id",
+                        column: x => x.ad_set_id,
+                        principalTable: "ad_sets",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "performance_reports",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    post_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    impressions = table.Column<long>(type: "bigint", nullable: false),
+                    engagement = table.Column<long>(type: "bigint", nullable: false),
+                    ctr = table.Column<decimal>(type: "numeric(5,4)", nullable: false),
+                    estimated_revenue = table.Column<decimal>(type: "numeric(10,2)", nullable: false),
+                    report_date = table.Column<DateTime>(type: "date", nullable: false),
+                    raw_data = table.Column<string>(type: "jsonb", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_performance_reports", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_performance_reports_posts_post_id",
+                        column: x => x.post_id,
+                        principalTable: "posts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ad_campaigns_brand_id",
+                table: "ad_campaigns",
+                column: "brand_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ad_campaigns_user_id",
+                table: "ad_campaigns",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ad_creatives_content_id",
+                table: "ad_creatives",
+                column: "content_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ad_sets_campaign_id",
+                table: "ad_sets",
+                column: "campaign_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_admin_logs_admin_id",
+                table: "admin_logs",
+                column: "admin_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ads_ad_set_id",
+                table: "ads",
+                column: "ad_set_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ads_creative_id",
+                table: "ads",
+                column: "creative_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_approvals_approver_id",
+                table: "approvals",
+                column: "approver_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_approvals_content_id",
+                table: "approvals",
+                column: "content_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_assets_UploadedBy",
+                table: "assets",
+                column: "UploadedBy");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_brands_profile_id",
+                table: "brands",
+                column: "profile_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_brands_user_id",
+                table: "brands",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_content_calendar_content_id",
+                table: "content_calendar",
+                column: "content_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_contents_brand_id",
+                table: "contents",
+                column: "brand_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_contents_product_id",
+                table: "contents",
+                column: "product_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_performance_reports_post_id",
+                table: "performance_reports",
+                column: "post_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_posts_content_id",
+                table: "posts",
+                column: "content_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_posts_integration_id",
+                table: "posts",
+                column: "integration_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_products_brand_id",
+                table: "products",
+                column: "brand_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_profiles_user_id",
+                table: "profiles",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_accounts_user_id",
+                table: "social_accounts",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_integrations_brand_id",
+                table: "social_integrations",
+                column: "brand_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_integrations_social_account_id",
+                table: "social_integrations",
+                column: "social_account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_integrations_user_id",
+                table: "social_integrations",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_subscriptions_user_id",
+                table: "subscriptions",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_team_members_team_id",
+                table: "team_members",
+                column: "team_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_team_members_user_id",
+                table: "team_members",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_teams_vendor_id",
+                table: "teams",
+                column: "vendor_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_users_email",
+                table: "users",
+                column: "email");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_users_role",
+                table: "users",
+                column: "role");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "admin_logs");
+
+            migrationBuilder.DropTable(
+                name: "ads");
+
+            migrationBuilder.DropTable(
+                name: "approvals");
+
+            migrationBuilder.DropTable(
+                name: "assets");
+
+            migrationBuilder.DropTable(
+                name: "content_calendar");
+
+            migrationBuilder.DropTable(
+                name: "performance_reports");
+
+            migrationBuilder.DropTable(
+                name: "subscriptions");
+
+            migrationBuilder.DropTable(
+                name: "team_members");
+
+            migrationBuilder.DropTable(
+                name: "ad_creatives");
+
+            migrationBuilder.DropTable(
+                name: "ad_sets");
+
+            migrationBuilder.DropTable(
+                name: "posts");
+
+            migrationBuilder.DropTable(
+                name: "teams");
+
+            migrationBuilder.DropTable(
+                name: "ad_campaigns");
+
+            migrationBuilder.DropTable(
+                name: "contents");
+
+            migrationBuilder.DropTable(
+                name: "social_integrations");
+
+            migrationBuilder.DropTable(
+                name: "products");
+
+            migrationBuilder.DropTable(
+                name: "social_accounts");
+
+            migrationBuilder.DropTable(
+                name: "brands");
+
+            migrationBuilder.DropTable(
+                name: "profiles");
+
+            migrationBuilder.DropTable(
+                name: "users");
+        }
+    }
+}

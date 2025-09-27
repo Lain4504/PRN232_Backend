@@ -1,7 +1,7 @@
-﻿using AISAM.Data.Model;
-using AISAM.Repositories.IRepositories;
+﻿using AISAM.Repositories.IRepositories;
 using AISAM.Common.Models;
 using Microsoft.EntityFrameworkCore;
+using AISAM.Data.Model;
 
 namespace AISAM.Repositories.Repository
 {

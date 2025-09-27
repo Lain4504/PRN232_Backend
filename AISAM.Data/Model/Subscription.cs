@@ -4,8 +4,8 @@ using AISAM.Data.Enumeration;
 
 namespace AISAM.Data.Model
 {
-    [Table("social_accounts")]
-    public class SocialAccount
+    [Table("subscriptions")]
+    public class Subscription
     {
         [Key]
         [Column("id")]
@@ -16,22 +16,21 @@ namespace AISAM.Data.Model
         public Guid UserId { get; set; }
 
         [Required]
-        [Column("platform")]
-        public SocialPlatformEnum Platform { get; set; }
+        [Column("plan")]
+        public SubscriptionPlanEnum Plan { get; set; }
 
-        [MaxLength(255)]
-        [Column("account_id")]
-        public string? AccountId { get; set; } // ID từ mạng xã hội (e.g., Facebook user ID)
+        [Column("quota_posts_per_month")]
+        public int QuotaPostsPerMonth { get; set; } = 100;
+
+        [Column("quota_storage_gb")]
+        public int QuotaStorageGb { get; set; } = 5;
 
         [Required]
-        [Column("user_access_token")]
-        public string UserAccessToken { get; set; } = string.Empty; // Lưu user access token (encrypted)
+        [Column("start_date", TypeName = "date")]
+        public DateTime StartDate { get; set; }
 
-        [Column("refresh_token")]
-        public string? RefreshToken { get; set; } // Lưu refresh token (TikTok/Twitter, encrypted)
-
-        [Column("expires_at")]
-        public DateTime? ExpiresAt { get; set; } // Hết hạn của user access token
+        [Column("end_date", TypeName = "date")]
+        public DateTime? EndDate { get; set; }
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
@@ -48,7 +47,5 @@ namespace AISAM.Data.Model
         // Navigation properties
         [ForeignKey("UserId")]
         public virtual User User { get; set; } = null!;
-
-        public virtual ICollection<SocialIntegration> SocialIntegrations { get; set; } = new List<SocialIntegration>();
     }
 }

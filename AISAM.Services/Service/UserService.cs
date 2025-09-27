@@ -1,7 +1,7 @@
-﻿using AISAM.Data.Model;
-using AISAM.Repositories.IRepositories;
+﻿using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
+using AISAM.Data.Model;
 
 namespace AISAM.Services.Service
 {

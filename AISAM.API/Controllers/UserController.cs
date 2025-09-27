@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
+using AISAM.Data.Enumeration;
 using CommonUserResponseDto = AISAM.Common.Models.UserResponseDto;
 using System.Security.Claims;
 
@@ -48,15 +49,19 @@ namespace AISAM.API.Controllers
                     SocialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
                     {
                         Id = sa.Id,
-                        Provider = sa.Provider,
-                        ProviderUserId = sa.ProviderUserId,
+                        Provider = sa.Platform.ToString().ToLower(),
+                        ProviderUserId = sa.AccountId ?? string.Empty,
+                        AccessToken = sa.UserAccessToken,
+                        IsActive = sa.IsActive,
+                        ExpiresAt = sa.ExpiresAt,
                         CreatedAt = sa.CreatedAt,
-                        Targets = sa.SocialTargets?.Select(st => new SocialTargetDto
+                        Targets = sa.SocialIntegrations?.Select(si => new SocialTargetDto
                         {
-                            Id = st.Id,
-                            ProviderTargetId = st.ProviderTargetId,
-                            Name = st.Name,
-                            Type = st.Type
+                            Id = si.Id,
+                            ProviderTargetId = si.ExternalId ?? string.Empty,
+                            Name = $"Page {si.ExternalId}",
+                            Type = si.Platform.ToString().ToLower(),
+                            IsActive = si.IsActive
                         }).ToList() ?? new List<SocialTargetDto>()
                     }).ToList() ?? new List<SocialAccountDto>()
                 };
@@ -93,15 +98,19 @@ namespace AISAM.API.Controllers
                 var socialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
                 {
                     Id = sa.Id,
-                    Provider = sa.Provider,
-                    ProviderUserId = sa.ProviderUserId,
+                    Provider = sa.Platform.ToString().ToLower(),
+                    ProviderUserId = sa.AccountId ?? string.Empty,
+                    AccessToken = sa.UserAccessToken,
+                    IsActive = sa.IsActive,
+                    ExpiresAt = sa.ExpiresAt,
                     CreatedAt = sa.CreatedAt,
-                    Targets = sa.SocialTargets?.Select(st => new SocialTargetDto
+                    Targets = sa.SocialIntegrations?.Select(si => new SocialTargetDto
                     {
-                        Id = st.Id,
-                        ProviderTargetId = st.ProviderTargetId,
-                        Name = st.Name,
-                        Type = st.Type
+                        Id = si.Id,
+                        ProviderTargetId = si.ExternalId ?? string.Empty,
+                        Name = $"Page {si.ExternalId}",
+                        Type = si.Platform.ToString().ToLower(),
+                        IsActive = si.IsActive
                     }).ToList() ?? new List<SocialTargetDto>()
                 }).ToList() ?? new List<SocialAccountDto>();
 
