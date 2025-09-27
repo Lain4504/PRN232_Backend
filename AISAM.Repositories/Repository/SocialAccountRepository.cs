@@ -6,9 +6,9 @@ namespace AISAM.Repositories.Repository
 {
     public class SocialAccountRepository : ISocialAccountRepository
     {
-        private readonly AISAMContext _context;
+        private readonly AisamContext _context;
 
-        public SocialAccountRepository(AISAMContext context)
+        public SocialAccountRepository(AisamContext context)
         {
             _context = context;
         }

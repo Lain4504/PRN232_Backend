@@ -6,9 +6,9 @@ namespace AISAM.Repositories.Repository
 {
     public class PostRepository : IPostRepository
     {
-        private readonly AISAMContext _context;
+        private readonly AisamContext _context;
 
-        public PostRepository(AISAMContext context)
+        public PostRepository(AisamContext context)
         {
             _context = context;
         }

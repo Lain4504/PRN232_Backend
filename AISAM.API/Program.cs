@@ -8,13 +8,9 @@ using AISAM.Services.Service;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using AISAM.API.Filters;
-using DotNetEnv;
 using FluentValidation;
-using FluentValidation.AspNetCore;
 using AISAM.API.Validators;
 using Microsoft.AspNetCore.Mvc;
-using AutoMapper;
-using AISAM.API.Profiles;
 using Supabase;
 
 // Load environment variables from .env file
@@ -100,10 +96,8 @@ builder.Services.AddControllers(options =>
     });
 
 // Register validators for DI (manual validation in controllers)
-builder.Services.AddValidatorsFromAssemblyContaining<CreateUserRequestDtoValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
-// Add AutoMapper (scan profiles)
-builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
@@ -132,7 +126,7 @@ if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supaba
 
 // Add Entity Framework - Supabase Postgres via Npgsql
 // Expect connection string from env or appsettings ConnectionStrings:DefaultConnection (Supabase URI)
-builder.Services.AddDbContext<AISAMContext>(options =>
+builder.Services.AddDbContext<AisamContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add HTTP Client for API calls
