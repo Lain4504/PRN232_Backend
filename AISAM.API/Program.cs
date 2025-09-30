@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using AISAM.Services;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -146,6 +147,8 @@ builder.Services.AddScoped<IContentRepository, ContentRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<SupabaseStorageService>();
+builder.Services.AddHostedService<BucketInitializerService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
