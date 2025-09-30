@@ -25,6 +25,7 @@ namespace AISAM.API.Controllers
         }
 
         [HttpGet("profile")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<CommonUserResponseDto>>> GetProfile()
         {
             try

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AISAM.API.Middleware;
 using AISAM.Common.Models;
 using AISAM.Repositories;
@@ -12,6 +13,10 @@ using FluentValidation;
 using AISAM.API.Validators;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -104,8 +109,7 @@ builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
 
 // Register Supabase client singleton for future auth/storage usage
-var supabaseUrl = builder.Configuration["Supabase:Url"]
-                  ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
+var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var supabaseKey = builder.Configuration["Supabase:AnonKey"]
                   ?? builder.Configuration["Supabase:ServiceKey"]
                   ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY")
@@ -146,29 +150,52 @@ builder.Services.AddScoped<IContentService, ContentService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
-// Background services removed for now
+var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 
-// Configure JWT Authentication for Supabase tokens
-var supabaseJwtSecretConfig = builder.Configuration["Supabase:JwtSecret"]
-                               ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
-if (!string.IsNullOrWhiteSpace(supabaseJwtSecretConfig))
-{
-    builder.Services.AddAuthentication("Bearer")
-        .AddJwtBearer("Bearer", options =>
+// Fetch JWKS 1 lần khi app start
+using var http = new HttpClient();
+var jwksJson = await http.GetStringAsync(jwksUri);
+var jwks = new JsonWebKeySet(jwksJson);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.IncludeErrorDetails = true;
+        options.RequireHttpsMetadata = true;
+
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            ValidateIssuer = true,
+            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1",
+
+            ValidateAudience = true,
+            ValidAudience = "authenticated",
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(5),
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeys = jwks.Keys,   // 👈 load trực tiếp từ Supabase
+            ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 }
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
             {
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                    System.Text.Encoding.UTF8.GetBytes(supabaseJwtSecretConfig))
-            };
-        });
-    
-    builder.Services.AddAuthorization();
-}
+                Console.WriteLine("Auth failed: " + ctx.Exception);
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = ctx =>
+            {
+                Console.WriteLine("Token OK for user: " +
+                                  ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier));
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // Disable automatic 400 for model validation to allow custom GenericResponse
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -273,12 +300,9 @@ app.UseHttpsRedirection();
 
 app.UseCors("CorsPolicy");
 
-// Enable authentication and authorization if Supabase JWT is configured
-if (!string.IsNullOrWhiteSpace(builder.Configuration["Supabase:JwtSecret"]))
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+// Enable authentication and authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
