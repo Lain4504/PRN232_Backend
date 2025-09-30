@@ -25,17 +25,23 @@ namespace AISAM.API.Controllers
         }
 
         [HttpGet("profile")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<CommonUserResponseDto>>> GetProfile()
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
                 if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
                     return Unauthorized(GenericResponse<CommonUserResponseDto>.CreateError("Token không hợp lệ"));
                 }
 
-                var user = await _userService.GetUserByIdAsync(userId);
+                // Get email from JWT claims
+                var emailClaim = User.FindFirst(ClaimTypes.Email) ?? User.FindFirst("email");
+                var email = emailClaim?.Value ?? "unknown@example.com";
+
+                // Get or create user (sync with Supabase)
+                var user = await _userService.GetOrCreateUserAsync(userId, email);
                 if (user == null)
                 {
                     return NotFound(GenericResponse<CommonUserResponseDto>.CreateError("Không tìm thấy người dùng"));
@@ -83,7 +89,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
                 if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
                     return Unauthorized(GenericResponse<List<SocialAccountDto>>.CreateError("Token không hợp lệ"));

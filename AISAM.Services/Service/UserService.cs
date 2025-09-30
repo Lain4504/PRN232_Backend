@@ -1,4 +1,4 @@
-﻿using AISAM.Repositories.IRepositories;
+using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
 using AISAM.Data.Model;
@@ -46,6 +46,28 @@ namespace AISAM.Services.Service
             };
 
             return await _userRepository.CreateAsync(user, cancellationToken);
+        }
+
+        public async Task<User> GetOrCreateUserAsync(Guid supabaseUserId, string email, CancellationToken cancellationToken = default)
+        {
+            // Try to get existing user by Supabase ID
+            var user = await _userRepository.GetByIdAsync(supabaseUserId, cancellationToken);
+            
+            if (user == null)
+            {
+                // Create new user with Supabase ID
+                user = new User
+                {
+                    Id = supabaseUserId,
+                    Email = email,
+                    Role = Data.Enumeration.UserRoleEnum.User,
+                    CreatedAt = DateTime.UtcNow
+                };
+                
+                user = await _userRepository.CreateAsync(user, cancellationToken);
+            }
+            
+            return user;
         }
 
         public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request, CancellationToken cancellationToken = default)

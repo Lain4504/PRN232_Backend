@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AISAM.API.Middleware;
 using AISAM.Common.Models;
 using AISAM.Repositories;
@@ -12,7 +13,10 @@ using FluentValidation;
 using AISAM.API.Validators;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
-using AISAM.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -39,37 +43,6 @@ else
         builder.Configuration["ConnectionStrings:DefaultConnection"] = 
             $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
     }
-}
-
-// JWT environment overrides (align to Jwt:*)
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-if (!string.IsNullOrEmpty(jwtSecret))
-{
-    builder.Configuration["Jwt:SecretKey"] = jwtSecret;
-}
-
-var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
-if (!string.IsNullOrEmpty(jwtIssuer))
-{
-    builder.Configuration["Jwt:Issuer"] = jwtIssuer;
-}
-
-var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
-if (!string.IsNullOrEmpty(jwtAudience))
-{
-    builder.Configuration["Jwt:Audience"] = jwtAudience;
-}
-
-var jwtAccessMinutes = Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_MINUTES");
-if (!string.IsNullOrEmpty(jwtAccessMinutes))
-{
-    builder.Configuration["Jwt:AccessTokenExpirationMinutes"] = jwtAccessMinutes;
-}
-
-var jwtRefreshDays = Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_DAYS");
-if (!string.IsNullOrEmpty(jwtRefreshDays))
-{
-    builder.Configuration["Jwt:RefreshTokenExpirationDays"] = jwtRefreshDays;
 }
 
 var facebookAppId = Environment.GetEnvironmentVariable("FACEBOOK_APP_ID");
@@ -105,12 +78,8 @@ builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
 
 // Register Supabase client singleton for future auth/storage usage
-var supabaseUrl = builder.Configuration["Supabase:Url"]
-                  ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
-var supabaseKey = builder.Configuration["Supabase:AnonKey"]
-                  ?? builder.Configuration["Supabase:ServiceKey"]
-                  ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY")
-                  ?? Environment.GetEnvironmentVariable("SUPABASE_KEY");
+var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
+var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
 {
     builder.Services.AddSingleton<Supabase.Client>(provider =>
@@ -149,11 +118,52 @@ builder.Services.AddHostedService<BucketInitializerService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
-// Background services removed for now
+var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 
-// Remove JWT auth for now; Supabase auth to be integrated later
-// builder.Services.AddAuthentication(...)
-// builder.Services.AddAuthorization();
+// Fetch JWKS 1 lần khi app start
+using var http = new HttpClient();
+var jwksJson = await http.GetStringAsync(jwksUri);
+var jwks = new JsonWebKeySet(jwksJson);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.IncludeErrorDetails = true;
+        options.RequireHttpsMetadata = true;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1",
+
+            ValidateAudience = true,
+            ValidAudience = "authenticated",
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(5),
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeys = jwks.Keys,   // 👈 load trực tiếp từ Supabase
+            ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 }
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                Console.WriteLine("Auth failed: " + ctx.Exception);
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = ctx =>
+            {
+                Console.WriteLine("Token OK for user: " +
+                                  ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier));
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // Disable automatic 400 for model validation to allow custom GenericResponse
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -258,9 +268,9 @@ app.UseHttpsRedirection();
 
 app.UseCors("CorsPolicy");
 
-// Auth temporarily disabled pending Supabase integration
-// app.UseAuthentication();
-// app.UseAuthorization();
+// Enable authentication and authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
