@@ -15,7 +15,6 @@ using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using AISAM.Services;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -27,21 +26,6 @@ var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING");
 if (!string.IsNullOrEmpty(connectionString))
 {
     builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
-}
-else
-{
-    // Fallback to building connection string from parts
-    var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
-    var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
-    var dbName = Environment.GetEnvironmentVariable("DB_NAME");
-    var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-    
-    if (!string.IsNullOrEmpty(dbHost))
-    {
-        builder.Configuration["ConnectionStrings:DefaultConnection"] = 
-            $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
-    }
 }
 
 var facebookAppId = Environment.GetEnvironmentVariable("FACEBOOK_APP_ID");
@@ -199,15 +183,6 @@ builder.Services.AddCors(options =>
             {
                 corsBuilder
                     .WithOrigins(configuredOrigins)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod()
-                    .AllowCredentials();
-            }
-            else
-            {
-                // Safe default for development if no origins configured
-                corsBuilder
-                    .WithOrigins("http://localhost:3000")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();

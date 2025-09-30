@@ -1,4 +1,7 @@
+using AISAM.Common.Dtos.Request;
+using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
+using AISAM.Data.Enumeration;
 
 namespace AISAM.Services.IServices
 {
@@ -19,9 +22,30 @@ namespace AISAM.Services.IServices
         /// </summary>
         Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId);
         
+
         /// <summary>
-        /// Get all contents for a user
+        /// Get paged contents by brand
         /// </summary>
-        Task<IEnumerable<ContentResponseDto>> GetUserContentsAsync(Guid userId);
+        Task<PagedResult<ContentResponseDto>> GetPagedContentsByBrandAsync(
+            Guid brandId,
+            PaginationRequest request,
+            AdTypeEnum? adType = null,
+            bool onlyDeleted = false,
+            ContentStatusEnum? status = null);
+
+        /// <summary>
+        /// Soft delete content
+        /// </summary>
+        Task<bool> SoftDeleteAsync(Guid contentId);
+
+        /// <summary>
+        /// Restore soft-deleted content; set status to Draft
+        /// </summary>
+        Task<bool> RestoreAsync(Guid contentId);
+
+        /// <summary>
+        /// Hard delete content permanently
+        /// </summary>
+        Task<bool> HardDeleteAsync(Guid contentId);
     }
 }
