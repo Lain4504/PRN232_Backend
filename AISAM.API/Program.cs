@@ -12,6 +12,7 @@ using FluentValidation;
 using AISAM.API.Validators;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
+using AISAM.Services;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -112,13 +113,13 @@ var supabaseKey = builder.Configuration["Supabase:AnonKey"]
                   ?? Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
 {
-    builder.Services.AddSingleton(provider =>
+    builder.Services.AddSingleton<Supabase.Client>(provider =>
     {
-        var opts = new Supabase.SupabaseOptions
+        var opts = new SupabaseOptions
         {
             AutoConnectRealtime = true
         };
-        var client = new Client(supabaseUrl, supabaseKey, opts);
+        var client = new Supabase.Client(supabaseUrl!, supabaseKey!, opts);
         client.InitializeAsync().GetAwaiter().GetResult();
         return client;
     });
@@ -142,6 +143,8 @@ builder.Services.AddScoped<IContentRepository, ContentRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<SupabaseStorageService>();
+builder.Services.AddHostedService<BucketInitializerService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
