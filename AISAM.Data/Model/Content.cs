@@ -30,9 +30,8 @@ namespace AISAM.Data.Model
         [Column("text_content")]
         public string TextContent { get; set; } = string.Empty;
 
-        [MaxLength(500)]
-        [Column("image_url")]
-        public string? ImageUrl { get; set; }
+		[Column("image_url", TypeName = "jsonb")]
+		public string? ImageUrl { get; set; }
 
         [MaxLength(500)]
         [Column("video_url")]

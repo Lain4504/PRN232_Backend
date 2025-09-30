@@ -2,7 +2,8 @@ namespace AISAM.Data.Enumeration
 {
     public enum AdTypeEnum
     {
-        ImageText = 0,
-        VideoText = 1
+        TextOnly = 0,
+        ImageText = 1,
+        VideoText = 2,
     }
 }
