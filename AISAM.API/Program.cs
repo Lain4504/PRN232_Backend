@@ -148,9 +148,27 @@ builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
 // Background services removed for now
 
-// Remove JWT auth for now; Supabase auth to be integrated later
-// builder.Services.AddAuthentication(...)
-// builder.Services.AddAuthorization();
+// Configure JWT Authentication for Supabase tokens
+var supabaseJwtSecretConfig = builder.Configuration["Supabase:JwtSecret"]
+                               ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+if (!string.IsNullOrWhiteSpace(supabaseJwtSecretConfig))
+{
+    builder.Services.AddAuthentication("Bearer")
+        .AddJwtBearer("Bearer", options =>
+        {
+            options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            {
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                    System.Text.Encoding.UTF8.GetBytes(supabaseJwtSecretConfig))
+            };
+        });
+    
+    builder.Services.AddAuthorization();
+}
 
 // Disable automatic 400 for model validation to allow custom GenericResponse
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -255,9 +273,12 @@ app.UseHttpsRedirection();
 
 app.UseCors("CorsPolicy");
 
-// Auth temporarily disabled pending Supabase integration
-// app.UseAuthentication();
-// app.UseAuthorization();
+// Enable authentication and authorization if Supabase JWT is configured
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Supabase:JwtSecret"]))
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 
 app.MapControllers();
 
