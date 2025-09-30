@@ -10,12 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using AISAM.API.Filters;
 using FluentValidation;
-using AISAM.API.Validators;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using AISAM.Services;
 
@@ -70,8 +68,12 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
-// Register validators for DI (manual validation in controllers)
-builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
+// Register validators from API assembly
+builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.CreateContentRequestValidator>();
+
+// Enable FluentValidation automatic model validation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
 
 
 // Configure Facebook Settings
@@ -83,9 +85,9 @@ var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
 {
-    builder.Services.AddSingleton(provider =>
+    builder.Services.AddSingleton(_ =>
     {
-        var opts = new Supabase.SupabaseOptions
+        var opts = new SupabaseOptions
         {
             AutoConnectRealtime = true
         };
