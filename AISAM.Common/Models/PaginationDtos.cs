@@ -28,4 +28,12 @@ namespace AISAM.Common.Models
         public bool IsActive { get; set; }
         public int SocialAccountsCount { get; set; }
     }
+
+    public class FileDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public DateTime LastModified { get; set; }
+        public string BucketId { get; set; } = string.Empty;
+    }
 }

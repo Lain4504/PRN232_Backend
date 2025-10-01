@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using AISAM.Services;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -43,37 +44,6 @@ else
         builder.Configuration["ConnectionStrings:DefaultConnection"] = 
             $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
     }
-}
-
-// JWT environment overrides (align to Jwt:*)
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-if (!string.IsNullOrEmpty(jwtSecret))
-{
-    builder.Configuration["Jwt:SecretKey"] = jwtSecret;
-}
-
-var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
-if (!string.IsNullOrEmpty(jwtIssuer))
-{
-    builder.Configuration["Jwt:Issuer"] = jwtIssuer;
-}
-
-var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
-if (!string.IsNullOrEmpty(jwtAudience))
-{
-    builder.Configuration["Jwt:Audience"] = jwtAudience;
-}
-
-var jwtAccessMinutes = Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_MINUTES");
-if (!string.IsNullOrEmpty(jwtAccessMinutes))
-{
-    builder.Configuration["Jwt:AccessTokenExpirationMinutes"] = jwtAccessMinutes;
-}
-
-var jwtRefreshDays = Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_DAYS");
-if (!string.IsNullOrEmpty(jwtRefreshDays))
-{
-    builder.Configuration["Jwt:RefreshTokenExpirationDays"] = jwtRefreshDays;
 }
 
 var facebookAppId = Environment.GetEnvironmentVariable("FACEBOOK_APP_ID");
@@ -110,10 +80,7 @@ builder.Services.Configure<FacebookSettings>(
 
 // Register Supabase client singleton for future auth/storage usage
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
-var supabaseKey = builder.Configuration["Supabase:AnonKey"]
-                  ?? builder.Configuration["Supabase:ServiceKey"]
-                  ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY")
-                  ?? Environment.GetEnvironmentVariable("SUPABASE_KEY");
+var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
 {
     builder.Services.AddSingleton(provider =>
@@ -146,6 +113,8 @@ builder.Services.AddScoped<IContentRepository, ContentRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<SupabaseStorageService>();
+builder.Services.AddHostedService<BucketInitializerService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
