@@ -82,13 +82,13 @@ var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
 {
-    builder.Services.AddSingleton<Supabase.Client>(provider =>
+    builder.Services.AddSingleton(provider =>
     {
-        var opts = new SupabaseOptions
+        var opts = new Supabase.SupabaseOptions
         {
             AutoConnectRealtime = true
         };
-        var client = new Supabase.Client(supabaseUrl!, supabaseKey!, opts);
+        var client = new Client(supabaseUrl!, supabaseKey!, opts);
         client.InitializeAsync().GetAwaiter().GetResult();
         return client;
     });

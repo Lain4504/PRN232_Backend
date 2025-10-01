@@ -1,65 +1,124 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using AISAM.Services.Service;
+using AISAM.Common.Models;
 
-[ApiController]
-[Route("api/storage")]
-public class StorageController : ControllerBase
+namespace AISAM.Api.Controllers
 {
-    private readonly SupabaseStorageService _svc;
-    public StorageController(SupabaseStorageService svc) => _svc = svc;
-
-    [HttpPost("{bucket}/upload")]
-    public async Task<IActionResult> UploadFile(string bucket, IFormFile file, [FromForm] string path, [FromForm] bool upsert = false)
+    [ApiController]
+    [Route("api/storage")]
+    public class StorageController : ControllerBase
     {
-        await _svc.UploadFileAsync(bucket, file, path, upsert);
-        return Ok(new { path });
+        private readonly SupabaseStorageService _storageService;
+
+        public StorageController(SupabaseStorageService storageService)
+        {
+            _storageService = storageService;
+        }
+
+        /// <summary>
+        /// Upload file (ảnh/video/tài liệu...), trả về fileName + public url
+        /// </summary>
+        [HttpPost("upload")]
+        [Consumes("multipart/form-data")] // ✅ fix swagger hiển thị upload file
+        public async Task<IActionResult> Upload([FromForm] UploadFileRequest request)
+        {
+            if (request.File == null || request.File.Length == 0)
+                return BadRequest("No file uploaded");
+
+            var fileName = await _storageService.UploadFileAsync(request.File);
+            var publicUrl = _storageService.GetPublicUrl(fileName);
+
+            return Ok(new { fileName, url = publicUrl });
+        }
+
+        /// <summary>
+        /// Download file
+        /// </summary>
+        [HttpGet("download")]
+        public async Task<IActionResult> Download([FromQuery] string fileName)
+        {
+            var bytes = await _storageService.DownloadFileAsync(fileName);
+            var contentType = "application/octet-stream";
+            var name = Path.GetFileName(fileName);
+
+            return File(bytes, contentType, name);
+        }
+
+        /// <summary>
+        /// Lấy danh sách file trong bucket (có phân trang, search, sort)
+        /// </summary>
+        [HttpGet("{bucket}/files")]
+        public async Task<IActionResult> ListFiles(
+            string bucket,
+            [FromQuery] PaginationRequest request,
+            [FromQuery] string? path = null)
+        {
+            var allFiles = await _storageService.ListFilesAsync(path);
+
+            var query = allFiles.AsQueryable();
+
+            if (!string.IsNullOrEmpty(request.SearchTerm))
+            {
+                query = query.Where(f =>
+                    f.Name.Contains(request.SearchTerm, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(request.SortBy))
+            {
+                query = request.SortBy.ToLower() switch
+                {
+                    "name" => request.SortDescending ? query.OrderByDescending(f => f.Name) : query.OrderBy(f => f.Name),
+                    "lastmodified" => request.SortDescending ? query.OrderByDescending(f => f.LastModified) : query.OrderBy(f => f.LastModified),
+                    "size" => request.SortDescending ? query.OrderByDescending(f => f.Size) : query.OrderBy(f => f.Size),
+                    _ => query
+                };
+            }
+
+            var totalCount = query.Count();
+            var data = query
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            var result = new PagedResult<FileDto>
+            {
+                Data = data,
+                TotalCount = totalCount,
+                Page = request.Page,
+                PageSize = request.PageSize
+            };
+
+            return Ok(result);
+        }
+
+        [HttpDelete("files")]
+        public async Task<IActionResult> Remove([FromBody] string[] fileNames)
+        {
+            if (fileNames == null || fileNames.Length == 0)
+                return BadRequest("No file names provided");
+
+            await _storageService.RemoveFilesAsync(fileNames);
+            return NoContent();
+        }
+
+        [HttpGet("signed-url")]
+        public async Task<IActionResult> SignedUrl([FromQuery] string fileName, [FromQuery] int expires = 3600)
+        {
+            var url = await _storageService.CreateSignedUrlAsync(fileName, expires);
+            return Ok(new { url });
+        }
+
+        [HttpGet("public-url")]
+        public IActionResult PublicUrl([FromQuery] string fileName)
+        {
+            var url = _storageService.GetPublicUrl(fileName);
+            return Ok(new { url });
+        }
     }
+}
 
-    [HttpGet("{bucket}/files")]
-    public async Task<IActionResult> ListFiles(string bucket, [FromQuery] string? prefix = null)
-        => Ok(await _svc.ListFilesAsync(bucket, prefix));
-
-    [HttpGet("{bucket}/download")]
-    public async Task<IActionResult> Download(string bucket, [FromQuery] string path)
-    {
-        var bytes = await _svc.DownloadFileAsync(bucket, path);
-        var name = Path.GetFileName(path);
-        return File(bytes, "application/octet-stream", name);
-    }
-
-    [HttpPost("{bucket}/replace")]
-    public async Task<IActionResult> Replace(string bucket, IFormFile file, [FromForm] string path)
-    {
-        await _svc.ReplaceFileAsync(bucket, file, path);
-        return Ok();
-    }
-
-    [HttpPost("{bucket}/move")]
-    public async Task<IActionResult> Move(string bucket, [FromBody] MoveDto dto)
-    {
-        await _svc.MoveFileAsync(bucket, dto.From, dto.To);
-        return Ok();
-    }
-
-    [HttpPost("{bucket}/remove")]
-    public async Task<IActionResult> RemoveFiles(string bucket, [FromBody] List<string> paths)
-    {
-        await _svc.RemoveFilesAsync(bucket, paths);
-        return NoContent();
-    }
-
-    [HttpGet("{bucket}/signed-url")]
-    public async Task<IActionResult> SignedUrl(string bucket, [FromQuery] string path, [FromQuery] int expires = 60)
-    {
-        var s = await _svc.CreateSignedUrlAsync(bucket, path, expires);
-        return Ok(new { url = s });
-    }
-
-    [HttpGet("{bucket}/public-url")]
-    public IActionResult PublicUrl(string bucket, [FromQuery] string path)
-    {
-        var url = _svc.GetPublicUrl(bucket, path);
-        return Ok(new { url });
-    }
-
-    public record MoveDto(string From, string To);
+public class UploadFileRequest
+{
+    [FromForm(Name = "file")]
+    public IFormFile File { get; set; } = default!;
 }
