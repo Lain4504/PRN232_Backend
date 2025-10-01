@@ -1,47 +1,47 @@
 ﻿using Microsoft.Extensions.Hosting;
+using AISAM.Services.Enums;
 
-public class BucketInitializerService : IHostedService
+namespace AISAM.Services.Service
 {
-    private readonly Supabase.Client _supabase;
-
-    // Danh sách bucket mặc định
-    private readonly List<(string Name, bool IsPublic)> _defaultBuckets = new()
+    public class BucketInitializerService : IHostedService
     {
-        ("avatar", true),
-        ("image", true),
-        ("video", false)
-    };
+        private readonly Supabase.Client _supabase;
 
-    public BucketInitializerService(Supabase.Client supabase)
-    {
-        _supabase = supabase;
-    }
-
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        // Sử dụng đầy đủ namespace Supabase.Storage.Bucket
-        var existingBuckets = await _supabase.Storage.ListBuckets() ?? new List<Supabase.Storage.Bucket>();
-
-        foreach (var (name, isPublic) in _defaultBuckets)
+        public BucketInitializerService(Supabase.Client supabase)
         {
-            if (!existingBuckets.Any(b => b.Id == name))
+            _supabase = supabase;
+        }
+
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            var existingBuckets = await _supabase.Storage.ListBuckets() ?? new List<Supabase.Storage.Bucket>();
+
+            foreach (DefaultBucket bucket in Enum.GetValues(typeof(DefaultBucket)))
             {
-                await _supabase.Storage.CreateBucket(name);
-                if (isPublic)
+                var name = bucket.GetName();
+                var isPublic = bucket.IsPublic();
+
+                if (!existingBuckets.Any(b => b.Id == name))
                 {
-                    await _supabase.Storage.UpdateBucket(
-                        name,
-                        new Supabase.Storage.BucketUpsertOptions { Public = true }
-                    );
+                    await _supabase.Storage.CreateBucket(name);
+
+                    if (isPublic)
+                    {
+                        await _supabase.Storage.UpdateBucket(
+                            name,
+                            new Supabase.Storage.BucketUpsertOptions { Public = true }
+                        );
+                    }
+
+                    Console.WriteLine($"[Supabase] Created bucket: {name} (public={isPublic})");
                 }
-                Console.WriteLine($"[Supabase] Created bucket: {name} (public={isPublic})");
-            }
-            else
-            {
-                Console.WriteLine($"[Supabase] Bucket already exists: {name}");
+                else
+                {
+                    Console.WriteLine($"[Supabase] Bucket already exists: {name}");
+                }
             }
         }
-    }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
 }
