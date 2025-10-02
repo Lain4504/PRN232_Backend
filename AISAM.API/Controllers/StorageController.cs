@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AISAM.Common.Dtos;
+using AISAM.Common.Dtos.Response;
+using Microsoft.AspNetCore.Mvc;
 using AISAM.Services.Service;
 using AISAM.Common.Models;
 

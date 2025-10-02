@@ -1,5 +1,6 @@
-﻿using Microsoft.Extensions.Hosting;
-using AISAM.Services.Enums;
+﻿using AISAM.Data.Enumeration;
+using AISAM.Services.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace AISAM.Services.Service
 {
@@ -16,7 +17,7 @@ namespace AISAM.Services.Service
         {
             var existingBuckets = await _supabase.Storage.ListBuckets() ?? new List<Supabase.Storage.Bucket>();
 
-            foreach (DefaultBucket bucket in Enum.GetValues(typeof(DefaultBucket)))
+            foreach (DefaultBucketEnum bucket in Enum.GetValues(typeof(DefaultBucketEnum)))
             {
                 var name = bucket.GetName();
                 var isPublic = bucket.IsPublic();

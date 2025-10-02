@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using AISAM.Common;
+using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;

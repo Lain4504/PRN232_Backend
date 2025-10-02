@@ -2,9 +2,9 @@ using AISAM.Common;
 using AISAM.Common.Models;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 using AISAM.Common.Dtos.Response;
+using AISAM.API.Utils;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AISAM.API.Controllers
 {
@@ -30,6 +30,7 @@ namespace AISAM.API.Controllers
         /// Get OAuth authorization URL for a provider
         /// </summary>
         [HttpGet("{provider}")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<AuthUrlResponse>>> GetAuthUrl(
             string provider,
             [FromQuery] string? state = null)
@@ -37,9 +38,7 @@ namespace AISAM.API.Controllers
             try
             {
                 Guid? userId = null;
-                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                              ?? User.FindFirst("sub")?.Value;
-                if (Guid.TryParse(nameId, out var parsed))
+                if (UserClaimsHelper.TryGetUserId(User, out var parsed))
                 {
                     userId = parsed;
                 }
@@ -74,6 +73,7 @@ namespace AISAM.API.Controllers
         /// Handle OAuth callback and link social account to user (do not auto-link pages)
         /// </summary>
         [HttpGet("{provider}/callback")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<object>>> HandleCallback(
             string provider,
             [FromQuery] string code,
@@ -133,207 +133,6 @@ namespace AISAM.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error handling {Provider} callback", provider);
-                return StatusCode(500, new GenericResponse<object>
-                {
-                    Success = false,
-                    Message = "Internal server error"
-                });
-            }
-        }
-
-        /// <summary>
-        /// List available targets (e.g., Facebook pages) for the linked account of current user
-        /// </summary>
-        [HttpGet("{provider}/available-targets")]
-        public async Task<ActionResult<GenericResponse<AvailableTargetsResponse>>> ListAvailableTargets(string provider)
-        {
-            try
-            {
-                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                              ?? User.FindFirst("sub")?.Value;
-                if (!Guid.TryParse(nameId, out var userId))
-                {
-                    return Unauthorized(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = "Invalid user context" });
-                }
-
-                var targets = await _socialService.ListAvailableTargetsAsync(userId, provider);
-                return Ok(new GenericResponse<AvailableTargetsResponse>
-                {
-                    Success = true,
-                    Data = new AvailableTargetsResponse { Targets = targets.ToList() }
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error listing available targets for {Provider}", provider);
-                return StatusCode(500, new GenericResponse<AvailableTargetsResponse> { Success = false, Message = "Internal server error" });
-            }
-        }
-
-        /// <summary>
-        /// Link selected targets to the user's linked social account
-        /// </summary>
-        [HttpPost("link-selected")]
-        public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkSelectedTargets([FromBody] LinkSelectedTargetsRequest request)
-        {
-            try
-            {
-                var nameId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                              ?? User.FindFirst("sub")?.Value;
-                if (!Guid.TryParse(nameId, out var authenticatedUserId) || authenticatedUserId != request.UserId)
-                {
-                    return Forbid();
-                }
-
-                var result = await _socialService.LinkSelectedTargetsAsync(request.UserId, request.Provider, request.ProviderTargetIds);
-                return Ok(new GenericResponse<SocialAccountDto> { Success = true, Data = result });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new GenericResponse<SocialAccountDto> { Success = false, Message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new GenericResponse<SocialAccountDto> { Success = false, Message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error linking selected targets");
-                return StatusCode(500, new GenericResponse<SocialAccountDto> { Success = false, Message = "Internal server error" });
-            }
-        }
-
-        /// <summary>
-        /// Link additional social account to existing user
-        /// </summary>
-        [HttpPost("link")]
-        public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkAccount(
-            [FromBody] LinkSocialAccountRequest request)
-        {
-            try
-            {
-                var result = await _socialService.LinkAccountAsync(request);
-                return Ok(new GenericResponse<SocialAccountDto>
-                {
-                    Success = true,
-                    Data = result
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new GenericResponse<SocialAccountDto>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new GenericResponse<SocialAccountDto>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error linking social account");
-                return StatusCode(500, new GenericResponse<SocialAccountDto>
-                {
-                    Success = false,
-                    Message = "Internal server error"
-                });
-            }
-        }
-
-        /// <summary>
-        /// [TEMP] Link Facebook Page directly using Page Access Token for testing posting capability.
-        /// This is a temporary endpoint and will be removed/replaced by the official OAuth flow later.
-        /// </summary>
-        [HttpPost("link-page-token")]
-        public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkPageByToken(
-            [FromBody] LinkPageByTokenRequest request)
-        {
-            try
-            {
-                _logger.LogInformation("Linking Facebook page by token for user {UserId}", request.UserId);
-                
-                var result = await _socialService.LinkPageByTokenAsync(request);
-                return Ok(new GenericResponse<SocialAccountDto>
-                {
-                    Success = true,
-                    Data = result,
-                    Message = "Facebook page linked successfully"
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogWarning("Invalid argument for link page by token: {Message}", ex.Message);
-                return BadRequest(new GenericResponse<SocialAccountDto>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning("Invalid operation for link page by token: {Message}", ex.Message);
-                return BadRequest(new GenericResponse<SocialAccountDto>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error linking Facebook page by token for user {UserId}", request.UserId);
-                return StatusCode(500, new GenericResponse<SocialAccountDto>
-                {
-                    Success = false,
-                    Message = "Internal server error"
-                });
-            }
-        }
-
-        /// <summary>
-        /// Unlink social account from user
-        /// </summary>
-        [HttpDelete("unlink/{userId}/{socialAccountId}")]
-        public async Task<ActionResult<GenericResponse<object>>> UnlinkAccount(
-            Guid userId,
-            Guid socialAccountId)
-        {
-            try
-            {
-                var success = await _socialService.UnlinkAccountAsync(userId, socialAccountId);
-                if (success)
-                {
-                    return Ok(new GenericResponse<object>
-                    {
-                        Success = true,
-                        Message = "Social account unlinked successfully"
-                    });
-                }
-                else
-                {
-                    return NotFound(new GenericResponse<object>
-                    {
-                        Success = false,
-                        Message = "Social account not found or doesn't belong to user"
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error unlinking social account");
                 return StatusCode(500, new GenericResponse<object>
                 {
                     Success = false,

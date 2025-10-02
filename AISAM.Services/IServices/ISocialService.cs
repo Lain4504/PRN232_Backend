@@ -16,11 +16,6 @@ namespace AISAM.Services.IServices
         Task<SocialAccountDto> LinkAccountAsync(LinkSocialAccountRequest request);
         
         /// <summary>
-        /// Link Facebook Page by access token directly
-        /// </summary>
-        Task<SocialAccountDto> LinkPageByTokenAsync(LinkPageByTokenRequest request);
-        
-        /// <summary>
         /// Unlink a social account from a user
         /// </summary>
         Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId);
@@ -44,5 +39,10 @@ namespace AISAM.Services.IServices
         /// Link selected targets by their provider IDs to the user's linked account
         /// </summary>
         Task<SocialAccountDto> LinkSelectedTargetsAsync(Guid userId, string provider, IEnumerable<string> providerTargetIds);
+
+        /// <summary>
+        /// Unlink a specific target/page (social integration) from the user's social account
+        /// </summary>
+        Task<bool> UnlinkTargetAsync(Guid userId, Guid socialIntegrationId);
     }
 }

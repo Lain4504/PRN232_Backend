@@ -5,6 +5,8 @@ using AISAM.Services.IServices;
 using AISAM.Common.Models;
 using System.Security.Claims;
 using AISAM.Common.Dtos.Response;
+using AISAM.API.Utils;
+using AISAM.Common.Dtos;
 
 namespace AISAM.API.Controllers
 {
@@ -14,30 +16,21 @@ namespace AISAM.API.Controllers
     {
         private readonly IUserService _userService;
         private readonly ILogger<UserController> _logger;
-        private readonly ISocialService _socialService;
 
-        public UserController(IUserService userService, ILogger<UserController> logger, ISocialService socialService)
+        public UserController(IUserService userService, ILogger<UserController> logger)
         {
             _userService = userService;
             _logger = logger;
-            _socialService = socialService;
         }
 
-        [HttpGet("profile")]
+        [HttpGet("profile/me")]
         [Authorize]
         public async Task<ActionResult<GenericResponse<UserResponseDto>>> GetProfile()
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
-                {
-                    return Unauthorized(GenericResponse<UserResponseDto>.CreateError("Token không hợp lệ"));
-                }
-
-                // Get email from JWT claims
-                var emailClaim = User.FindFirst(ClaimTypes.Email) ?? User.FindFirst("email");
-                var email = emailClaim?.Value ?? "unknown@example.com";
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var email = UserClaimsHelper.GetEmail(User) ?? "unknown@example.com";
 
                 // Get or create user (sync with Supabase)
                 var user = await _userService.GetOrCreateUserAsync(userId, email);
@@ -45,29 +38,15 @@ namespace AISAM.API.Controllers
                 var response = new UserResponseDto
                 {
                     Id = user.Id,
-                    Email = user.Email ?? "",
-                    CreatedAt = user.CreatedAt,
-                    SocialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
-                    {
-                        Id = sa.Id,
-                        Provider = sa.Platform.ToString().ToLower(),
-                        ProviderUserId = sa.AccountId ?? string.Empty,
-                        AccessToken = sa.UserAccessToken,
-                        IsActive = sa.IsActive,
-                        ExpiresAt = sa.ExpiresAt,
-                        CreatedAt = sa.CreatedAt,
-                        Targets = sa.SocialIntegrations?.Select(si => new SocialTargetDto
-                        {
-                            Id = si.Id,
-                            ProviderTargetId = si.ExternalId ?? string.Empty,
-                            Name = $"Page {si.ExternalId}",
-                            Type = si.Platform.ToString().ToLower(),
-                            IsActive = si.IsActive
-                        }).ToList() ?? new List<SocialTargetDto>()
-                    }).ToList() ?? new List<SocialAccountDto>()
+                    Email = user.Email,
+                    CreatedAt = user.CreatedAt
                 };
 
                 return Ok(GenericResponse<UserResponseDto>.CreateSuccess(response, "Lấy thông tin thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<UserResponseDto>.CreateError("Token không hợp lệ"));
             }
             catch (Exception ex)
             {
@@ -78,87 +57,11 @@ namespace AISAM.API.Controllers
             }
         }
 
-        [HttpGet("social-accounts")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<List<SocialAccountDto>>>> GetSocialAccounts()
-        {
-            try
-            {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
-                {
-                    return Unauthorized(GenericResponse<List<SocialAccountDto>>.CreateError("Token không hợp lệ"));
-                }
-
-                var user = await _userService.GetUserByIdAsync(userId);
-                if (user == null)
-                {
-                    return NotFound(GenericResponse<List<SocialAccountDto>>.CreateError("Không tìm thấy người dùng"));
-                }
-
-                var socialAccounts = user.SocialAccounts?.Select(sa => new SocialAccountDto
-                {
-                    Id = sa.Id,
-                    Provider = sa.Platform.ToString().ToLower(),
-                    ProviderUserId = sa.AccountId ?? string.Empty,
-                    AccessToken = sa.UserAccessToken,
-                    IsActive = sa.IsActive,
-                    ExpiresAt = sa.ExpiresAt,
-                    CreatedAt = sa.CreatedAt,
-                    Targets = sa.SocialIntegrations?.Select(si => new SocialTargetDto
-                    {
-                        Id = si.Id,
-                        ProviderTargetId = si.ExternalId ?? string.Empty,
-                        Name = $"Page {si.ExternalId}",
-                        Type = si.Platform.ToString().ToLower(),
-                        IsActive = si.IsActive
-                    }).ToList() ?? new List<SocialTargetDto>()
-                }).ToList() ?? new List<SocialAccountDto>();
-
-                return Ok(GenericResponse<List<SocialAccountDto>>.CreateSuccess(
-                    socialAccounts, 
-                    "Lấy danh sách tài khoản mạng xã hội thành công"
-                ));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting social accounts");
-                return StatusCode(500, GenericResponse<List<SocialAccountDto>>.CreateError(
-                    "Đã xảy ra lỗi khi lấy danh sách tài khoản mạng xã hội"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Get all targets (pages/profiles) for a social account
-        /// </summary>
-        [HttpGet("account/{socialAccountId}")]
-        public async Task<ActionResult<GenericResponse<IEnumerable<SocialTargetDto>>>> GetAccountTargets(Guid socialAccountId)
-        {
-            try
-            {
-                var targets = await _socialService.GetAccountTargetsAsync(socialAccountId);
-                return Ok(new GenericResponse<IEnumerable<SocialTargetDto>>
-                {
-                    Success = true,
-                    Data = targets
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting targets for account {AccountId}", socialAccountId);
-                return StatusCode(500, new GenericResponse<IEnumerable<SocialTargetDto>>
-                {
-                    Success = false,
-                    Message = "Internal server error"
-                });
-            }
-        }
-
         /// <summary>
         /// Get paginated list of users
         /// </summary>
         [HttpGet]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<PagedResult<UserListDto>>>> GetUsers(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,

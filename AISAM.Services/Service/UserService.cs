@@ -1,3 +1,5 @@
+using AISAM.Common.Dtos;
+using AISAM.Common.Dtos.Response;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
@@ -14,20 +16,20 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
         }
 
-        public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        public Task<User?> GetByIdAsync(Guid id)
         {
-            return _userRepository.GetByIdAsync(id, cancellationToken);
+            return _userRepository.GetByIdAsync(id);
         }
 
-        public Task<User?> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        public Task<User?> GetUserByIdAsync(Guid id)
         {
-            return _userRepository.GetByIdAsync(id, cancellationToken);
+            return _userRepository.GetByIdAsync(id);
         }
 
-        public async Task<User> CreateUserAsync(User user, CancellationToken cancellationToken = default)
+        public async Task<User> CreateUserAsync(User user)
         {
             // Check if email already exists
-            var existingUser = await _userRepository.GetByEmailAsync(user.Email, cancellationToken);
+            var existingUser = await _userRepository.GetByEmailAsync(user.Email);
             if (existingUser != null)
             {
                 throw new InvalidOperationException("Email already exists");
@@ -35,23 +37,23 @@ namespace AISAM.Services.Service
 
             // Credentials are managed by Supabase Auth; no password hashing here
             
-            return await _userRepository.CreateAsync(user, cancellationToken);
+            return await _userRepository.CreateAsync(user);
         }
 
-        public async Task<User> CreateUserAsync(string email, CancellationToken cancellationToken = default)
+        public async Task<User> CreateUserAsync(string email)
         {
             var user = new User
             {
                 Email = email,
             };
 
-            return await _userRepository.CreateAsync(user, cancellationToken);
+            return await _userRepository.CreateAsync(user);
         }
 
-        public async Task<User> GetOrCreateUserAsync(Guid supabaseUserId, string email, CancellationToken cancellationToken = default)
+        public async Task<User> GetOrCreateUserAsync(Guid supabaseUserId, string email)
         {
             // Try to get existing user by Supabase ID
-            var user = await _userRepository.GetByIdAsync(supabaseUserId, cancellationToken);
+            var user = await _userRepository.GetByIdAsync(supabaseUserId);
             
             if (user == null)
             {
@@ -64,20 +66,20 @@ namespace AISAM.Services.Service
                     CreatedAt = DateTime.UtcNow
                 };
                 
-                user = await _userRepository.CreateAsync(user, cancellationToken);
+                user = await _userRepository.CreateAsync(user);
             }
             
             return user;
         }
 
-        public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request)
         {
             // Validate pagination parameters
             if (request.Page < 1) request.Page = 1;
             if (request.PageSize < 1) request.PageSize = 10;
             if (request.PageSize > 100) request.PageSize = 100; // Limit max page size
 
-            return await _userRepository.GetPagedUsersAsync(request, cancellationToken);
+            return await _userRepository.GetPagedUsersAsync(request);
         }
     }
 }
