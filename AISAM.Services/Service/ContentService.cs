@@ -1,3 +1,5 @@
+using AISAM.Common.Dtos.Request;
+using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
@@ -132,9 +134,7 @@ namespace AISAM.Services.Service
             var postDto = new PostDto
             {
                 Message = content.TextContent,
-                LinkUrl = null, // Could be added to Content entity if needed
-                ImageUrl = content.ImageUrl,
-                VideoUrl = content.VideoUrl,
+                LinkUrl = null,
                 Metadata = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     title = content.Title ?? "",
@@ -142,6 +142,41 @@ namespace AISAM.Services.Service
                     context_description = content.ContextDescription ?? ""
                 })
             };
+
+            // Route by AdType
+            if (content.AdType == AdTypeEnum.TextOnly)
+            {
+                // text only -> nothing else to set
+            }
+            else if (content.AdType == AdTypeEnum.VideoText)
+            {
+                postDto.VideoUrl = content.VideoUrl;
+            }
+            else if (content.AdType == AdTypeEnum.ImageText)
+            {
+                // image_url now jsonb. Accept string or JSON array stored as text
+                if (!string.IsNullOrWhiteSpace(content.ImageUrl))
+                {
+                    var raw = content.ImageUrl.Trim();
+                    if (raw.StartsWith("["))
+                    {
+                        try
+                        {
+                            var urls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(raw) ?? new List<string>();
+                            postDto.ImageUrls = urls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+                        }
+                        catch
+                        {
+                            // fallback: treat as single url
+                            postDto.ImageUrl = content.ImageUrl;
+                        }
+                    }
+                    else
+                    {
+                        postDto.ImageUrl = content.ImageUrl;
+                    }
+                }
+            }
 
             try
             {
@@ -183,10 +218,74 @@ namespace AISAM.Services.Service
             return MapToDto(content, null);
         }
 
-        public async Task<IEnumerable<ContentResponseDto>> GetUserContentsAsync(Guid userId)
+        
+
+        public async Task<PagedResult<ContentResponseDto>> GetPagedContentsByBrandAsync(
+            Guid brandId,
+            PaginationRequest request,
+            AdTypeEnum? adType = null,
+            bool onlyDeleted = false,
+            ContentStatusEnum? status = null)
         {
-            var contents = await _contentRepository.GetByUserIdAsync(userId);
-            return contents.Select(c => MapToDto(c, null));
+            var page = request.Page <= 0 ? 1 : request.Page;
+            var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            var (items, total) = await _contentRepository.GetByBrandIdPagedAsync(
+                brandId,
+                page,
+                pageSize,
+                request.SearchTerm,
+                request.SortBy,
+                request.SortDescending,
+                adType,
+                onlyDeleted,
+                status
+            );
+
+            return new PagedResult<ContentResponseDto>
+            {
+                Data = items.Select(c => MapToDto(c, null)).ToList(),
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        public async Task<bool> SoftDeleteAsync(Guid contentId)
+        {
+            var existing = await _contentRepository.GetByIdAsync(contentId);
+            if (existing == null)
+            {
+                return false;
+            }
+            await _contentRepository.DeleteAsync(contentId);
+            return true;
+        }
+
+        public async Task<bool> RestoreAsync(Guid contentId)
+        {
+            var existing = await _contentRepository.GetByIdIncludingDeletedAsync(contentId);
+            if (existing == null || !existing.IsDeleted)
+            {
+                return false;
+            }
+
+            // Restore then reset status to Draft
+            await _contentRepository.RestoreAsync(contentId);
+            existing.Status = ContentStatusEnum.Draft;
+            await _contentRepository.UpdateAsync(existing);
+            return true;
+        }
+
+        public async Task<bool> HardDeleteAsync(Guid contentId)
+        {
+            var existing = await _contentRepository.GetByIdIncludingDeletedAsync(contentId);
+            if (existing == null)
+            {
+                return false;
+            }
+            await _contentRepository.HardDeleteAsync(contentId);
+            return true;
         }
 
         private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult)

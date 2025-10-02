@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
+using AISAM.Common.Dtos.Request;
+using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
-using System.Security.Claims;
+using AISAM.Data.Enumeration;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AISAM.API.Controllers
 {
@@ -24,6 +26,7 @@ namespace AISAM.API.Controllers
         /// Create new content and optionally publish it immediately
         /// </summary>
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<ContentResponseDto>>> CreateContent([FromBody] CreateContentRequest request)
         {
             try
@@ -55,6 +58,7 @@ namespace AISAM.API.Controllers
         /// Publish existing content to a social integration
         /// </summary>
         [HttpPost("{contentId}/publish/{integrationId}")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<PublishResultDto>>> PublishContent(
             Guid contentId, 
             Guid integrationId)
@@ -80,9 +84,79 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Soft delete content
+        /// </summary>
+        [HttpDelete("{contentId}")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<object>>> SoftDelete(Guid contentId)
+        {
+            try
+            {
+                var ok = await _contentService.SoftDeleteAsync(contentId);
+                if (!ok)
+                {
+                    return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung hoặc đã bị xóa"));
+                }
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Xóa mềm nội dung thành công"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error soft deleting content {ContentId}", contentId);
+                return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi khi xóa nội dung"));
+            }
+        }
+
+        /// <summary>
+        /// Restore soft-deleted content (status resets to DRAFT)
+        /// </summary>
+        [HttpPost("{contentId}/restore")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<object>>> Restore(Guid contentId)
+        {
+            try
+            {
+                var ok = await _contentService.RestoreAsync(contentId);
+                if (!ok)
+                {
+                    return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung hoặc không ở trạng thái đã xóa"));
+                }
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Khôi phục nội dung thành công (trạng thái DRAFT)"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restoring content {ContentId}", contentId);
+                return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi khi khôi phục nội dung"));
+            }
+        }
+
+        /// <summary>
+        /// Hard delete content permanently
+        /// </summary>
+        [HttpDelete("{contentId}/hard")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<object>>> HardDelete(Guid contentId)
+        {
+            try
+            {
+                var ok = await _contentService.HardDeleteAsync(contentId);
+                if (!ok)
+                {
+                    return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung"));
+                }
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Xóa vĩnh viễn nội dung thành công"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error hard deleting content {ContentId}", contentId);
+                return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi khi xóa vĩnh viễn nội dung"));
+            }
+        }
+
+        /// <summary>
         /// Get content by ID
         /// </summary>
         [HttpGet("{contentId}")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<ContentResponseDto>>> GetContent(Guid contentId)
         {
             try
@@ -106,30 +180,53 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Get all contents for the current user
+        /// Get paginated contents by brand
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<GenericResponse<IEnumerable<ContentResponseDto>>>> GetUserContents()
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<PagedResult<ContentResponseDto>>>> GetContentsByBrand(
+            [FromQuery] Guid brandId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] bool sortDescending = true,
+            [FromQuery] AdTypeEnum? adType = null,
+            [FromQuery] bool onlyDeleted = false,
+            [FromQuery] ContentStatusEnum? status = null)
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
+                if (brandId == Guid.Empty)
                 {
-                    return Unauthorized(GenericResponse<IEnumerable<ContentResponseDto>>.CreateError("Token không hợp lệ"));
+                    return BadRequest(GenericResponse<PagedResult<ContentResponseDto>>.CreateError("brandId là bắt buộc"));
                 }
 
-                var contents = await _contentService.GetUserContentsAsync(userId);
-                
-                return Ok(GenericResponse<IEnumerable<ContentResponseDto>>.CreateSuccess(
-                    contents, 
-                    "Lấy danh sách nội dung thành công"
+                var request = new PaginationRequest
+                {
+                    Page = page,
+                    PageSize = pageSize,
+                    SearchTerm = searchTerm,
+                    SortBy = sortBy,
+                    SortDescending = sortDescending
+                };
+
+                var result = await _contentService.GetPagedContentsByBrandAsync(
+                    brandId,
+                    request,
+                    adType,
+                    onlyDeleted,
+                    status);
+
+                return Ok(GenericResponse<PagedResult<ContentResponseDto>>.CreateSuccess(
+                    result,
+                    "Lấy danh sách nội dung theo brand thành công"
                 ));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting user contents");
-                return StatusCode(500, GenericResponse<IEnumerable<ContentResponseDto>>.CreateError(
+                _logger.LogError(ex, "Error getting contents by brand {BrandId}", brandId);
+                return StatusCode(500, GenericResponse<PagedResult<ContentResponseDto>>.CreateError(
                     "Đã xảy ra lỗi khi lấy danh sách nội dung"
                 ));
             }

@@ -186,10 +186,7 @@ namespace AISAM.Services.Service
                         postData["link"] = post.LinkUrl;
                     }
 
-                    if (!string.IsNullOrEmpty(post.ImageUrl))
-                    {
-                        postData["picture"] = post.ImageUrl;
-                    }
+                    // For single image, Facebook allows 'picture' on feed with link, but for multiple images we need attached_media
 
                     var formContent = new FormUrlEncodedContent(postData);
                     var response = await _httpClient.PostAsync(publishUrl, formContent);
@@ -197,7 +194,80 @@ namespace AISAM.Services.Service
                     return (response.IsSuccessStatusCode, body);
                 }
 
-                // 1) Try with existing integration token or account token
+                // If multiple images, upload each as unpublished photo and attach
+                if (post.ImageUrls != null && post.ImageUrls.Count > 1)
+                {
+                    var accessTokenForMedia = integration.AccessToken ?? account.UserAccessToken;
+                    var uploadedMediaIds = new List<string>();
+                    foreach (var imageUrl in post.ImageUrls)
+                    {
+                        var mediaUploadUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{integration.ExternalId}/photos";
+                        var mediaData = new Dictionary<string, string>
+                        {
+                            ["url"] = imageUrl,
+                            ["published"] = "false",
+                            ["access_token"] = accessTokenForMedia
+                        };
+                        var mediaResp = await _httpClient.PostAsync(mediaUploadUrl, new FormUrlEncodedContent(mediaData));
+                        var mediaBody = await mediaResp.Content.ReadAsStringAsync();
+                        if (!mediaResp.IsSuccessStatusCode)
+                        {
+                            _logger.LogError("Facebook media upload failed: {Error}", mediaBody);
+                            return new PublishResultDto { Success = false, ErrorMessage = $"Facebook media upload error: {mediaBody}" };
+                        }
+                        var mediaObj = JsonSerializer.Deserialize<FacebookPostResponse>(mediaBody);
+                        if (!string.IsNullOrEmpty(mediaObj?.Id))
+                        {
+                            uploadedMediaIds.Add(mediaObj.Id);
+                        }
+                    }
+
+                    // Now publish feed with attached_media
+                    var feedUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{integration.ExternalId}/feed";
+                    var postFields = new List<KeyValuePair<string, string>>
+                    {
+                        new("message", post.Message),
+                        new("access_token", accessTokenForMedia)
+                    };
+                    for (int i = 0; i < uploadedMediaIds.Count; i++)
+                    {
+                        var key = $"attached_media[{i}]";
+                        var value = JsonSerializer.Serialize(new { media_fbid = uploadedMediaIds[i] });
+                        postFields.Add(new KeyValuePair<string, string>(key, value));
+                    }
+                    var feedResp = await _httpClient.PostAsync(feedUrl, new FormUrlEncodedContent(postFields));
+                    var feedBody = await feedResp.Content.ReadAsStringAsync();
+                    if (!feedResp.IsSuccessStatusCode)
+                    {
+                        _logger.LogError("Facebook feed publish with attached_media failed: {Error}", feedBody);
+                        return new PublishResultDto { Success = false, ErrorMessage = $"Facebook API error: {feedBody}" };
+                    }
+                    var feedObj = JsonSerializer.Deserialize<FacebookPostResponse>(feedBody);
+                    return new PublishResultDto { Success = true, ProviderPostId = feedObj?.Id, PostedAt = DateTime.UtcNow };
+                }
+
+                // If video provided, use video upload endpoint
+                if (!string.IsNullOrEmpty(post.VideoUrl))
+                {
+                    var videosUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{integration.ExternalId}/videos";
+                    var videoData = new Dictionary<string, string>
+                    {
+                        ["file_url"] = post.VideoUrl,
+                        ["description"] = post.Message,
+                        ["access_token"] = integration.AccessToken ?? account.UserAccessToken
+                    };
+                    var videoResp = await _httpClient.PostAsync(videosUrl, new FormUrlEncodedContent(videoData));
+                    var videoBody = await videoResp.Content.ReadAsStringAsync();
+                    if (!videoResp.IsSuccessStatusCode)
+                    {
+                        _logger.LogError("Facebook video publish failed: {Error}", videoBody);
+                        return new PublishResultDto { Success = false, ErrorMessage = $"Facebook API error: {videoBody}" };
+                    }
+                    var videoObj = JsonSerializer.Deserialize<FacebookPostResponse>(videoBody);
+                    return new PublishResultDto { Success = true, ProviderPostId = videoObj?.Id, PostedAt = DateTime.UtcNow };
+                }
+
+                // 1) Try with existing integration token or account token for text/single-image
                 var initialToken = integration.AccessToken ?? account.UserAccessToken;
                 var (ok, body) = await TryPublishAsync(initialToken);
                 if (ok)

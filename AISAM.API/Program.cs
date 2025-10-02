@@ -10,14 +10,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using AISAM.API.Filters;
 using FluentValidation;
-using AISAM.API.Validators;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
-using AISAM.Services;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -29,21 +26,6 @@ var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING");
 if (!string.IsNullOrEmpty(connectionString))
 {
     builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
-}
-else
-{
-    // Fallback to building connection string from parts
-    var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
-    var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
-    var dbName = Environment.GetEnvironmentVariable("DB_NAME");
-    var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-    
-    if (!string.IsNullOrEmpty(dbHost))
-    {
-        builder.Configuration["ConnectionStrings:DefaultConnection"] = 
-            $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
-    }
 }
 
 var facebookAppId = Environment.GetEnvironmentVariable("FACEBOOK_APP_ID");
@@ -70,8 +52,12 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
-// Register validators for DI (manual validation in controllers)
-builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
+// Register validators from API assembly
+builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.CreateContentRequestValidator>();
+
+// Enable FluentValidation automatic model validation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
 
 
 // Configure Facebook Settings
@@ -83,9 +69,9 @@ var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
 {
-    builder.Services.AddSingleton(provider =>
+    builder.Services.AddSingleton(_ =>
     {
-        var opts = new Supabase.SupabaseOptions
+        var opts = new SupabaseOptions
         {
             AutoConnectRealtime = true
         };
@@ -197,15 +183,6 @@ builder.Services.AddCors(options =>
             {
                 corsBuilder
                     .WithOrigins(configuredOrigins)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod()
-                    .AllowCredentials();
-            }
-            else
-            {
-                // Safe default for development if no origins configured
-                corsBuilder
-                    .WithOrigins("http://localhost:3000")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();

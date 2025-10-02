@@ -1,3 +1,4 @@
+using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
 
 namespace AISAM.Services.IServices

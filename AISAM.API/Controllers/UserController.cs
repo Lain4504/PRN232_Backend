@@ -3,9 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
-using AISAM.Data.Enumeration;
-using CommonUserResponseDto = AISAM.Common.Models.UserResponseDto;
 using System.Security.Claims;
+using AISAM.Common.Dtos.Response;
 
 namespace AISAM.API.Controllers
 {
@@ -26,14 +25,14 @@ namespace AISAM.API.Controllers
 
         [HttpGet("profile")]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<CommonUserResponseDto>>> GetProfile()
+        public async Task<ActionResult<GenericResponse<UserResponseDto>>> GetProfile()
         {
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
                 if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
                 {
-                    return Unauthorized(GenericResponse<CommonUserResponseDto>.CreateError("Token không hợp lệ"));
+                    return Unauthorized(GenericResponse<UserResponseDto>.CreateError("Token không hợp lệ"));
                 }
 
                 // Get email from JWT claims
@@ -42,12 +41,8 @@ namespace AISAM.API.Controllers
 
                 // Get or create user (sync with Supabase)
                 var user = await _userService.GetOrCreateUserAsync(userId, email);
-                if (user == null)
-                {
-                    return NotFound(GenericResponse<CommonUserResponseDto>.CreateError("Không tìm thấy người dùng"));
-                }
 
-                var response = new CommonUserResponseDto
+                var response = new UserResponseDto
                 {
                     Id = user.Id,
                     Email = user.Email ?? "",
@@ -72,12 +67,12 @@ namespace AISAM.API.Controllers
                     }).ToList() ?? new List<SocialAccountDto>()
                 };
 
-                return Ok(GenericResponse<CommonUserResponseDto>.CreateSuccess(response, "Lấy thông tin thành công"));
+                return Ok(GenericResponse<UserResponseDto>.CreateSuccess(response, "Lấy thông tin thành công"));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user profile");
-                return StatusCode(500, GenericResponse<CommonUserResponseDto>.CreateError(
+                return StatusCode(500, GenericResponse<UserResponseDto>.CreateError(
                     "Đã xảy ra lỗi khi lấy thông tin người dùng"
                 ));
             }

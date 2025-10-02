@@ -60,15 +60,6 @@ namespace AISAM.Services.IServices
         Task<bool> ValidateTokenAsync(string accessToken);
     }
 
-    public class PostDto
-    {
-        public string Message { get; set; } = string.Empty;
-        public string? LinkUrl { get; set; }
-        public string? ImageUrl { get; set; }
-        public string? VideoUrl { get; set; }
-        public string? Metadata { get; set; }
-    }
-
     public class PublishResultDto
     {
         public bool Success { get; set; }
