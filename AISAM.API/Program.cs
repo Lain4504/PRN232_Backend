@@ -40,6 +40,12 @@ if (!string.IsNullOrEmpty(facebookAppSecret))
     builder.Configuration["FacebookSettings:AppSecret"] = facebookAppSecret;
 }
 
+var geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+if (!string.IsNullOrEmpty(geminiApiKey))
+{
+    builder.Configuration["Gemini:ApiKey"] = geminiApiKey;
+}
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
@@ -63,6 +69,10 @@ builder.Services.AddFluentValidationClientsideAdapters();
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
+
+// Configure Gemini Settings
+builder.Services.Configure<GeminiSettings>(
+    builder.Configuration.GetSection("Gemini"));
 
 // Register Supabase client singleton for future auth/storage usage
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
@@ -95,10 +105,11 @@ builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
 builder.Services.AddScoped<ISocialIntegrationRepository, SocialIntegrationRepository>();
 builder.Services.AddScoped<IContentRepository, ContentRepository>();
 
-// Add services 
+// Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<AISAM.Services.IServices.IAIService, AISAM.Services.Service.AIService>();
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 
