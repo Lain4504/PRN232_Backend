@@ -99,112 +99,6 @@ namespace AISAM.Services.Service
             return MapToDto(socialAccount);
         }
 
-        public async Task<SocialAccountDto> LinkPageByTokenAsync(LinkPageByTokenRequest request)
-        {
-            try
-            {
-                // Verify user exists
-                var user = await _userRepository.GetByIdAsync(request.UserId);
-                if (user == null)
-                {
-                    throw new ArgumentException("User not found");
-                }
-
-                // Get Facebook provider
-                if (!_providers.TryGetValue("facebook", out var facebookProvider))
-                {
-                    throw new ArgumentException("Facebook provider is not available");
-                }
-
-                // Use Facebook provider to get page info from page access token
-                var pageInfo = await facebookProvider.GetPageInfoFromTokenAsync(request.PageAccessToken);
-                
-                // Try to get user info if user access token is provided
-                string userFacebookId = "unknown";
-                if (!string.IsNullOrEmpty(request.UserAccessToken))
-                {
-                    try
-                    {
-                        var userInfo = await facebookProvider.GetUserInfoFromTokenAsync(request.UserAccessToken);
-                        userFacebookId = userInfo.Id;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning("Could not get user info from user token: {Error}", ex.Message);
-                        // Continue with unknown user ID
-                    }
-                }
-
-                // Check if social account exists for this user and provider
-                var existingSocialAccount = await _socialAccountRepository.GetByUserIdAndPlatformAsync(request.UserId, SocialPlatformEnum.Facebook);
-                
-                SocialAccount socialAccount;
-                if (existingSocialAccount != null)
-                {
-                    // Update existing social account
-                    socialAccount = existingSocialAccount;
-                    if (!string.IsNullOrEmpty(request.UserAccessToken))
-                    {
-                        socialAccount.UserAccessToken = request.UserAccessToken; // Store user token
-                        socialAccount.UpdatedAt = DateTime.UtcNow;
-                        await _socialAccountRepository.UpdateAsync(socialAccount);
-                    }
-                }
-                else
-                {
-                    // Create new social account
-                    socialAccount = new SocialAccount
-                    {
-                        UserId = request.UserId,
-                        Platform = SocialPlatformEnum.Facebook,
-                        AccountId = userFacebookId,
-                        UserAccessToken = request.UserAccessToken ?? "manual_link", 
-                        IsActive = true,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    await _socialAccountRepository.CreateAsync(socialAccount);
-                }
-
-                // Check if this integration already exists
-                var existingIntegration = await _socialIntegrationRepository.GetByExternalIdAsync(pageInfo.Id);
-                if (existingIntegration != null && existingIntegration.SocialAccountId == socialAccount.Id)
-                {
-                    throw new InvalidOperationException("This Facebook page is already linked to your account");
-                }
-
-                // Create new social integration (Facebook Page)
-                // Note: BrandId is required in SocialIntegration, using a default brand for now
-                var socialIntegration = new SocialIntegration
-                {
-                    UserId = request.UserId,
-                    BrandId = Guid.NewGuid(), // TODO: This should come from request or default brand
-                    SocialAccountId = socialAccount.Id,
-                    Platform = SocialPlatformEnum.Facebook,
-                    AccessToken = request.PageAccessToken, // Store page access token
-                    ExternalId = pageInfo.Id,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                await _socialIntegrationRepository.CreateAsync(socialIntegration);
-
-                // Reload social account with integrations
-                socialAccount = await _socialAccountRepository.GetByIdWithIntegrationsAsync(socialAccount.Id);
-                
-                _logger.LogInformation("Successfully linked Facebook page {PageName} (ID: {PageId}) to user {UserId}", 
-                    pageInfo.Name, pageInfo.Id, request.UserId);
-
-                return MapToDto(socialAccount);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error linking Facebook page by token for user {UserId}", request.UserId);
-                throw;
-            }
-        }
-
         public async Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId)
         {
             try
@@ -306,8 +200,29 @@ namespace AISAM.Services.Service
             return MapToDto(reloaded);
         }
 
-        
+        public async Task<bool> UnlinkTargetAsync(Guid userId, Guid socialIntegrationId)
+        {
+            try
+            {
+                var integration = await _socialIntegrationRepository.GetByIdAsync(socialIntegrationId);
+                if (integration == null || integration.UserId != userId)
+                {
+                    return false;
+                }
 
+                await _socialIntegrationRepository.DeleteAsync(socialIntegrationId);
+                _logger.LogInformation("Successfully unlinked social integration {IntegrationId} for user {UserId}",
+                    socialIntegrationId, userId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unlinking social integration {IntegrationId} for user {UserId}",
+                    socialIntegrationId, userId);
+                throw;
+            }
+        }
+        
         private string GetRedirectUri(string provider)
         {
             // Use configured redirect URI from settings

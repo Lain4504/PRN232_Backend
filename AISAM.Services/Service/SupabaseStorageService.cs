@@ -1,4 +1,7 @@
 ﻿// Aliases để tránh conflict tên
+
+using AISAM.Common.Dtos;
+using AISAM.Common.Dtos.Response;
 using SupabaseClient = Supabase.Client;
 using StorageFileOptions = Supabase.Storage.FileOptions;
 using StorageTransformOptions = Supabase.Storage.TransformOptions;
