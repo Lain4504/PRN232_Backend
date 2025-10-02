@@ -1,0 +1,56 @@
+# Ignore git files
+.git
+.gitignore
+.gitattributes
+
+# Ignore IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignore build outputs
+**/bin/
+**/obj/
+**/out/
+
+# Ignore test files
+**/TestResults/
+**/*.Test/
+**/*.Tests/
+
+# Ignore documentation
+README.md
+*.md
+
+# Ignore sample data
+sample_data.sql
+
+# Ignore environment files (nếu có)
+.env
+.env.local
+.env.development
+.env.production
+
+# Ignore logs
+logs/
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+*~
+
+# Ignore OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore qodana
+qodana.yaml
