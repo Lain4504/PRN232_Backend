@@ -70,5 +70,6 @@ namespace AISAM.Data.Model
         public virtual ICollection<Approval> Approvals { get; set; } = new List<Approval>();
         public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
         public virtual ICollection<AdCreative> AdCreatives { get; set; } = new List<AdCreative>();
+        public virtual ICollection<AiGeneration> AiGenerations { get; set; } = new List<AiGeneration>();
     }
 }
