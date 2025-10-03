@@ -6,18 +6,23 @@ namespace AISAM.Services.IServices
     public interface IAIService
     {
         /// <summary>
-        /// Generate content using AI based on a prompt
+        /// Create a draft content and generate AI content for it
         /// </summary>
-        Task<string> GenerateContentAsync(string prompt);
+        Task<AiGenerationResponse> GenerateContentForDraftAsync(CreateDraftRequest request);
 
         /// <summary>
-        /// Improve existing content
+        /// Improve existing content and save as new AI generation
         /// </summary>
-        Task<string> ImproveContentAsync(string content);
+        Task<AiGenerationResponse> ImproveContentAsync(Guid contentId, string improvementPrompt);
 
         /// <summary>
-        /// Save approved AI-generated content to database
+        /// Approve AI generation and copy it to the content
         /// </summary>
-        Task<ContentResponseDto> SaveAIContentAsync(AISaveContentRequest request);
+        Task<ContentResponseDto> ApproveAIGenerationAsync(Guid aiGenerationId);
+
+        /// <summary>
+        /// Get all AI generations for a content
+        /// </summary>
+        Task<IEnumerable<AiGenerationDto>> GetContentAIGenerationsAsync(Guid contentId);
     }
 }

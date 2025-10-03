@@ -104,6 +104,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
 builder.Services.AddScoped<ISocialIntegrationRepository, SocialIntegrationRepository>();
 builder.Services.AddScoped<IContentRepository, ContentRepository>();
+builder.Services.AddScoped<IAiGenerationRepository, AiGenerationRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();

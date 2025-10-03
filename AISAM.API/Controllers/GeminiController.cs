@@ -21,72 +21,95 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Generate content using AI based on a prompt
+        /// Create a draft content and generate AI content for it
         /// </summary>
-        [HttpPost("generate")]
-        public async Task<ActionResult<GenericResponse<string>>> GenerateContent([FromBody] GenerateContentRequest request)
+        [HttpPost("generate-draft")]
+        public async Task<ActionResult<GenericResponse<AiGenerationResponse>>> GenerateContentForDraft([FromBody] CreateDraftRequest request)
         {
             try
             {
-                var result = await _aiService.GenerateContentAsync(request.Prompt);
-                return Ok(GenericResponse<string>.CreateSuccess(result, "Content generated successfully"));
+                var result = await _aiService.GenerateContentForDraftAsync(request);
+                return Ok(GenericResponse<AiGenerationResponse>.CreateSuccess(result, "AI content generated for draft"));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid request for AI draft generation");
+                return BadRequest(GenericResponse<AiGenerationResponse>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating content");
-                return StatusCode(500, GenericResponse<string>.CreateError("Failed to generate content"));
+                _logger.LogError(ex, "Error generating AI content for draft");
+                return StatusCode(500, GenericResponse<AiGenerationResponse>.CreateError("Failed to generate AI content"));
             }
         }
 
         /// <summary>
-        /// Improve existing content using AI
+        /// Improve existing content and save as new AI generation
         /// </summary>
-        [HttpPost("improve")]
-        public async Task<ActionResult<GenericResponse<string>>> ImproveContent([FromBody] ImproveContentRequest request)
+        [HttpPost("improve/{contentId}")]
+        public async Task<ActionResult<GenericResponse<AiGenerationResponse>>> ImproveContent(Guid contentId, [FromBody] ImproveContentRequest request)
         {
             try
             {
-                var result = await _aiService.ImproveContentAsync(request.Content);
-                return Ok(GenericResponse<string>.CreateSuccess(result, "Content improved successfully"));
+                var result = await _aiService.ImproveContentAsync(contentId, request.Content);
+                return Ok(GenericResponse<AiGenerationResponse>.CreateSuccess(result, "Content improved successfully"));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid request for content improvement");
+                return BadRequest(GenericResponse<AiGenerationResponse>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error improving content");
-                return StatusCode(500, GenericResponse<string>.CreateError("Failed to improve content"));
+                return StatusCode(500, GenericResponse<AiGenerationResponse>.CreateError("Failed to improve content"));
             }
         }
 
         /// <summary>
-        /// Save approved AI-generated content to database
+        /// Approve AI generation and copy it to the content
         /// </summary>
-        [HttpPost("save-content")]
-        public async Task<ActionResult<GenericResponse<ContentResponseDto>>> SaveAIContent([FromBody] AISaveContentRequest request)
+        [HttpPost("approve/{aiGenerationId}")]
+        public async Task<ActionResult<GenericResponse<ContentResponseDto>>> ApproveAIGeneration(Guid aiGenerationId)
         {
             try
             {
-                var result = await _aiService.SaveAIContentAsync(request);
-                return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "AI-generated content saved successfully"));
+                var result = await _aiService.ApproveAIGenerationAsync(aiGenerationId);
+                return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "AI generation approved and content updated"));
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "Invalid request for AI content saving");
+                _logger.LogWarning(ex, "Invalid AI generation ID");
+                return BadRequest(GenericResponse<ContentResponseDto>.CreateError(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation on AI generation");
                 return BadRequest(GenericResponse<ContentResponseDto>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error saving AI content");
-                return StatusCode(500, GenericResponse<ContentResponseDto>.CreateError("Failed to save AI content"));
+                _logger.LogError(ex, "Error approving AI generation");
+                return StatusCode(500, GenericResponse<ContentResponseDto>.CreateError("Failed to approve AI generation"));
             }
         }
-    }
 
-    public class GenerateContentRequest
-    {
-        public string Prompt { get; set; } = string.Empty;
-    }
-
-    public class ImproveContentRequest
-    {
-        public string Content { get; set; } = string.Empty;
+        /// <summary>
+        /// Get all AI generations for a content
+        /// </summary>
+        [HttpGet("generations/{contentId}")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<AiGenerationDto>>>> GetContentAIGenerations(Guid contentId)
+        {
+            try
+            {
+                var result = await _aiService.GetContentAIGenerationsAsync(contentId);
+                return Ok(GenericResponse<IEnumerable<AiGenerationDto>>.CreateSuccess(result, "AI generations retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving AI generations");
+                return StatusCode(500, GenericResponse<IEnumerable<AiGenerationDto>>.CreateError("Failed to retrieve AI generations"));
+            }
+        }
     }
 }

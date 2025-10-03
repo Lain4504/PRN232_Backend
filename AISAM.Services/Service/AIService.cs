@@ -1,12 +1,14 @@
-using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
+using AISAM.Data.Enumeration;
+using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ContentEntity = AISAM.Data.Model.Content;
 
 namespace AISAM.Services.Service
 {
@@ -16,6 +18,7 @@ namespace AISAM.Services.Service
         private readonly ILogger<AIService> _logger;
         private readonly HttpClient _httpClient;
         private readonly IContentRepository _contentRepository;
+        private readonly IAiGenerationRepository _aiGenerationRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IUserRepository _userRepository;
         private readonly Dictionary<string, IProviderService> _providers;
@@ -25,6 +28,7 @@ namespace AISAM.Services.Service
             ILogger<AIService> logger,
             HttpClient httpClient,
             IContentRepository contentRepository,
+            IAiGenerationRepository aiGenerationRepository,
             ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
             IEnumerable<IProviderService> providers)
@@ -33,6 +37,7 @@ namespace AISAM.Services.Service
             _logger = logger;
             _httpClient = httpClient;
             _contentRepository = contentRepository;
+            _aiGenerationRepository = aiGenerationRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
@@ -43,7 +48,192 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<string> GenerateContentAsync(string prompt)
+        public async Task<AiGenerationResponse> GenerateContentForDraftAsync(CreateDraftRequest request)
+        {
+            // Validate user exists
+            var user = await _userRepository.GetByIdAsync(request.UserId);
+            if (user == null)
+            {
+                throw new ArgumentException("User not found");
+            }
+
+            // Create draft content
+            var content = new ContentEntity
+            {
+                BrandId = request.BrandId,
+                ProductId = request.ProductId,
+                AdType = request.AdType,
+                Title = request.Title,
+                TextContent = "", // Will be filled by AI
+                ImageUrl = request.ImageUrl,
+                VideoUrl = request.VideoUrl,
+                Status = ContentStatusEnum.Draft
+            };
+
+            await _contentRepository.CreateAsync(content);
+
+            // Create AI generation record
+            var aiGeneration = new AiGeneration
+            {
+                ContentId = content.Id,
+                AiPrompt = request.AIGenerationPrompt,
+                Status = AiStatusEnum.Pending
+            };
+
+            await _aiGenerationRepository.CreateAsync(aiGeneration);
+
+            try
+            {
+                // Generate content using Gemini
+                var generatedText = await GenerateContentWithGemini(request.AIGenerationPrompt);
+
+                // Update AI generation with results
+                aiGeneration.GeneratedText = generatedText;
+                aiGeneration.Status = AiStatusEnum.Completed;
+
+                await _aiGenerationRepository.UpdateAsync(aiGeneration);
+
+                return new AiGenerationResponse
+                {
+                    AiGenerationId = aiGeneration.Id,
+                    ContentId = content.Id,
+                    GeneratedText = generatedText,
+                    Status = AiStatusEnum.Completed,
+                    CreatedAt = aiGeneration.CreatedAt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate AI content for draft {ContentId}", content.Id);
+
+                // Update AI generation with error
+                aiGeneration.Status = AiStatusEnum.Failed;
+                aiGeneration.ErrorMessage = ex.Message;
+                await _aiGenerationRepository.UpdateAsync(aiGeneration);
+
+                return new AiGenerationResponse
+                {
+                    AiGenerationId = aiGeneration.Id,
+                    ContentId = content.Id,
+                    Status = AiStatusEnum.Failed,
+                    ErrorMessage = ex.Message,
+                    CreatedAt = aiGeneration.CreatedAt
+                };
+            }
+        }
+
+        public async Task<AiGenerationResponse> ImproveContentAsync(Guid contentId, string improvementPrompt)
+        {
+            // Get existing content
+            var content = await _contentRepository.GetByIdAsync(contentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
+            // Create AI generation record for improvement
+            var aiGeneration = new AiGeneration
+            {
+                ContentId = contentId,
+                AiPrompt = improvementPrompt,
+                Status = AiStatusEnum.Pending
+            };
+
+            await _aiGenerationRepository.CreateAsync(aiGeneration);
+
+            try
+            {
+                // Generate improved content
+                var improvedText = await GenerateContentWithGemini(improvementPrompt);
+
+                // Update AI generation with results
+                aiGeneration.GeneratedText = improvedText;
+                aiGeneration.Status = AiStatusEnum.Completed;
+
+                await _aiGenerationRepository.UpdateAsync(aiGeneration);
+
+                return new AiGenerationResponse
+                {
+                    AiGenerationId = aiGeneration.Id,
+                    ContentId = contentId,
+                    GeneratedText = improvedText,
+                    Status = AiStatusEnum.Completed,
+                    CreatedAt = aiGeneration.CreatedAt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to improve content {ContentId}", contentId);
+
+                // Update AI generation with error
+                aiGeneration.Status = AiStatusEnum.Failed;
+                aiGeneration.ErrorMessage = ex.Message;
+                await _aiGenerationRepository.UpdateAsync(aiGeneration);
+
+                return new AiGenerationResponse
+                {
+                    AiGenerationId = aiGeneration.Id,
+                    ContentId = contentId,
+                    Status = AiStatusEnum.Failed,
+                    ErrorMessage = ex.Message,
+                    CreatedAt = aiGeneration.CreatedAt
+                };
+            }
+        }
+
+        public async Task<ContentResponseDto> ApproveAIGenerationAsync(Guid aiGenerationId)
+        {
+            // Get AI generation
+            var aiGeneration = await _aiGenerationRepository.GetByIdAsync(aiGenerationId);
+            if (aiGeneration == null)
+            {
+                throw new ArgumentException("AI generation not found");
+            }
+
+            if (aiGeneration.Status != AiStatusEnum.Completed || string.IsNullOrEmpty(aiGeneration.GeneratedText))
+            {
+                throw new InvalidOperationException("AI generation is not completed or has no content");
+            }
+
+            // Get the associated content
+            var content = await _contentRepository.GetByIdAsync(aiGeneration.ContentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Associated content not found");
+            }
+
+            // Update content with AI-generated text
+            content.TextContent = aiGeneration.GeneratedText;
+            content.Status = ContentStatusEnum.Approved; // Mark as approved
+            content.UpdatedAt = DateTime.UtcNow;
+
+            await _contentRepository.UpdateAsync(content);
+
+            _logger.LogInformation("AI generation {AiGenerationId} approved and copied to content {ContentId}",
+                aiGenerationId, content.Id);
+
+            return MapToContentDto(content, null);
+        }
+
+        public async Task<IEnumerable<AiGenerationDto>> GetContentAIGenerationsAsync(Guid contentId)
+        {
+            var aiGenerations = await _aiGenerationRepository.GetByContentIdAsync(contentId);
+
+            return aiGenerations.Select(ag => new AiGenerationDto
+            {
+                Id = ag.Id,
+                AiPrompt = ag.AiPrompt,
+                GeneratedText = ag.GeneratedText,
+                GeneratedImageUrl = ag.GeneratedImageUrl,
+                GeneratedVideoUrl = ag.GeneratedVideoUrl,
+                Status = ag.Status,
+                ErrorMessage = ag.ErrorMessage,
+                CreatedAt = ag.CreatedAt,
+                UpdatedAt = ag.UpdatedAt
+            });
+        }
+
+        private async Task<string> GenerateContentWithGemini(string prompt)
         {
             try
             {
@@ -81,210 +271,13 @@ namespace AISAM.Services.Service
 
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("Gemini API error: {StatusCode} - {Content}", response.StatusCode, errorContent);
-                return $"Error: {response.StatusCode}";
+                throw new Exception($"Gemini API error: {response.StatusCode}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating content with AI");
-                return $"Error: {ex.Message}";
+                _logger.LogError(ex, "Error generating content with Gemini");
+                throw;
             }
-        }
-
-        public async Task<string> ImproveContentAsync(string content)
-        {
-            var prompt = $"Improve and enhance the following content. Make it more engaging and professional:\n\n{content}";
-            return await GenerateContentAsync(prompt);
-        }
-
-        public async Task<ContentResponseDto> SaveAIContentAsync(AISaveContentRequest request)
-        {
-            // Validate user exists
-            var user = await _userRepository.GetByIdAsync(request.UserId);
-            if (user == null)
-            {
-                throw new ArgumentException("User not found");
-            }
-
-            // Create content entity with AI-generated text
-            var content = new AISAM.Data.Model.Content
-            {
-                BrandId = request.BrandId,
-                ProductId = request.ProductId,
-                AdType = request.AdType,
-                Title = request.Title,
-                TextContent = request.AIGeneratedContent,
-                ImageUrl = request.ImageUrl,
-                VideoUrl = request.VideoUrl,
-                Status = AISAM.Data.Enumeration.ContentStatusEnum.Draft
-            };
-
-            await _contentRepository.CreateAsync(content);
-
-            PublishResultDto? publishResult = null;
-
-            // If publish immediately, publish to specified integration
-            if (request.PublishImmediately && request.IntegrationId.HasValue)
-            {
-                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value);
-                if (publishResult.Success)
-                {
-                    content.Status = AISAM.Data.Enumeration.ContentStatusEnum.Published;
-                    await _contentRepository.UpdateAsync(content);
-
-                    _logger.LogInformation("AI-generated content {ContentId} published successfully to integration {IntegrationId}",
-                        content.Id, request.IntegrationId);
-                }
-                else
-                {
-                    content.Status = AISAM.Data.Enumeration.ContentStatusEnum.Rejected;
-                    await _contentRepository.UpdateAsync(content);
-
-                    _logger.LogError("Failed to publish AI-generated content {ContentId}: {Error}",
-                        content.Id, publishResult.ErrorMessage);
-                }
-            }
-
-            return MapToDto(content, publishResult);
-        }
-
-        private async Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId)
-        {
-            // Get content
-            var content = await _contentRepository.GetByIdAsync(contentId);
-            if (content == null)
-            {
-                return new PublishResultDto
-                {
-                    Success = false,
-                    ErrorMessage = "Content not found"
-                };
-            }
-
-            // Get social integration
-            var integration = await _socialIntegrationRepository.GetByIdAsync(integrationId);
-            if (integration == null)
-            {
-                return new PublishResultDto
-                {
-                    Success = false,
-                    ErrorMessage = "Social integration not found"
-                };
-            }
-
-            // Validate integration belongs to same user as content
-            if (integration.UserId != content.Brand.UserId)
-            {
-                return new PublishResultDto
-                {
-                    Success = false,
-                    ErrorMessage = "Integration does not belong to content owner"
-                };
-            }
-
-            // Get provider service
-            var platformName = integration.Platform.ToString().ToLower();
-            if (!_providers.TryGetValue(platformName, out var provider))
-            {
-                return new PublishResultDto
-                {
-                    Success = false,
-                    ErrorMessage = $"Provider '{platformName}' not supported"
-                };
-            }
-
-            // Create post DTO for provider
-            var postDto = new AISAM.Common.Models.PostDto
-            {
-                Message = content.TextContent,
-                LinkUrl = null,
-                ImageUrl = content.ImageUrl,
-                VideoUrl = content.VideoUrl,
-                Metadata = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    title = content.Title ?? "",
-                    ai_generated = true
-                })
-            };
-
-            // Route by AdType
-            if (content.AdType == AISAM.Data.Enumeration.AdTypeEnum.TextOnly)
-            {
-                // text only -> nothing else to set
-            }
-            else if (content.AdType == AISAM.Data.Enumeration.AdTypeEnum.VideoText)
-            {
-                postDto.VideoUrl = content.VideoUrl;
-            }
-            else if (content.AdType == AISAM.Data.Enumeration.AdTypeEnum.ImageText)
-            {
-                if (!string.IsNullOrWhiteSpace(content.ImageUrl))
-                {
-                    var raw = content.ImageUrl.Trim();
-                    if (raw.StartsWith("["))
-                    {
-                        try
-                        {
-                            var urls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(raw) ?? new List<string>();
-                            postDto.ImageUrls = urls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
-                        }
-                        catch
-                        {
-                            postDto.ImageUrl = content.ImageUrl;
-                        }
-                    }
-                    else
-                    {
-                        postDto.ImageUrl = content.ImageUrl;
-                    }
-                }
-            }
-
-            try
-            {
-                var result = await provider.PublishAsync(integration.SocialAccount, integration, postDto);
-
-                if (result.Success)
-                {
-                    _logger.LogInformation("Successfully published AI-generated content {ContentId} to {Platform}",
-                        contentId, platformName);
-                }
-                else
-                {
-                    _logger.LogError("Failed to publish AI-generated content {ContentId} to {Platform}: {Error}",
-                        contentId, platformName, result.ErrorMessage);
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Exception occurred while publishing AI-generated content {ContentId}", contentId);
-                return new PublishResultDto
-                {
-                    Success = false,
-                    ErrorMessage = $"Publishing failed: {ex.Message}"
-                };
-            }
-        }
-
-        private ContentResponseDto MapToDto(AISAM.Data.Model.Content content, PublishResultDto? publishResult)
-        {
-            return new ContentResponseDto
-            {
-                Id = content.Id,
-                BrandId = content.BrandId,
-                ProductId = content.ProductId,
-                AdType = content.AdType.ToString(),
-                Title = content.Title,
-                TextContent = content.TextContent,
-                ImageUrl = content.ImageUrl,
-                VideoUrl = content.VideoUrl,
-                Status = content.Status.ToString(),
-                CreatedAt = content.CreatedAt,
-                UpdatedAt = content.UpdatedAt,
-                ExternalPostId = publishResult?.ProviderPostId,
-                PublishedAt = publishResult?.PostedAt
-            };
         }
 
         // Helper classes for Gemini API response
@@ -312,6 +305,26 @@ namespace AISAM.Services.Service
         private class UsageMetadata
         {
             public int totalTokenCount { get; set; }
+        }
+
+        private ContentResponseDto MapToContentDto(ContentEntity content, PublishResultDto? publishResult)
+        {
+            return new ContentResponseDto
+            {
+                Id = content.Id,
+                BrandId = content.BrandId,
+                ProductId = content.ProductId,
+                AdType = content.AdType.ToString(),
+                Title = content.Title,
+                TextContent = content.TextContent,
+                ImageUrl = content.ImageUrl,
+                VideoUrl = content.VideoUrl,
+                Status = content.Status.ToString(),
+                CreatedAt = content.CreatedAt,
+                UpdatedAt = content.UpdatedAt,
+                ExternalPostId = publishResult?.ProviderPostId,
+                PublishedAt = publishResult?.PostedAt
+            };
         }
     }
 }
