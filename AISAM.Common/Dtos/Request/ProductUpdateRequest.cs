@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using System.ComponentModel;
 
 namespace AISAM.Common.Dtos.Request
 {
@@ -8,9 +9,6 @@ namespace AISAM.Common.Dtos.Request
         public string? Name { get; set; }
         public string? Description { get; set; }
         public decimal? Price { get; set; }
-        public List<string>? Images { get; set; } // override trực tiếp URL nếu muốn
-
-        // 👇 thêm vào để có thể upload ảnh khi update
-        public List<IFormFile>? ImageFiles { get; set; }
+        public List<IFormFile>? ImageFiles { get; set; } 
     }
 }

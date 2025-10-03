@@ -7,23 +7,29 @@ namespace AISAM.Repositories.Repository
 {
     public class ProductRepository : IProductRepository
     {
-        private readonly AisamContext _db;
+        private readonly AisamContext _context;
 
         public ProductRepository(AisamContext db)
         {
-            _db = db;
+            _context = db;
         }
 
         public async Task<Product?> GetByIdAsync(Guid id)
         {
-            return await _db.Products
+            return await _context.Products
                 .Include(p => p.Brand) // join brand nếu cần
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
         }
 
+        public async Task<Product?> GetByIdIncludingDeletedAsync(Guid id)
+        {
+            return await _context.Products
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
         public async Task<PagedResult<Product>> GetPagedAsync(PaginationRequest request)
         {
-            var query = _db.Products
+            var query = _context.Products
                 .Include(p => p.Brand)
                 .Where(p => !p.IsDeleted);
 
@@ -75,33 +81,20 @@ namespace AISAM.Repositories.Repository
 
         public async Task<Product> AddAsync(Product product)
         {
-            _db.Products.Add(product);
-            await _db.SaveChangesAsync();
+            _context.Products.Add(product);
+            await _context.SaveChangesAsync();
             return product;
         }
 
         public async Task UpdateAsync(Product product)
         {
-            _db.Products.Update(product);
-            await _db.SaveChangesAsync();
+            _context.Products.Update(product);
+            await _context.SaveChangesAsync();
         }
 
-        public async Task<bool> DeleteAsync(Guid id)
+        public async Task<bool> BrandExistsAsync(Guid? brandId)
         {
-            var product = await _db.Products.FindAsync(id);
-            if (product == null || product.IsDeleted) return false;
-
-            product.IsDeleted = true;
-            product.UpdatedAt = DateTime.UtcNow;
-            _db.Products.Update(product);
-
-            await _db.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> BrandExistsAsync(Guid brandId)
-        {
-            return await _db.Brands.AnyAsync(b => b.Id == brandId && !b.IsDeleted);
+            return await _context.Brands.AnyAsync(b => b.Id == brandId && !b.IsDeleted);
         }
     }
 }

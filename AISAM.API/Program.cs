@@ -54,6 +54,7 @@ builder.Services.AddControllers(options =>
 
 // Register validators from API assembly
 builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.CreateContentRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.ProductCreateRequestValidator>();
 
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();

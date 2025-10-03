@@ -14,8 +14,10 @@ namespace AISAM.Services.IServices
 
         Task<ProductResponseDto> CreateAsync(ProductCreateRequest dto, List<IFormFile>? imageFiles = null);
 
-        Task<ProductResponseDto?> UpdateAsync(Guid id, ProductUpdateRequestDto dto, List<IFormFile>? newImages = null);
+        Task<ProductResponseDto?> UpdateAsync(Guid id, ProductUpdateRequestDto dto);
 
-        Task<bool> DeleteAsync(Guid id);
+        Task<bool> SoftDeleteAsync(Guid id);
+
+        Task<bool> RestoreAsync(Guid id);
     }
 }

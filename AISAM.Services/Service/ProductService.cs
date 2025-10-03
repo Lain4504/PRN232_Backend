@@ -73,11 +73,12 @@ namespace AISAM.Services.Service
             return MapToResponse(created);
         }
 
-        public async Task<ProductResponseDto?> UpdateAsync(Guid id, ProductUpdateRequestDto dto, List<IFormFile>? newImages = null)
+        public async Task<ProductResponseDto?> UpdateAsync(Guid id, ProductUpdateRequestDto dto)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null || product.IsDeleted) return null;
 
+            // Cập nhật Brand
             if (dto.BrandId.HasValue)
             {
                 if (!await _productRepository.BrandExistsAsync(dto.BrandId.Value))
@@ -85,26 +86,30 @@ namespace AISAM.Services.Service
                 product.BrandId = dto.BrandId.Value;
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Name)) product.Name = dto.Name;
-            if (!string.IsNullOrWhiteSpace(dto.Description)) product.Description = dto.Description;
-            if (dto.Price.HasValue) product.Price = dto.Price.Value;
+            if (!string.IsNullOrWhiteSpace(dto.Name))
+                product.Name = dto.Name;
 
-            // Append ảnh mới nếu có
+            if (!string.IsNullOrWhiteSpace(dto.Description))
+                product.Description = dto.Description;
+
+            if (dto.Price.HasValue)
+                product.Price = dto.Price.Value;
+
+            // Lấy danh sách ảnh hiện tại
             var currentImages = !string.IsNullOrEmpty(product.Images)
                 ? JsonSerializer.Deserialize<List<string>>(product.Images) ?? new List<string>()
                 : new List<string>();
 
-            if (newImages != null && newImages.Any())
+            // Upload và append ảnh mới từ dto.ImageFiles
+            if (dto.ImageFiles != null && dto.ImageFiles.Any())
             {
-                foreach (var file in newImages)
+                foreach (var file in dto.ImageFiles)
                 {
                     var url = await _supabaseService.UploadFileAsync(file);
                     if (!string.IsNullOrEmpty(url))
                         currentImages.Add(url);
                 }
             }
-
-            if (dto.Images != null) currentImages = dto.Images;
 
             product.Images = JsonSerializer.Serialize(currentImages);
             product.UpdatedAt = DateTime.UtcNow;
@@ -113,13 +118,25 @@ namespace AISAM.Services.Service
             return MapToResponse(product);
         }
 
-        public async Task<bool> DeleteAsync(Guid id)
+        public async Task<bool> SoftDeleteAsync(Guid id)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null || product.IsDeleted) return false;
 
             product.IsDeleted = true;
             product.UpdatedAt = DateTime.UtcNow;
+            await _productRepository.UpdateAsync(product);
+            return true;
+        }
+
+        public async Task<bool> RestoreAsync(Guid id)
+        {
+            var product = await _productRepository.GetByIdIncludingDeletedAsync(id);
+            if (product == null || !product.IsDeleted) return false;
+
+            product.IsDeleted = false;
+            product.UpdatedAt = DateTime.UtcNow;
+
             await _productRepository.UpdateAsync(product);
             return true;
         }

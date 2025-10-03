@@ -29,9 +29,5 @@
     <ProjectReference Include="..\AISAM.Data\AISAM.Data.csproj" />
     <ProjectReference Include="..\AISAM.Repositories\AISAM.Repositories.csproj" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="Validators\" />
-  </ItemGroup>
 
 </Project>
