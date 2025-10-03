@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AISAM.Repositories.Migrations
 {
     [DbContext(typeof(AisamContext))]
-    [Migration("20250929124409_NewDB")]
-    partial class NewDB
+    [Migration("20251003013603_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -131,6 +131,8 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("BrandId");
 
+                    b.HasIndex("Name");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("ad_campaigns");
@@ -185,6 +187,9 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AdCampaignId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("CampaignId")
                         .HasColumnType("uuid")
                         .HasColumnName("campaign_id");
@@ -220,6 +225,8 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("targeting");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdCampaignId");
 
                     b.HasIndex("CampaignId");
 
@@ -262,9 +269,74 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ActionType");
+
                     b.HasIndex("AdminId");
 
+                    b.HasIndex("CreatedAt");
+
                     b.ToTable("admin_logs");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.AiGeneration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AiPrompt")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ai_prompt");
+
+                    b.Property<Guid>("ContentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("content_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("GeneratedImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("generated_image_url");
+
+                    b.Property<string>("GeneratedText")
+                        .HasColumnType("text")
+                        .HasColumnName("generated_text");
+
+                    b.Property<string>("GeneratedVideoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("generated_video_url");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ai_generations");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Approval", b =>
@@ -315,41 +387,51 @@ namespace AISAM.Repositories.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AssetType")
+                        .HasMaxLength(20)
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
 
                     b.Property<decimal?>("DurationSeconds")
-                        .HasColumnType("numeric");
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("duration_seconds");
 
                     b.Property<int?>("Height")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
 
                     b.Property<string>("Metadata")
-                        .HasColumnType("text");
+                        .HasColumnType("jsonb")
+                        .HasColumnName("metadata");
 
                     b.Property<string>("MimeType")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("mime_type");
 
                     b.Property<long?>("SizeBytes")
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
 
                     b.Property<string>("StoragePath")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("text")
+                        .HasColumnName("storage_path");
 
                     b.Property<Guid?>("UploadedBy")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
 
                     b.Property<int?>("Width")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
 
                     b.HasKey("Id");
 
@@ -392,6 +474,9 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("profile_id");
 
+                    b.Property<Guid?>("ProfileId1")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Slogan")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
@@ -415,7 +500,11 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name");
+
                     b.HasIndex("ProfileId");
+
+                    b.HasIndex("ProfileId1");
 
                     b.HasIndex("UserId");
 
@@ -446,8 +535,7 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<string>("ImageUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("jsonb")
                         .HasColumnName("image_url");
 
                     b.Property<bool>("IsDeleted")
@@ -463,7 +551,9 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("representative_character");
 
                     b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
+                        .HasDefaultValue(0)
                         .HasColumnName("status");
 
                     b.Property<string>("StyleDescription")
@@ -493,7 +583,11 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("BrandId");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("contents");
                 });
@@ -541,7 +635,69 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("ContentId");
 
+                    b.HasIndex("ScheduledDate");
+
                     b.ToTable("content_calendar");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_read");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("target_type");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsRead");
+
+                    b.HasIndex("Type");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("notifications");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.PerformanceReport", b =>
@@ -591,6 +747,8 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("PostId");
 
+                    b.HasIndex("ReportDate");
+
                     b.ToTable("performance_reports");
                 });
 
@@ -626,15 +784,26 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
 
+                    b.Property<Guid?>("SocialIntegrationId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
+                        .HasDefaultValue(4)
                         .HasColumnName("status");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ContentId");
 
+                    b.HasIndex("ExternalPostId");
+
                     b.HasIndex("IntegrationId");
+
+                    b.HasIndex("PublishedAt");
+
+                    b.HasIndex("SocialIntegrationId");
 
                     b.ToTable("posts");
                 });
@@ -683,6 +852,8 @@ namespace AISAM.Repositories.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BrandId");
+
+                    b.HasIndex("Name");
 
                     b.ToTable("products");
                 });
@@ -785,6 +956,12 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Platform");
 
                     b.HasIndex("UserId");
 
@@ -908,6 +1085,8 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IsActive");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("subscriptions");
@@ -943,6 +1122,8 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("vendor_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("VendorId");
 
@@ -1075,8 +1256,12 @@ namespace AISAM.Repositories.Migrations
 
             modelBuilder.Entity("AISAM.Data.Model.AdSet", b =>
                 {
-                    b.HasOne("AISAM.Data.Model.AdCampaign", "Campaign")
+                    b.HasOne("AISAM.Data.Model.AdCampaign", null)
                         .WithMany("AdSets")
+                        .HasForeignKey("AdCampaignId");
+
+                    b.HasOne("AISAM.Data.Model.AdCampaign", "Campaign")
+                        .WithMany()
                         .HasForeignKey("CampaignId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1093,6 +1278,17 @@ namespace AISAM.Repositories.Migrations
                         .IsRequired();
 
                     b.Navigation("Admin");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.AiGeneration", b =>
+                {
+                    b.HasOne("AISAM.Data.Model.Content", "Content")
+                        .WithMany("AiGenerations")
+                        .HasForeignKey("ContentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Content");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Approval", b =>
@@ -1127,8 +1323,13 @@ namespace AISAM.Repositories.Migrations
             modelBuilder.Entity("AISAM.Data.Model.Brand", b =>
                 {
                     b.HasOne("AISAM.Data.Model.Profile", "Profile")
+                        .WithMany()
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AISAM.Data.Model.Profile", null)
                         .WithMany("Brands")
-                        .HasForeignKey("ProfileId");
+                        .HasForeignKey("ProfileId1");
 
                     b.HasOne("AISAM.Data.Model.User", "User")
                         .WithMany("Brands")
@@ -1151,7 +1352,8 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasOne("AISAM.Data.Model.Product", "Product")
                         .WithMany("Contents")
-                        .HasForeignKey("ProductId");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Brand");
 
@@ -1167,6 +1369,17 @@ namespace AISAM.Repositories.Migrations
                         .IsRequired();
 
                     b.Navigation("Content");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.Notification", b =>
+                {
+                    b.HasOne("AISAM.Data.Model.User", "User")
+                        .WithMany("Notifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.PerformanceReport", b =>
@@ -1189,10 +1402,14 @@ namespace AISAM.Repositories.Migrations
                         .IsRequired();
 
                     b.HasOne("AISAM.Data.Model.SocialIntegration", "Integration")
-                        .WithMany("Posts")
+                        .WithMany()
                         .HasForeignKey("IntegrationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("AISAM.Data.Model.SocialIntegration", null)
+                        .WithMany("Posts")
+                        .HasForeignKey("SocialIntegrationId");
 
                     b.Navigation("Content");
 
@@ -1330,6 +1547,8 @@ namespace AISAM.Repositories.Migrations
                 {
                     b.Navigation("AdCreatives");
 
+                    b.Navigation("AiGenerations");
+
                     b.Navigation("Approvals");
 
                     b.Navigation("ContentCalendars");
@@ -1376,6 +1595,8 @@ namespace AISAM.Repositories.Migrations
                     b.Navigation("Approvals");
 
                     b.Navigation("Brands");
+
+                    b.Navigation("Notifications");
 
                     b.Navigation("Profiles");
 

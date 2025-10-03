@@ -52,27 +52,53 @@ namespace AISAM.Repositories.Migrations
                 name: "assets",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UploadedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    Type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    StoragePath = table.Column<string>(type: "text", nullable: false),
-                    MimeType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    SizeBytes = table.Column<long>(type: "bigint", nullable: true),
-                    Width = table.Column<int>(type: "integer", nullable: true),
-                    Height = table.Column<int>(type: "integer", nullable: true),
-                    DurationSeconds = table.Column<decimal>(type: "numeric", nullable: true),
-                    Metadata = table.Column<string>(type: "text", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    uploaded_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    type = table.Column<int>(type: "integer", maxLength: 20, nullable: false),
+                    storage_path = table.Column<string>(type: "text", nullable: false),
+                    mime_type = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    size_bytes = table.Column<long>(type: "bigint", nullable: true),
+                    width = table.Column<int>(type: "integer", nullable: true),
+                    height = table.Column<int>(type: "integer", nullable: true),
+                    duration_seconds = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
+                    metadata = table.Column<string>(type: "jsonb", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_assets", x => x.Id);
+                    table.PrimaryKey("PK_assets", x => x.id);
                     table.ForeignKey(
-                        name: "FK_assets_users_UploadedBy",
-                        column: x => x.UploadedBy,
+                        name: "FK_assets_users_uploaded_by",
+                        column: x => x.uploaded_by,
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "notifications",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    message = table.Column<string>(type: "text", nullable: false),
+                    type = table.Column<int>(type: "integer", nullable: false),
+                    target_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    target_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    is_read = table.Column<bool>(type: "boolean", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_notifications", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_notifications_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -191,16 +217,23 @@ namespace AISAM.Repositories.Migrations
                     profile_id = table.Column<Guid>(type: "uuid", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ProfileId1 = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_brands", x => x.id);
                     table.ForeignKey(
+                        name: "FK_brands_profiles_ProfileId1",
+                        column: x => x.ProfileId1,
+                        principalTable: "profiles",
+                        principalColumn: "id");
+                    table.ForeignKey(
                         name: "FK_brands_profiles_profile_id",
                         column: x => x.profile_id,
                         principalTable: "profiles",
-                        principalColumn: "id");
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_brands_users_user_id",
                         column: x => x.user_id,
@@ -351,11 +384,17 @@ namespace AISAM.Repositories.Migrations
                     start_date = table.Column<DateTime>(type: "date", nullable: true),
                     end_date = table.Column<DateTime>(type: "date", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AdCampaignId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ad_sets", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_ad_sets_ad_campaigns_AdCampaignId",
+                        column: x => x.AdCampaignId,
+                        principalTable: "ad_campaigns",
+                        principalColumn: "id");
                     table.ForeignKey(
                         name: "FK_ad_sets_ad_campaigns_campaign_id",
                         column: x => x.campaign_id,
@@ -374,12 +413,12 @@ namespace AISAM.Repositories.Migrations
                     ad_type = table.Column<int>(type: "integer", nullable: false),
                     title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     text_content = table.Column<string>(type: "text", nullable: false),
-                    image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    image_url = table.Column<string>(type: "jsonb", nullable: true),
                     video_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     style_description = table.Column<string>(type: "text", nullable: true),
                     context_description = table.Column<string>(type: "text", nullable: true),
                     representative_character = table.Column<string>(type: "text", nullable: true),
-                    status = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -397,7 +436,8 @@ namespace AISAM.Repositories.Migrations
                         name: "FK_contents_products_product_id",
                         column: x => x.product_id,
                         principalTable: "products",
-                        principalColumn: "id");
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -417,6 +457,33 @@ namespace AISAM.Repositories.Migrations
                     table.PrimaryKey("PK_ad_creatives", x => x.id);
                     table.ForeignKey(
                         name: "FK_ad_creatives_contents_content_id",
+                        column: x => x.content_id,
+                        principalTable: "contents",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ai_generations",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ai_prompt = table.Column<string>(type: "text", nullable: false),
+                    generated_text = table.Column<string>(type: "text", nullable: true),
+                    generated_image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    generated_video_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    status = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    error_message = table.Column<string>(type: "text", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ai_generations", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_ai_generations_contents_content_id",
                         column: x => x.content_id,
                         principalTable: "contents",
                         principalColumn: "id",
@@ -486,9 +553,10 @@ namespace AISAM.Repositories.Migrations
                     integration_id = table.Column<Guid>(type: "uuid", nullable: false),
                     external_post_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     published_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    status = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false, defaultValue: 4),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    SocialIntegrationId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -499,6 +567,11 @@ namespace AISAM.Repositories.Migrations
                         principalTable: "contents",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_posts_social_integrations_SocialIntegrationId",
+                        column: x => x.SocialIntegrationId,
+                        principalTable: "social_integrations",
+                        principalColumn: "id");
                     table.ForeignKey(
                         name: "FK_posts_social_integrations_integration_id",
                         column: x => x.integration_id,
@@ -568,6 +641,11 @@ namespace AISAM.Repositories.Migrations
                 column: "brand_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ad_campaigns_name",
+                table: "ad_campaigns",
+                column: "name");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ad_campaigns_user_id",
                 table: "ad_campaigns",
                 column: "user_id");
@@ -578,14 +656,29 @@ namespace AISAM.Repositories.Migrations
                 column: "content_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ad_sets_AdCampaignId",
+                table: "ad_sets",
+                column: "AdCampaignId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ad_sets_campaign_id",
                 table: "ad_sets",
                 column: "campaign_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_admin_logs_action_type",
+                table: "admin_logs",
+                column: "action_type");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_admin_logs_admin_id",
                 table: "admin_logs",
                 column: "admin_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_admin_logs_created_at",
+                table: "admin_logs",
+                column: "created_at");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ads_ad_set_id",
@@ -598,6 +691,16 @@ namespace AISAM.Repositories.Migrations
                 column: "creative_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ai_generations_content_id",
+                table: "ai_generations",
+                column: "content_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ai_generations_status",
+                table: "ai_generations",
+                column: "status");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_approvals_approver_id",
                 table: "approvals",
                 column: "approver_id");
@@ -608,14 +711,24 @@ namespace AISAM.Repositories.Migrations
                 column: "content_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_assets_UploadedBy",
+                name: "IX_assets_uploaded_by",
                 table: "assets",
-                column: "UploadedBy");
+                column: "uploaded_by");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_brands_name",
+                table: "brands",
+                column: "name");
 
             migrationBuilder.CreateIndex(
                 name: "IX_brands_profile_id",
                 table: "brands",
                 column: "profile_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_brands_ProfileId1",
+                table: "brands",
+                column: "ProfileId1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_brands_user_id",
@@ -628,9 +741,19 @@ namespace AISAM.Repositories.Migrations
                 column: "content_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_content_calendar_scheduled_date",
+                table: "content_calendar",
+                column: "scheduled_date");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_contents_brand_id",
                 table: "contents",
                 column: "brand_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_contents_created_at",
+                table: "contents",
+                column: "created_at");
 
             migrationBuilder.CreateIndex(
                 name: "IX_contents_product_id",
@@ -638,9 +761,39 @@ namespace AISAM.Repositories.Migrations
                 column: "product_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_contents_status",
+                table: "contents",
+                column: "status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_notifications_created_at",
+                table: "notifications",
+                column: "created_at");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_notifications_is_read",
+                table: "notifications",
+                column: "is_read");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_notifications_type",
+                table: "notifications",
+                column: "type");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_notifications_user_id",
+                table: "notifications",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_performance_reports_post_id",
                 table: "performance_reports",
                 column: "post_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_performance_reports_report_date",
+                table: "performance_reports",
+                column: "report_date");
 
             migrationBuilder.CreateIndex(
                 name: "IX_posts_content_id",
@@ -648,9 +801,24 @@ namespace AISAM.Repositories.Migrations
                 column: "content_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_posts_external_post_id",
+                table: "posts",
+                column: "external_post_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_posts_integration_id",
                 table: "posts",
                 column: "integration_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_posts_published_at",
+                table: "posts",
+                column: "published_at");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_posts_SocialIntegrationId",
+                table: "posts",
+                column: "SocialIntegrationId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_products_brand_id",
@@ -658,9 +826,29 @@ namespace AISAM.Repositories.Migrations
                 column: "brand_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_products_name",
+                table: "products",
+                column: "name");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_profiles_user_id",
                 table: "profiles",
                 column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_accounts_account_id",
+                table: "social_accounts",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_accounts_is_active",
+                table: "social_accounts",
+                column: "is_active");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_social_accounts_platform",
+                table: "social_accounts",
+                column: "platform");
 
             migrationBuilder.CreateIndex(
                 name: "IX_social_accounts_user_id",
@@ -683,6 +871,11 @@ namespace AISAM.Repositories.Migrations
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_subscriptions_is_active",
+                table: "subscriptions",
+                column: "is_active");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_subscriptions_user_id",
                 table: "subscriptions",
                 column: "user_id");
@@ -696,6 +889,11 @@ namespace AISAM.Repositories.Migrations
                 name: "IX_team_members_user_id",
                 table: "team_members",
                 column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_teams_name",
+                table: "teams",
+                column: "name");
 
             migrationBuilder.CreateIndex(
                 name: "IX_teams_vendor_id",
@@ -723,6 +921,9 @@ namespace AISAM.Repositories.Migrations
                 name: "ads");
 
             migrationBuilder.DropTable(
+                name: "ai_generations");
+
+            migrationBuilder.DropTable(
                 name: "approvals");
 
             migrationBuilder.DropTable(
@@ -730,6 +931,9 @@ namespace AISAM.Repositories.Migrations
 
             migrationBuilder.DropTable(
                 name: "content_calendar");
+
+            migrationBuilder.DropTable(
+                name: "notifications");
 
             migrationBuilder.DropTable(
                 name: "performance_reports");
