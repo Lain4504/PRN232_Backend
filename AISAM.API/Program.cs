@@ -54,6 +54,7 @@ builder.Services.AddControllers(options =>
 
 // Register validators from API assembly
 builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.CreateContentRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.ProductCreateRequestValidator>();
 
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();
@@ -94,6 +95,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
 builder.Services.AddScoped<ISocialIntegrationRepository, SocialIntegrationRepository>();
 builder.Services.AddScoped<IContentRepository, ContentRepository>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
 // Add services 
 builder.Services.AddScoped<IUserService, UserService>();
@@ -101,6 +103,7 @@ builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
