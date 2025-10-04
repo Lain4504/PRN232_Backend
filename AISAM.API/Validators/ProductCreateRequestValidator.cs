@@ -40,7 +40,7 @@ namespace AISAM.API.Validators
 
                 file.RuleFor(f => f.ContentType)
                     .Must(IsSupportedImageType)
-                    .WithMessage("Chỉ hỗ trợ định dạng ảnh jpg, jpeg, png");
+                    .WithMessage("Chỉ hỗ trợ định dạng ảnh jpg, jpeg, png, webp");
             });
         }
 
@@ -48,7 +48,8 @@ namespace AISAM.API.Validators
         {
             return contentType == "image/jpeg" ||
                    contentType == "image/jpg" ||
-                   contentType == "image/png";
+                   contentType == "image/png" ||
+                   contentType == "image/webp";
         }
     }
 }

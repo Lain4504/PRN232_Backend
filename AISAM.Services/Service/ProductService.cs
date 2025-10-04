@@ -20,9 +20,13 @@ namespace AISAM.Services.Service
             _supabaseService = supabaseService;
         }
 
+        /// <summary>
+        /// Lấy danh sách product theo phân trang, có hỗ trợ search và sắp xếp
+        /// </summary>
         public async Task<PagedResult<ProductResponseDto>> GetPagedAsync(PaginationRequest request)
         {
             var products = await _productRepository.GetPagedAsync(request);
+
             return new PagedResult<ProductResponseDto>
             {
                 Data = products.Data.Select(MapToResponse).ToList(),
@@ -32,20 +36,27 @@ namespace AISAM.Services.Service
             };
         }
 
+        /// <summary>
+        /// Lấy thông tin chi tiết product theo Id
+        /// </summary>
         public async Task<ProductResponseDto?> GetByIdAsync(Guid id)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null || product.IsDeleted) return null;
+
             return MapToResponse(product);
         }
 
+        /// <summary>
+        /// Tạo mới product, kèm upload hình nếu có
+        /// </summary>
         public async Task<ProductResponseDto> CreateAsync(ProductCreateRequest dto, List<IFormFile>? imageFiles = null)
         {
-            // Validate BrandId có tồn tại
+            // Kiểm tra Brand tồn tại
             if (!await _productRepository.BrandExistsAsync(dto.BrandId))
                 throw new Exception("Brand not found.");
 
-            // Upload ảnh nếu có
+            // Upload ảnh lên Supabase nếu có
             var imageUrls = new List<string>();
             if (imageFiles != null)
             {
@@ -73,12 +84,15 @@ namespace AISAM.Services.Service
             return MapToResponse(created);
         }
 
+        /// <summary>
+        /// Cập nhật thông tin product theo Id, hỗ trợ cập nhật Brand, Name, Description, Price, ảnh
+        /// </summary>
         public async Task<ProductResponseDto?> UpdateAsync(Guid id, ProductUpdateRequestDto dto)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null || product.IsDeleted) return null;
 
-            // Cập nhật Brand
+            // Cập nhật Brand nếu có
             if (dto.BrandId.HasValue)
             {
                 if (!await _productRepository.BrandExistsAsync(dto.BrandId.Value))
@@ -100,7 +114,7 @@ namespace AISAM.Services.Service
                 ? JsonSerializer.Deserialize<List<string>>(product.Images) ?? new List<string>()
                 : new List<string>();
 
-            // Upload và append ảnh mới từ dto.ImageFiles
+            // Upload ảnh mới và append
             if (dto.ImageFiles != null && dto.ImageFiles.Any())
             {
                 foreach (var file in dto.ImageFiles)
@@ -118,6 +132,9 @@ namespace AISAM.Services.Service
             return MapToResponse(product);
         }
 
+        /// <summary>
+        /// Soft delete product (chỉ đánh dấu IsDeleted = true, không xóa thực sự)
+        /// </summary>
         public async Task<bool> SoftDeleteAsync(Guid id)
         {
             var product = await _productRepository.GetByIdAsync(id);
@@ -129,6 +146,9 @@ namespace AISAM.Services.Service
             return true;
         }
 
+        /// <summary>
+        /// Khôi phục product đã xóa mềm
+        /// </summary>
         public async Task<bool> RestoreAsync(Guid id)
         {
             var product = await _productRepository.GetByIdIncludingDeletedAsync(id);
@@ -141,6 +161,9 @@ namespace AISAM.Services.Service
             return true;
         }
 
+        /// <summary>
+        /// Chuyển Product sang ProductResponseDto
+        /// </summary>
         private static ProductResponseDto MapToResponse(Product product)
         {
             return new ProductResponseDto

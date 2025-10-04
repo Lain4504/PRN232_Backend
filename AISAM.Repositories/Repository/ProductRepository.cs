@@ -9,9 +9,9 @@ namespace AISAM.Repositories.Repository
     {
         private readonly AisamContext _context;
 
-        public ProductRepository(AisamContext db)
+        public ProductRepository(AisamContext context)
         {
-            _context = db;
+            _context = context;
         }
 
         public async Task<Product?> GetByIdAsync(Guid id)
