@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ContentEntity = AISAM.Data.Model.Content;
 
 namespace AISAM.Services.Service
@@ -72,54 +73,7 @@ namespace AISAM.Services.Service
 
             await _contentRepository.CreateAsync(content);
 
-            // Create AI generation record
-            var aiGeneration = new AiGeneration
-            {
-                ContentId = content.Id,
-                AiPrompt = request.AIGenerationPrompt,
-                Status = AiStatusEnum.Pending
-            };
-
-            await _aiGenerationRepository.CreateAsync(aiGeneration);
-
-            try
-            {
-                // Generate content using Gemini
-                var generatedText = await GenerateContentWithGemini(request.AIGenerationPrompt);
-
-                // Update AI generation with results
-                aiGeneration.GeneratedText = generatedText;
-                aiGeneration.Status = AiStatusEnum.Completed;
-
-                await _aiGenerationRepository.UpdateAsync(aiGeneration);
-
-                return new AiGenerationResponse
-                {
-                    AiGenerationId = aiGeneration.Id,
-                    ContentId = content.Id,
-                    GeneratedText = generatedText,
-                    Status = AiStatusEnum.Completed,
-                    CreatedAt = aiGeneration.CreatedAt
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate AI content for draft {ContentId}", content.Id);
-
-                // Update AI generation with error
-                aiGeneration.Status = AiStatusEnum.Failed;
-                aiGeneration.ErrorMessage = ex.Message;
-                await _aiGenerationRepository.UpdateAsync(aiGeneration);
-
-                return new AiGenerationResponse
-                {
-                    AiGenerationId = aiGeneration.Id,
-                    ContentId = content.Id,
-                    Status = AiStatusEnum.Failed,
-                    ErrorMessage = ex.Message,
-                    CreatedAt = aiGeneration.CreatedAt
-                };
-            }
+            return await CreateAndProcessAiGenerationAsync(content.Id, request.AIGenerationPrompt);
         }
 
         public async Task<AiGenerationResponse> ImproveContentAsync(Guid contentId, string improvementPrompt)
@@ -131,54 +85,7 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Content not found");
             }
 
-            // Create AI generation record for improvement
-            var aiGeneration = new AiGeneration
-            {
-                ContentId = contentId,
-                AiPrompt = improvementPrompt,
-                Status = AiStatusEnum.Pending
-            };
-
-            await _aiGenerationRepository.CreateAsync(aiGeneration);
-
-            try
-            {
-                // Generate improved content
-                var improvedText = await GenerateContentWithGemini(improvementPrompt);
-
-                // Update AI generation with results
-                aiGeneration.GeneratedText = improvedText;
-                aiGeneration.Status = AiStatusEnum.Completed;
-
-                await _aiGenerationRepository.UpdateAsync(aiGeneration);
-
-                return new AiGenerationResponse
-                {
-                    AiGenerationId = aiGeneration.Id,
-                    ContentId = contentId,
-                    GeneratedText = improvedText,
-                    Status = AiStatusEnum.Completed,
-                    CreatedAt = aiGeneration.CreatedAt
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to improve content {ContentId}", contentId);
-
-                // Update AI generation with error
-                aiGeneration.Status = AiStatusEnum.Failed;
-                aiGeneration.ErrorMessage = ex.Message;
-                await _aiGenerationRepository.UpdateAsync(aiGeneration);
-
-                return new AiGenerationResponse
-                {
-                    AiGenerationId = aiGeneration.Id,
-                    ContentId = contentId,
-                    Status = AiStatusEnum.Failed,
-                    ErrorMessage = ex.Message,
-                    CreatedAt = aiGeneration.CreatedAt
-                };
-            }
+            return await CreateAndProcessAiGenerationAsync(contentId, improvementPrompt);
         }
 
         public async Task<ContentResponseDto> ApproveAIGenerationAsync(Guid aiGenerationId)
@@ -213,6 +120,54 @@ namespace AISAM.Services.Service
                 aiGenerationId, content.Id);
 
             return MapToContentDto(content, null);
+        }
+
+        private async Task<AiGenerationResponse> CreateAndProcessAiGenerationAsync(Guid contentId, string prompt)
+        {
+            var aiGeneration = new AiGeneration
+            {
+                ContentId = contentId,
+                AiPrompt = prompt,
+                Status = AiStatusEnum.Pending
+            };
+
+            await _aiGenerationRepository.CreateAsync(aiGeneration);
+
+            try
+            {
+                var generatedText = await GenerateContentWithGemini(prompt);
+
+                aiGeneration.GeneratedText = generatedText;
+                aiGeneration.Status = AiStatusEnum.Completed;
+
+                await _aiGenerationRepository.UpdateAsync(aiGeneration);
+
+                return new AiGenerationResponse
+                {
+                    AiGenerationId = aiGeneration.Id,
+                    ContentId = contentId,
+                    GeneratedText = generatedText,
+                    Status = AiStatusEnum.Completed,
+                    CreatedAt = aiGeneration.CreatedAt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate AI content for content {ContentId}", contentId);
+
+                aiGeneration.Status = AiStatusEnum.Failed;
+                aiGeneration.ErrorMessage = ex.Message;
+                await _aiGenerationRepository.UpdateAsync(aiGeneration);
+
+                return new AiGenerationResponse
+                {
+                    AiGenerationId = aiGeneration.Id,
+                    ContentId = contentId,
+                    Status = AiStatusEnum.Failed,
+                    ErrorMessage = ex.Message,
+                    CreatedAt = aiGeneration.CreatedAt
+                };
+            }
         }
 
         public async Task<IEnumerable<AiGenerationDto>> GetContentAIGenerationsAsync(Guid contentId)
@@ -263,9 +218,9 @@ namespace AISAM.Services.Service
                 if (response.IsSuccessStatusCode)
                 {
                     var result = await response.Content.ReadFromJsonAsync<GeminiApiResponse>();
-                    if (result?.candidates?.Length > 0 && result.candidates[0].content?.parts?.Length > 0)
+                    if (result?.Candidates?.Length > 0 && result.Candidates[0].Content?.Parts?.Length > 0)
                     {
-                        return result.candidates[0].content.parts[0].text?.Trim() ?? "No content generated";
+                        return result.Candidates[0].Content.Parts[0].Text?.Trim() ?? "No content generated";
                     }
                 }
 
@@ -283,28 +238,34 @@ namespace AISAM.Services.Service
         // Helper classes for Gemini API response
         private class GeminiApiResponse
         {
-            public Candidate[]? candidates { get; set; }
-            public UsageMetadata? usageMetadata { get; set; }
+            [JsonPropertyName("candidates")]
+            public Candidate[]? Candidates { get; set; }
+            [JsonPropertyName("usageMetadata")]
+            public UsageMetadata? UsageMetadata { get; set; }
         }
 
         private class Candidate
         {
-            public Content? content { get; set; }
+            [JsonPropertyName("content")]
+            public Content? Content { get; set; }
         }
 
         private class Content
         {
-            public Part[]? parts { get; set; }
+            [JsonPropertyName("parts")]
+            public Part[]? Parts { get; set; }
         }
 
         private class Part
         {
-            public string? text { get; set; }
+            [JsonPropertyName("text")]
+            public string? Text { get; set; }
         }
 
         private class UsageMetadata
         {
-            public int totalTokenCount { get; set; }
+            [JsonPropertyName("totalTokenCount")]
+            public int TotalTokenCount { get; set; }
         }
 
         private ContentResponseDto MapToContentDto(ContentEntity content, PublishResultDto? publishResult)
