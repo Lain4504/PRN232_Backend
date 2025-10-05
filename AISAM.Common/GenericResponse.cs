@@ -12,16 +12,16 @@ namespace AISAM.Common
         public bool Success { get; set; }
         
         [JsonPropertyName("message")]
-        public string Message { get; set; }
+        public string Message { get; set; } = string.Empty;
         
         [JsonPropertyName("statusCode")]
         public int StatusCode { get; set; }
         
         [JsonPropertyName("data")]
-        public T Data { get; set; }
+        public T? Data { get; set; }
         
         [JsonPropertyName("error")]
-        public ErrorDetails Error { get; set; }
+        public ErrorDetails? Error { get; set; }
         
         [JsonPropertyName("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
@@ -39,7 +39,7 @@ namespace AISAM.Common
             };
         }
         
-        public static GenericResponse<T> CreateError(string message, HttpStatusCode statusCode = HttpStatusCode.BadRequest, string errorCode = null)
+        public static GenericResponse<T> CreateError(string message, HttpStatusCode statusCode = HttpStatusCode.BadRequest, string? errorCode = null)
         {
             return new GenericResponse<T>
             {
@@ -58,16 +58,16 @@ namespace AISAM.Common
     public class ErrorDetails
     {
         [JsonPropertyName("errorCode")]
-        public string ErrorCode { get; set; }
+        public string? ErrorCode { get; set; }
         
         [JsonPropertyName("errorMessage")]
-        public string ErrorMessage { get; set; }
+        public string? ErrorMessage { get; set; }
         
         [JsonPropertyName("stackTrace")]
-        public string StackTrace { get; set; }
+        public string? StackTrace { get; set; }
         
         [JsonPropertyName("validationErrors")]
-        public Dictionary<string, List<string>> ValidationErrors { get; set; }
+        public Dictionary<string, List<string>>? ValidationErrors { get; set; }
     }
     
     public class GenericResponse : GenericResponse<object>
