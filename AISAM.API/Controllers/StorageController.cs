@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using AISAM.Services.Service;
 using AISAM.Common.Models;
+using System.Security.Claims;
 
 namespace AISAM.Api.Controllers
 {
@@ -13,6 +15,55 @@ namespace AISAM.Api.Controllers
         public StorageController(SupabaseStorageService storageService)
         {
             _storageService = storageService;
+        }
+
+        /// <summary>
+        /// Upload avatar image with validation, trả về public URL
+        /// </summary>
+        [HttpPost("upload-avatar")]
+        [Consumes("multipart/form-data")]
+        [Authorize]
+        [ApiExplorerSettings(IgnoreApi = true)] // Temporarily hide from Swagger
+        public async Task<IActionResult> UploadAvatar([FromForm] UploadAvatarRequest request)
+        {
+            var file = request.File;
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file uploaded" });
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                return BadRequest(new { message = "Invalid file type. Only image files are allowed." });
+            }            // Validate file size (5MB max)
+            const int maxFileSize = 5 * 1024 * 1024;
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest(new { message = "File size too large. Maximum 5MB allowed." });
+            }
+
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(new { message = "Invalid token" });
+            }
+
+            // Generate avatar-specific filename
+            var uniqueFileName = $"avatars/{userId}_{Guid.NewGuid()}{fileExtension}";
+
+            try
+            {
+                var fileName = await _storageService.UploadFileAsync(file.OpenReadStream(), uniqueFileName, file.ContentType);
+                var publicUrl = _storageService.GetPublicUrl(fileName);
+
+                return Ok(new { fileName, url = publicUrl, message = "Avatar uploaded successfully" });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "Error uploading avatar" });
+            }
         }
 
         /// <summary>
@@ -114,10 +165,26 @@ namespace AISAM.Api.Controllers
             var url = _storageService.GetPublicUrl(fileName);
             return Ok(new { url });
         }
+
+        private Guid? GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
+            {
+                return userId;
+            }
+            return null;
+        }
     }
 }
 
 public class UploadFileRequest
+{
+    [FromForm(Name = "file")]
+    public IFormFile File { get; set; } = default!;
+}
+
+public class UploadAvatarRequest
 {
     [FromForm(Name = "file")]
     public IFormFile File { get; set; } = default!;
