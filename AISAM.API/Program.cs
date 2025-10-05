@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using AISAM.API.Middleware;
-using AISAM.API.Validators;
 using AISAM.Common.Models;
 using AISAM.Repositories;
 using AISAM.Repositories.IRepositories;
@@ -72,9 +71,6 @@ builder.Services.AddControllers(options =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 
-// Register custom validators with dependencies
-builder.Services.AddScoped<PublishRequestValidator>();
-
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
@@ -137,6 +133,7 @@ builder.Services.AddScoped<IBrandRepository, BrandRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IContentCalendarRepository, ContentCalendarRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -150,6 +147,8 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
+
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
