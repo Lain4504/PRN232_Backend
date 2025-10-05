@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -118,6 +119,7 @@ builder.Services.AddScoped<IAiGenerationRepository, AiGenerationRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
+builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -129,6 +131,7 @@ builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
@@ -178,7 +181,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Add policies for resource-based authorization
+    options.AddPolicy("BrandOwnership", policy =>
+        policy.Requirements.Add(new AISAM.API.Authorization.BrandOwnershipRequirement()));
+    
+    options.AddPolicy("AdminAccess", policy =>
+        policy.Requirements.Add(new AISAM.API.Authorization.AdminAccessRequirement()));
+});
+
+// Register authorization handlers
+builder.Services.AddScoped<IAuthorizationHandler, AISAM.API.Authorization.ApprovalAuthorizationHandler>();
 
 // Disable automatic 400 for model validation to allow custom GenericResponse
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -269,6 +283,9 @@ app.UseSwaggerUI();
 
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
+
+// Add authorization logging middleware
+app.UseMiddleware<AuthorizationLoggingMiddleware>();
 
 app.UseHttpsRedirection();
 
