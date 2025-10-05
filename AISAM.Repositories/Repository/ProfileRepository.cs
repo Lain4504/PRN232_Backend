@@ -17,29 +17,88 @@ namespace AISAM.Repositories.Repository
         public async Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Profiles
-                .AsNoTracking()
                 .Include(p => p.User)
+                .Include(p => p.Brands)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
+        }
+
+        public async Task<Profile?> GetByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return await _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         }
 
         public async Task<IEnumerable<Profile>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             return await _context.Profiles
-                .AsNoTracking()
+                .Include(p => p.User)
+                .Include(p => p.Brands)
                 .Where(p => p.UserId == userId && !p.IsDeleted)
-                .OrderBy(p => p.CreatedAt)
+                .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<Profile?> GetByUserIdAndTypeAsync(Guid userId, ProfileTypeEnum profileType, CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<Profile>> GetByUserIdAsync(Guid userId, bool isDeleted, CancellationToken cancellationToken = default)
         {
             return await _context.Profiles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.UserId == userId && p.ProfileType == profileType && !p.IsDeleted, cancellationToken);
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .Where(p => p.UserId == userId && p.IsDeleted == isDeleted)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<IEnumerable<Profile>> GetByUserIdAndTypeAsync(Guid userId, ProfileTypeEnum profileType, CancellationToken cancellationToken = default)
+        {
+            return await _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .Where(p => p.UserId == userId &&
+                           p.ProfileType == profileType &&
+                           !p.IsDeleted)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<IEnumerable<Profile>> GetByUserIdAndTypeAsync(Guid userId, ProfileTypeEnum profileType, bool isDeleted, CancellationToken cancellationToken = default)
+        {
+            return await _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .Where(p => p.UserId == userId &&
+                           p.ProfileType == profileType &&
+                           p.IsDeleted == isDeleted)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<Profile?> GetSingleByUserIdAndTypeAsync(Guid userId, ProfileTypeEnum profileType, CancellationToken cancellationToken = default)
+        {
+            return await _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .FirstOrDefaultAsync(p => p.UserId == userId &&
+                                    p.ProfileType == profileType &&
+                                    !p.IsDeleted, cancellationToken);
+        }
+
+        public async Task<Profile?> GetSingleByUserIdAndTypeAsync(Guid userId, ProfileTypeEnum profileType, bool isDeleted, CancellationToken cancellationToken = default)
+        {
+            return await _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .FirstOrDefaultAsync(p => p.UserId == userId &&
+                                    p.ProfileType == profileType &&
+                                    p.IsDeleted == isDeleted, cancellationToken);
         }
 
         public async Task<Profile> CreateAsync(Profile profile, CancellationToken cancellationToken = default)
         {
+            profile.CreatedAt = DateTime.UtcNow;
+            profile.UpdatedAt = DateTime.UtcNow;
+
             _context.Profiles.Add(profile);
             await _context.SaveChangesAsync(cancellationToken);
             return profile;
@@ -55,26 +114,50 @@ namespace AISAM.Repositories.Repository
 
         public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var profile = await _context.Profiles.FindAsync(new object[] { id }, cancellationToken);
-            if (profile == null || profile.IsDeleted)
-                return false;
+            var profile = await _context.Profiles
+                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
 
-            profile.IsDeleted = true;
-            profile.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
-            return true;
+            if (profile != null)
+            {
+                profile.IsDeleted = true;
+                profile.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(cancellationToken);
+                return true;
+            }
+            return false;
+        }
+
+        public async Task RestoreAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var profile = await _context.Profiles
+                .FirstOrDefaultAsync(p => p.Id == id && p.IsDeleted, cancellationToken);
+
+            if (profile != null)
+            {
+                profile.IsDeleted = false;
+                profile.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        public async Task<bool> PermanentDeleteAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var profile = await _context.Profiles
+                .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+            if (profile != null)
+            {
+                _context.Profiles.Remove(profile);
+                await _context.SaveChangesAsync(cancellationToken);
+                return true;
+            }
+            return false;
         }
 
         public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Profiles
                 .AnyAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
-        }
-
-        public async Task<bool> UserHasProfileTypeAsync(Guid userId, ProfileTypeEnum profileType, CancellationToken cancellationToken = default)
-        {
-            return await _context.Profiles
-                .AnyAsync(p => p.UserId == userId && p.ProfileType == profileType && !p.IsDeleted, cancellationToken);
         }
     }
 }

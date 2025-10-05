@@ -3,15 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
-using AISAM.Data.Enumeration;
 using AISAM.Services.IServices;
-using System.Security.Claims;
 
 namespace AISAM.API.Controllers
 {
     [ApiController]
     [Route("api/profiles")]
-    // [Authorize] // Temporarily disabled for testing
+    [Authorize]
     public class ProfileController : ControllerBase
     {
         private readonly IProfileService _profileService;
@@ -24,38 +22,36 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Get all profiles for the current user
+        /// Get all profiles for a specific user with optional search
         /// </summary>
-        [HttpGet("my-profiles")]
-        public async Task<ActionResult<GenericResponse<IEnumerable<ProfileResponseDto>>>> GetMyProfiles()
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<ProfileResponseDto>>>> GetUserProfiles(
+            Guid userId,
+            [FromQuery] string? search = null,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var userId = GetCurrentUserId();
-                if (userId == null)
-                {
-                    return Unauthorized(GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Invalid token"));
-                }
-
-                var result = await _profileService.GetUserProfilesAsync(userId.Value);
+                // Sử dụng SearchUserProfilesAsync vì nó cover cả 2 case: có search và không có search
+                var result = await _profileService.SearchUserProfilesAsync(userId, search, cancellationToken);
                 return Ok(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting user profiles");
-                return StatusCode(500, GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Internal server error"));
+                _logger.LogError(ex, "Lỗi khi lấy danh sách hồ sơ cho user: {UserId}", userId);
+                return StatusCode(500, GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Lỗi hệ thống"));
             }
         }
 
         /// <summary>
         /// Get a specific profile by ID
         /// </summary>
-        [HttpGet("{profileId}")]
-        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> GetProfile(Guid profileId)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> GetProfile(Guid id, CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _profileService.GetProfileByIdAsync(profileId);
+                var result = await _profileService.GetProfileByIdAsync(id, cancellationToken);
                 if (!result.Success)
                 {
                     return NotFound(result);
@@ -65,75 +61,45 @@ namespace AISAM.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting profile with ID: {ProfileId}", profileId);
-                return StatusCode(500, GenericResponse<ProfileResponseDto>.CreateError("Internal server error"));
+                _logger.LogError(ex, "Lỗi khi lấy thông tin hồ sơ với ID: {id}", id);
+                return StatusCode(500, GenericResponse<ProfileResponseDto>.CreateError("Lỗi hệ thống"));
             }
         }
 
         /// <summary>
-        /// Get user's profile by type (Personal or Business)
+        /// Create a new profile for a specific user
         /// </summary>
-        [HttpGet("by-type/{profileType}")]
-        public async Task<ActionResult<GenericResponse<IEnumerable<ProfileResponseDto>>>> GetProfileByType(ProfileTypeEnum profileType)
+        [HttpPost("user/{userId}")]
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> CreateProfile(Guid userId, [FromForm] CreateProfileRequest request, CancellationToken cancellationToken = default)
         {
             try
             {
-                var userId = GetCurrentUserId();
-                if (userId == null)
-                {
-                    return Unauthorized(GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Invalid token"));
-                }
-
-                var result = await _profileService.GetUserProfilesByTypeAsync(userId.Value, profileType);
-                if (!result.Success)
-                {
-                    return NotFound(result);
-                }
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting profile by type: {ProfileType} for user: {UserId}", profileType, GetCurrentUserId());
-                return StatusCode(500, GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Internal server error"));
-            }
-        }
-
-        /// <summary>
-        /// Create a new profile for the current user
-        /// </summary>
-        [HttpPost]
-        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> CreateProfile([FromBody] CreateProfileRequest request)
-        {
-            try
-            {
-                // Hardcoded User ID for testing (same as from token: 6bdf746e-61da-4868-9a3e-3fe327046b8d)
-                var userId = Guid.Parse("6bdf746e-61da-4868-9a3e-3fe327046b8d");
-
-                var result = await _profileService.CreateProfileAsync(userId, request);
+                var result = await _profileService.CreateProfileAsync(userId, request, cancellationToken);
                 if (!result.Success)
                 {
                     return BadRequest(result);
                 }
 
-                return CreatedAtAction(nameof(GetProfile), new { profileId = result.Data!.Id }, result);
+                return CreatedAtAction(nameof(GetProfile), new { id = result.Data!.Id }, result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating profile for user: {UserId}", "6bdf746e-61da-4868-9a3e-3fe327046b8d");
-                return StatusCode(500, GenericResponse<ProfileResponseDto>.CreateError("Internal server error"));
+                _logger.LogError(ex, "Lỗi khi tạo hồ sơ cho user: {UserId}", userId);
+                return StatusCode(500, GenericResponse<ProfileResponseDto>.CreateError("Lỗi hệ thống"));
             }
         }
 
         /// <summary>
         /// Update an existing profile
         /// </summary>
-        [HttpPut("{profileId}")]
-        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> UpdateProfile(Guid profileId, [FromBody] UpdateProfileRequest request)
+        [HttpPut("{id}")]
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> UpdateProfile(Guid id, [FromForm] UpdateProfileRequest request, CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _profileService.UpdateProfileAsync(profileId, request);
+                var result = await _profileService.UpdateProfileAsync(id, request, cancellationToken);
                 if (!result.Success)
                 {
                     return BadRequest(result);
@@ -143,20 +109,20 @@ namespace AISAM.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating profile with ID: {ProfileId}", profileId);
-                return StatusCode(500, GenericResponse<ProfileResponseDto>.CreateError("Internal server error"));
+                _logger.LogError(ex, "Lỗi khi cập nhật hồ sơ với ID: {id}", id);
+                return StatusCode(500, GenericResponse<ProfileResponseDto>.CreateError("Lỗi hệ thống"));
             }
         }
 
         /// <summary>
         /// Delete a profile (soft delete)
         /// </summary>
-        [HttpDelete("{profileId}")]
-        public async Task<ActionResult<GenericResponse<bool>>> DeleteProfile(Guid profileId)
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<GenericResponse<bool>>> DeleteProfile(Guid id, CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _profileService.DeleteProfileAsync(profileId);
+                var result = await _profileService.DeleteProfileAsync(id, cancellationToken);
                 if (!result.Success)
                 {
                     return NotFound(result);
@@ -166,19 +132,55 @@ namespace AISAM.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting profile with ID: {ProfileId}", profileId);
-                return StatusCode(500, GenericResponse<bool>.CreateError("Internal server error"));
+                _logger.LogError(ex, "Lỗi khi xóa hồ sơ với ID: {id}", id);
+                return StatusCode(500, GenericResponse<bool>.CreateError("Lỗi hệ thống"));
             }
         }
 
-        private Guid? GetCurrentUserId()
+        /// <summary>
+        /// Restore a soft deleted profile
+        /// </summary>
+        [HttpPatch("{id}/restore")]
+        public async Task<ActionResult<GenericResponse<bool>>> RestoreProfile(Guid id, CancellationToken cancellationToken = default)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
+            try
             {
-                return userId;
+                var result = await _profileService.RestoreProfileAsync(id, cancellationToken);
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+
+                return Ok(result);
             }
-            return null;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi khôi phục hồ sơ với ID: {id}", id);
+                return StatusCode(500, GenericResponse<bool>.CreateError("Lỗi hệ thống"));
+            }
+        }
+
+        /// <summary>
+        /// Permanently delete a profile (only if already soft deleted)
+        /// </summary>
+        [HttpDelete("{id}/permanent")]
+        public async Task<ActionResult<GenericResponse<bool>>> PermanentDeleteProfile(Guid id, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = await _profileService.PermanentDeleteProfileAsync(id, cancellationToken);
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi xóa vĩnh viễn hồ sơ với ID: {id}", id);
+                return StatusCode(500, GenericResponse<bool>.CreateError("Lỗi hệ thống"));
+            }
         }
     }
 }

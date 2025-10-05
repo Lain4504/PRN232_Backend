@@ -1,4 +1,5 @@
 using AISAM.Common.Dtos.Request;
+using AISAM.Data.Enumeration;
 using FluentValidation;
 
 namespace AISAM.API.Validators
@@ -7,34 +8,35 @@ namespace AISAM.API.Validators
     {
         public UpdateProfileRequestValidator()
         {
+            RuleFor(x => x.ProfileType)
+                .IsInEnum()
+                .WithMessage("Loại hồ sơ phải là Cá nhân hoặc Doanh nghiệp")
+                .When(x => x.ProfileType.HasValue);
+
+            RuleFor(x => x.CompanyName)
+                .NotEmpty()
+                .WithMessage("Tên công ty là bắt buộc đối với hồ sơ doanh nghiệp")
+                .When(x => x.ProfileType == ProfileTypeEnum.Business);
+
+            RuleFor(x => x.CompanyName)
+                .Empty()
+                .WithMessage("Hồ sơ cá nhân không được có tên công ty")
+                .When(x => x.ProfileType.HasValue && x.ProfileType == ProfileTypeEnum.Personal);
+
             RuleFor(x => x.CompanyName)
                 .MaximumLength(255)
-                .WithMessage("Company name must not exceed 255 characters")
+                .WithMessage("Tên công ty không được vượt quá 255 ký tự")
                 .When(x => !string.IsNullOrEmpty(x.CompanyName));
 
             RuleFor(x => x.Bio)
                 .MaximumLength(1000)
-                .WithMessage("Bio must not exceed 1000 characters")
+                .WithMessage("Tiểu sử không được vượt quá 1000 ký tự")
                 .When(x => !string.IsNullOrEmpty(x.Bio));
 
             RuleFor(x => x.AvatarUrl)
-                .Must(BeValidUrl)
-                .WithMessage("Avatar URL must be a valid URL")
-                .When(x => !string.IsNullOrEmpty(x.AvatarUrl));
-
-            RuleFor(x => x.AvatarUrl)
                 .MaximumLength(500)
-                .WithMessage("Avatar URL must not exceed 500 characters")
+                .WithMessage("URL ảnh đại diện không được vượt quá 500 ký tự")
                 .When(x => !string.IsNullOrEmpty(x.AvatarUrl));
-        }
-
-        private bool BeValidUrl(string? url)
-        {
-            if (string.IsNullOrEmpty(url))
-                return true;
-
-            return Uri.TryCreate(url, UriKind.Absolute, out Uri? uriResult)
-                   && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
         }
     }
 }

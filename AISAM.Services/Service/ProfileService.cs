@@ -13,29 +13,57 @@ namespace AISAM.Services.Service
     {
         private readonly IProfileRepository _profileRepository;
         private readonly IUserRepository _userRepository;
+        private readonly SupabaseStorageService _storageService;
 
-        public ProfileService(IProfileRepository profileRepository, IUserRepository userRepository)
+        public ProfileService(IProfileRepository profileRepository, IUserRepository userRepository, SupabaseStorageService storageService)
         {
             _profileRepository = profileRepository;
             _userRepository = userRepository;
+            _storageService = storageService;
         }
 
         public async Task<GenericResponse<ProfileResponseDto>> GetProfileByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             try
             {
-                var profile = await _profileRepository.GetByIdAsync(id, cancellationToken);
+                var profile = await _profileRepository.GetByIdIncludingDeletedAsync(id, cancellationToken);
                 if (profile == null)
                 {
-                    return GenericResponse<ProfileResponseDto>.CreateError("Profile not found", HttpStatusCode.NotFound);
+                    return GenericResponse<ProfileResponseDto>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
+                }
+
+                // Kiểm tra nếu profile đã bị xóa mềm
+                if (profile.IsDeleted)
+                {
+                    return GenericResponse<ProfileResponseDto>.CreateError("Hồ sơ đã bị xóa", HttpStatusCode.Gone);
                 }
 
                 var profileDto = MapToDto(profile);
-                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Profile retrieved successfully");
+                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Lấy thông tin hồ sơ thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<ProfileResponseDto>.CreateError($"Error retrieving profile: {ex.Message}", HttpStatusCode.InternalServerError);
+                return GenericResponse<ProfileResponseDto>.CreateError($"Lỗi khi lấy thông tin hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task<GenericResponse<ProfileResponseDto>> GetProfileByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var profile = await _profileRepository.GetByIdIncludingDeletedAsync(id, cancellationToken);
+                if (profile == null)
+                {
+                    return GenericResponse<ProfileResponseDto>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
+                }
+
+                var profileDto = MapToDto(profile);
+                var message = profile.IsDeleted ? "Lấy thông tin hồ sơ đã xóa thành công" : "Lấy thông tin hồ sơ thành công";
+                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, message);
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<ProfileResponseDto>.CreateError($"Lỗi khi lấy thông tin hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
             }
         }
 
@@ -43,65 +71,50 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
-                    return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("User not found", HttpStatusCode.NotFound);
+                    return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
                 }
 
                 var profiles = await _profileRepository.GetByUserIdAsync(userId, cancellationToken);
                 var profileDtos = profiles.Select(MapToDto);
 
-                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateSuccess(profileDtos, "Profiles retrieved successfully");
+                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateSuccess(profileDtos, "Lấy danh sách hồ sơ thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError($"Error retrieving user profiles: {ex.Message}", HttpStatusCode.InternalServerError);
+                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError($"Lỗi khi lấy danh sách hồ sơ người dùng: {ex.Message}", HttpStatusCode.InternalServerError);
             }
         }
 
-        public async Task<GenericResponse<ProfileResponseDto>> GetUserProfileByTypeAsync(Guid userId, ProfileTypeEnum profileType, CancellationToken cancellationToken = default)
+        public async Task<GenericResponse<IEnumerable<ProfileResponseDto>>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, CancellationToken cancellationToken = default)
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
-                    return GenericResponse<ProfileResponseDto>.CreateError("User not found", HttpStatusCode.NotFound);
-                }
-
-                var profile = await _profileRepository.GetByUserIdAndTypeAsync(userId, profileType, cancellationToken);
-                if (profile == null)
-                {
-                    return GenericResponse<ProfileResponseDto>.CreateError($"Profile of type {profileType} not found for user", HttpStatusCode.NotFound);
-                }
-
-                var profileDto = MapToDto(profile);
-                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Profile retrieved successfully");
-            }
-            catch (Exception ex)
-            {
-                return GenericResponse<ProfileResponseDto>.CreateError($"Error retrieving user profile: {ex.Message}", HttpStatusCode.InternalServerError);
-            }
-        }
-
-        public async Task<GenericResponse<IEnumerable<ProfileResponseDto>>> GetUserProfilesByTypeAsync(Guid userId, ProfileTypeEnum profileType, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
-                if (user == null)
-                {
-                    return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("User not found", HttpStatusCode.NotFound);
+                    return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
                 }
 
                 var profiles = await _profileRepository.GetByUserIdAsync(userId, cancellationToken);
-                var filtered = profiles.Where(p => p.ProfileType == profileType).Select(MapToDto);
-                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateSuccess(filtered, "Profiles retrieved successfully");
+
+                // Apply search filter if provided
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    profiles = profiles.Where(p =>
+                        (!string.IsNullOrEmpty(p.CompanyName) && p.CompanyName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(p.Bio) && p.Bio.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                    );
+                }
+
+                var profileDtos = profiles.Select(MapToDto);
+                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateSuccess(profileDtos, "Tìm kiếm hồ sơ thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError($"Error retrieving user profiles: {ex.Message}", HttpStatusCode.InternalServerError);
+                return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError($"Lỗi khi tìm kiếm hồ sơ người dùng: {ex.Message}", HttpStatusCode.InternalServerError);
             }
         }
 
@@ -109,18 +122,10 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
-                    // Create user automatically for testing
-                    user = new User
-                    {
-                        Id = userId,
-                        Email = "test@example.com",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    user = await _userRepository.CreateAsync(user, cancellationToken);
+                    return GenericResponse<ProfileResponseDto>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
                 }
 
                 // Validate business profile requirements
@@ -128,18 +133,55 @@ namespace AISAM.Services.Service
                 // but still enforce that business profiles have a company name.
                 if (request.ProfileType == ProfileTypeEnum.Business && string.IsNullOrWhiteSpace(request.CompanyName))
                 {
-                    return GenericResponse<ProfileResponseDto>.CreateError("Company name is required for business profiles", HttpStatusCode.BadRequest);
+                    return GenericResponse<ProfileResponseDto>.CreateError("Tên công ty là bắt buộc đối với hồ sơ doanh nghiệp", HttpStatusCode.BadRequest);
+                }
+
+                // Validate personal profile should not have company name
+                if (request.ProfileType == ProfileTypeEnum.Personal && !string.IsNullOrWhiteSpace(request.CompanyName))
+                {
+                    return GenericResponse<ProfileResponseDto>.CreateError("Hồ sơ cá nhân không được có tên công ty", HttpStatusCode.BadRequest);
+                }
+
+                // Handle avatar upload if provided
+                string? avatarUrl = request.AvatarUrl;
+                if (request.AvatarFile != null)
+                {
+                    try
+                    {
+                        // Validate file type
+                        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                        var fileExtension = Path.GetExtension(request.AvatarFile.FileName).ToLowerInvariant();
+
+                        if (!allowedExtensions.Contains(fileExtension))
+                        {
+                            return GenericResponse<ProfileResponseDto>.CreateError("Loại tệp không hợp lệ. Chỉ cho phép tệp hình ảnh.", HttpStatusCode.BadRequest);
+                        }
+
+                        // Validate file size (5MB max)
+                        const int maxFileSize = 5 * 1024 * 1024;
+                        if (request.AvatarFile.Length > maxFileSize)
+                        {
+                            return GenericResponse<ProfileResponseDto>.CreateError("Kích thước tệp quá lớn. Tối đa 5MB.", HttpStatusCode.BadRequest);
+                        }
+
+                        // Generate avatar-specific filename
+                        var uniqueFileName = $"avatars/{userId}_{Guid.NewGuid()}{fileExtension}";
+                        var fileName = await _storageService.UploadFileAsync(request.AvatarFile.OpenReadStream(), uniqueFileName, request.AvatarFile.ContentType);
+                        avatarUrl = _storageService.GetPublicUrl(fileName);
+                    }
+                    catch (Exception ex)
+                    {
+                        return GenericResponse<ProfileResponseDto>.CreateError($"Lỗi khi tải lên ảnh đại diện: {ex.Message}", HttpStatusCode.InternalServerError);
+                    }
                 }
 
                 var profile = new Profile
                 {
                     UserId = userId,
-                    FullName = request.FullName,
                     ProfileType = request.ProfileType,
                     CompanyName = request.CompanyName,
                     Bio = request.Bio,
-                    AvatarUrl = request.AvatarUrl,
-                    DateOfBirth = request.DateOfBirth,
+                    AvatarUrl = avatarUrl,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -147,11 +189,11 @@ namespace AISAM.Services.Service
                 var createdProfile = await _profileRepository.CreateAsync(profile, cancellationToken);
                 var profileDto = MapToDto(createdProfile);
 
-                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Profile created successfully");
+                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Tạo hồ sơ thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<ProfileResponseDto>.CreateError($"Error creating profile: {ex.Message}", HttpStatusCode.InternalServerError);
+                return GenericResponse<ProfileResponseDto>.CreateError($"Lỗi khi tạo hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
             }
         }
 
@@ -162,33 +204,101 @@ namespace AISAM.Services.Service
                 var profile = await _profileRepository.GetByIdAsync(profileId, cancellationToken);
                 if (profile == null)
                 {
-                    return GenericResponse<ProfileResponseDto>.CreateError("Profile not found", HttpStatusCode.NotFound);
+                    return GenericResponse<ProfileResponseDto>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
+                }
+
+                // Validate business profile and personal profile rules before updating
+                if (request.ProfileType.HasValue && request.ProfileType == ProfileTypeEnum.Personal && !string.IsNullOrWhiteSpace(request.CompanyName))
+                {
+                    return GenericResponse<ProfileResponseDto>.CreateError("Hồ sơ cá nhân không được có tên công ty", HttpStatusCode.BadRequest);
                 }
 
                 // Update profile properties
-                if (!string.IsNullOrEmpty(request.CompanyName))
+                if (request.ProfileType.HasValue)
                 {
-                    profile.CompanyName = request.CompanyName;
+                    profile.ProfileType = request.ProfileType.Value;
+
+                    // Clear CompanyName if changing to Personal profile
+                    if (profile.ProfileType == ProfileTypeEnum.Personal)
+                    {
+                        profile.CompanyName = null;
+                    }
                 }
 
-                if (!string.IsNullOrEmpty(request.Bio))
+                // Update CompanyName - LUÔN xử lý
+                if (string.IsNullOrWhiteSpace(request.CompanyName))
                 {
-                    profile.Bio = request.Bio;
+                    profile.CompanyName = null;
+                }
+                else
+                {
+                    var trimmedCompanyName = request.CompanyName.Trim();
+                    // Double check: Don't allow CompanyName for Personal profiles
+                    if (profile.ProfileType == ProfileTypeEnum.Personal)
+                    {
+                        return GenericResponse<ProfileResponseDto>.CreateError("Hồ sơ cá nhân không được có tên công ty", HttpStatusCode.BadRequest);
+                    }
+                    profile.CompanyName = trimmedCompanyName;
                 }
 
-                if (!string.IsNullOrEmpty(request.AvatarUrl))
+                // Update Bio - LUÔN xử lý (kể cả khi null)
+                // Nếu request.Bio là null hoặc empty -> set null, ngược lại set giá trị
+                profile.Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio.Trim();
+
+                // Validate business profile requirements after potential type change
+                if (profile.ProfileType == ProfileTypeEnum.Business && string.IsNullOrWhiteSpace(profile.CompanyName))
                 {
-                    profile.AvatarUrl = request.AvatarUrl;
+                    return GenericResponse<ProfileResponseDto>.CreateError("Tên công ty là bắt buộc đối với hồ sơ doanh nghiệp", HttpStatusCode.BadRequest);
                 }
+
+                // Handle avatar upload if provided, otherwise use URL from request
+                if (request.AvatarFile != null)
+                {
+                    try
+                    {
+                        // Validate file type
+                        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                        var fileExtension = Path.GetExtension(request.AvatarFile.FileName).ToLowerInvariant();
+
+                        if (!allowedExtensions.Contains(fileExtension))
+                        {
+                            return GenericResponse<ProfileResponseDto>.CreateError("Loại tệp không hợp lệ. Chỉ cho phép tệp hình ảnh.", HttpStatusCode.BadRequest);
+                        }
+
+                        // Validate file size (5MB max)
+                        const int maxFileSize = 5 * 1024 * 1024;
+                        if (request.AvatarFile.Length > maxFileSize)
+                        {
+                            return GenericResponse<ProfileResponseDto>.CreateError("Kích thước tệp quá lớn. Tối đa 5MB.", HttpStatusCode.BadRequest);
+                        }
+
+                        // Generate avatar-specific filename
+                        var uniqueFileName = $"avatars/{profile.UserId}_{Guid.NewGuid()}{fileExtension}";
+                        var fileName = await _storageService.UploadFileAsync(request.AvatarFile.OpenReadStream(), uniqueFileName, request.AvatarFile.ContentType);
+                        profile.AvatarUrl = _storageService.GetPublicUrl(fileName);
+                    }
+                    catch (Exception ex)
+                    {
+                        return GenericResponse<ProfileResponseDto>.CreateError($"Lỗi khi tải lên ảnh đại diện: {ex.Message}", HttpStatusCode.InternalServerError);
+                    }
+                }
+                else
+                {
+                    // Update AvatarUrl - LUÔN xử lý (kể cả khi null)
+                    // Nếu request.AvatarUrl là null hoặc empty -> set null, ngược lại set giá trị
+                    profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
+                }
+
+                profile.UpdatedAt = DateTime.UtcNow;
 
                 var updatedProfile = await _profileRepository.UpdateAsync(profile, cancellationToken);
                 var profileDto = MapToDto(updatedProfile);
 
-                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Profile updated successfully");
+                return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Cập nhật hồ sơ thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<ProfileResponseDto>.CreateError($"Error updating profile: {ex.Message}", HttpStatusCode.InternalServerError);
+                return GenericResponse<ProfileResponseDto>.CreateError($"Lỗi khi cập nhật hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
             }
         }
 
@@ -199,15 +309,66 @@ namespace AISAM.Services.Service
                 var profileExists = await _profileRepository.ExistsAsync(profileId, cancellationToken);
                 if (!profileExists)
                 {
-                    return GenericResponse<bool>.CreateError("Profile not found", HttpStatusCode.NotFound);
+                    return GenericResponse<bool>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
                 }
 
                 var deleted = await _profileRepository.DeleteAsync(profileId, cancellationToken);
-                return GenericResponse<bool>.CreateSuccess(deleted, "Profile deleted successfully");
+                return GenericResponse<bool>.CreateSuccess(deleted, "Xóa hồ sơ thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<bool>.CreateError($"Error deleting profile: {ex.Message}", HttpStatusCode.InternalServerError);
+                return GenericResponse<bool>.CreateError($"Lỗi khi xóa hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task<GenericResponse<bool>> RestoreProfileAsync(Guid profileId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var profile = await _profileRepository.GetByIdIncludingDeletedAsync(profileId, cancellationToken);
+                if (profile == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
+                }
+
+                if (!profile.IsDeleted)
+                {
+                    return GenericResponse<bool>.CreateError("Hồ sơ chưa bị xóa, không thể khôi phục", HttpStatusCode.BadRequest);
+                }
+
+                profile.IsDeleted = false;
+                profile.UpdatedAt = DateTime.UtcNow;
+
+                await _profileRepository.UpdateAsync(profile, cancellationToken);
+                return GenericResponse<bool>.CreateSuccess(true, "Khôi phục hồ sơ thành công");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi khôi phục hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task<GenericResponse<bool>> PermanentDeleteProfileAsync(Guid profileId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var profile = await _profileRepository.GetByIdIncludingDeletedAsync(profileId, cancellationToken);
+                if (profile == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
+                }
+
+                if (!profile.IsDeleted)
+                {
+                    return GenericResponse<bool>.CreateError("Hồ sơ phải được xóa mềm trước khi xóa vĩnh viễn", HttpStatusCode.BadRequest);
+                }
+
+                var deleted = await _profileRepository.PermanentDeleteAsync(profileId, cancellationToken);
+                return GenericResponse<bool>.CreateSuccess(deleted, "Xóa vĩnh viễn hồ sơ thành công");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi xóa vĩnh viễn hồ sơ: {ex.Message}", HttpStatusCode.InternalServerError);
             }
         }
 
