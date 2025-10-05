@@ -26,50 +26,69 @@ public class SocialAccountsController : ControllerBase
     }
 
     /// <summary>
-    ///     List available targets (e.g., Facebook pages) for the linked account of current user
+    ///     List available targets (e.g., Facebook pages) for a specific social account - for account management
     /// </summary>
-    [HttpGet("{provider}/available-targets")]
+    [HttpGet("{socialAccountId}/available-targets")]
     [Authorize]
-    public async Task<ActionResult<GenericResponse<AvailableTargetsResponse>>> ListAvailableTargets(string provider)
+    public async Task<ActionResult<GenericResponse<AvailableTargetsResponse>>> GetAvailableTargetsForAccountManagement(Guid socialAccountId)
     {
         try
         {
             var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
-            var targets = await _socialService.ListAvailableTargetsAsync(userId, provider);
-            return Ok(new GenericResponse<AvailableTargetsResponse>
+            // Verify the social account belongs to the user
+            var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
+            if (socialAccount == null || socialAccount.UserId != userId)
             {
-                Success = true,
-                Data = new AvailableTargetsResponse { Targets = targets.ToList() }
-            });
+                return NotFound(GenericResponse<AvailableTargetsResponse>.CreateError(
+                    "Không tìm thấy tài khoản mạng xã hội", 
+                    System.Net.HttpStatusCode.NotFound, 
+                    "SOCIAL_ACCOUNT_NOT_FOUND"));
+            }
+
+            var targets = await _socialService.ListAvailableTargetsForAccountAsync(socialAccountId);
+            return Ok(GenericResponse<AvailableTargetsResponse>.CreateSuccess(
+                new AvailableTargetsResponse { Targets = targets.ToList() },
+                "Lấy danh sách trang có sẵn thành công"));
         }
         catch (UnauthorizedAccessException)
         {
-            return Unauthorized(new GenericResponse<AvailableTargetsResponse>
-                { Success = false, Message = "Invalid user context" });
+            return Unauthorized(GenericResponse<AvailableTargetsResponse>.CreateError(
+                "Token không hợp lệ", 
+                System.Net.HttpStatusCode.Unauthorized, 
+                "UNAUTHORIZED"));
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = ex.Message });
+            return BadRequest(GenericResponse<AvailableTargetsResponse>.CreateError(
+                ex.Message, 
+                System.Net.HttpStatusCode.BadRequest, 
+                "INVALID_REQUEST"));
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new GenericResponse<AvailableTargetsResponse> { Success = false, Message = ex.Message });
+            return BadRequest(GenericResponse<AvailableTargetsResponse>.CreateError(
+                ex.Message, 
+                System.Net.HttpStatusCode.BadRequest, 
+                "FACEBOOK_OAUTH_ERROR"));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error listing available targets for {Provider}", provider);
-            return StatusCode(500,
-                new GenericResponse<AvailableTargetsResponse> { Success = false, Message = "Internal server error" });
+            _logger.LogError(ex, "Error listing available targets for social account {SocialAccountId}", socialAccountId);
+            return StatusCode(500, GenericResponse<AvailableTargetsResponse>.CreateError(
+                "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
+                System.Net.HttpStatusCode.InternalServerError, 
+                "INTERNAL_SERVER_ERROR"));
         }
     }
 
     /// <summary>
-    ///     Link selected targets to the user's linked social account
+    ///     Link selected targets to a specific social account
     /// </summary>
-    [HttpPost("link-selected")]
+    [HttpPost("{socialAccountId}/link-targets")]
     [Authorize]
     public async Task<ActionResult<GenericResponse<SocialAccountDto>>> LinkSelectedTargets(
+        Guid socialAccountId,
         [FromBody] LinkSelectedTargetsRequest request)
     {
         try
@@ -77,29 +96,47 @@ public class SocialAccountsController : ControllerBase
             var authenticatedUserId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (authenticatedUserId != request.UserId) return Forbid();
 
-            var result =
-                await _socialService.LinkSelectedTargetsAsync(request.UserId, request.Provider,
-                    request.ProviderTargetIds);
-            return Ok(new GenericResponse<SocialAccountDto> { Success = true, Data = result });
+            // Verify the social account belongs to the user
+            var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
+            if (socialAccount == null || socialAccount.UserId != request.UserId)
+            {
+                return NotFound(GenericResponse<SocialAccountDto>.CreateError(
+                    "Không tìm thấy tài khoản mạng xã hội", 
+                    System.Net.HttpStatusCode.NotFound, 
+                    "SOCIAL_ACCOUNT_NOT_FOUND"));
+            }
+
+            var result = await _socialService.LinkSelectedTargetsForAccountAsync(socialAccountId, request);
+            return Ok(GenericResponse<SocialAccountDto>.CreateSuccess(result, "Liên kết các trang đã chọn thành công"));
         }
         catch (UnauthorizedAccessException)
         {
-            return Unauthorized(new GenericResponse<SocialAccountDto>
-                { Success = false, Message = "Invalid user context" });
+            return Unauthorized(GenericResponse<SocialAccountDto>.CreateError(
+                "Token không hợp lệ", 
+                System.Net.HttpStatusCode.Unauthorized, 
+                "UNAUTHORIZED"));
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new GenericResponse<SocialAccountDto> { Success = false, Message = ex.Message });
+            return BadRequest(GenericResponse<SocialAccountDto>.CreateError(
+                ex.Message, 
+                System.Net.HttpStatusCode.BadRequest, 
+                "INVALID_REQUEST"));
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new GenericResponse<SocialAccountDto> { Success = false, Message = ex.Message });
+            return BadRequest(GenericResponse<SocialAccountDto>.CreateError(
+                ex.Message, 
+                System.Net.HttpStatusCode.BadRequest, 
+                "FACEBOOK_OAUTH_ERROR"));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error linking selected targets");
-            return StatusCode(500,
-                new GenericResponse<SocialAccountDto> { Success = false, Message = "Internal server error" });
+            _logger.LogError(ex, "Error linking selected targets for social account {SocialAccountId}", socialAccountId);
+            return StatusCode(500, GenericResponse<SocialAccountDto>.CreateError(
+                "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
+                System.Net.HttpStatusCode.InternalServerError, 
+                "INTERNAL_SERVER_ERROR"));
         }
     }
 
@@ -175,33 +212,6 @@ public class SocialAccountsController : ControllerBase
         }
     }
 
-    /// <summary>
-    ///     Get all targets (pages/profiles) for a social account
-    /// </summary>
-    [HttpGet("account/{socialAccountId}")]
-    [Authorize]
-    public async Task<ActionResult<GenericResponse<IEnumerable<SocialTargetDto>>>> GetAccountTargets(
-        Guid socialAccountId)
-    {
-        try
-        {
-            var targets = await _socialService.GetAccountTargetsAsync(socialAccountId);
-            return Ok(new GenericResponse<IEnumerable<SocialTargetDto>>
-            {
-                Success = true,
-                Data = targets
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting targets for account {AccountId}", socialAccountId);
-            return StatusCode(500, new GenericResponse<IEnumerable<SocialTargetDto>>
-            {
-                Success = false,
-                Message = "Internal server error"
-            });
-        }
-    }
 
     /// <summary>
     ///     Get all social accounts linked to the authenticated user
@@ -264,20 +274,106 @@ public class SocialAccountsController : ControllerBase
         try
         {
             var accounts = await _socialService.GetUserAccountsAsync(userId);
-            return Ok(new GenericResponse<IEnumerable<SocialAccountDto>>
-            {
-                Success = true,
-                Data = accounts
-            });
+            return Ok(GenericResponse<IEnumerable<SocialAccountDto>>.CreateSuccess(
+                accounts, 
+                "Lấy danh sách tài khoản mạng xã hội thành công"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting user accounts for user {UserId}", userId);
-            return StatusCode(500, new GenericResponse<IEnumerable<SocialAccountDto>>
-            {
-                Success = false,
-                Message = "Internal server error"
-            });
+            return StatusCode(500, GenericResponse<IEnumerable<SocialAccountDto>>.CreateError(
+                "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
+                System.Net.HttpStatusCode.InternalServerError, 
+                "INTERNAL_SERVER_ERROR"));
         }
     }
+
+    /// <summary>
+    ///     Get all linked targets (pages) for a specific social account
+    /// </summary>
+    [HttpGet("{socialAccountId}/linked-targets")]
+    [Authorize]
+    public async Task<ActionResult<GenericResponse<IEnumerable<SocialTargetDto>>>> GetLinkedTargets(Guid socialAccountId)
+    {
+        try
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+
+            // Verify the social account belongs to the user
+            var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
+            if (socialAccount == null || socialAccount.UserId != userId)
+            {
+                return NotFound(GenericResponse<IEnumerable<SocialTargetDto>>.CreateError(
+                    "Không tìm thấy tài khoản mạng xã hội", 
+                    System.Net.HttpStatusCode.NotFound, 
+                    "SOCIAL_ACCOUNT_NOT_FOUND"));
+            }
+
+            var targets = await _socialService.GetAccountTargetsAsync(socialAccountId);
+            return Ok(GenericResponse<IEnumerable<SocialTargetDto>>.CreateSuccess(
+                targets, 
+                "Lấy danh sách trang đã liên kết thành công"));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(GenericResponse<IEnumerable<SocialTargetDto>>.CreateError(
+                "Token không hợp lệ", 
+                System.Net.HttpStatusCode.Unauthorized, 
+                "UNAUTHORIZED"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting targets for social account {SocialAccountId}", socialAccountId);
+            return StatusCode(500, GenericResponse<IEnumerable<SocialTargetDto>>.CreateError(
+                "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
+                System.Net.HttpStatusCode.InternalServerError, 
+                "INTERNAL_SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    ///     Get all social accounts with their targets for the authenticated user
+    /// </summary>
+    [HttpGet("me/accounts-with-targets")]
+    [Authorize]
+    public async Task<ActionResult<GenericResponse<List<SocialAccountWithTargetsDto>>>> GetMyAccountsWithTargets()
+    {
+        try
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var accounts = await _socialService.GetUserAccountsAsync(userId);
+            
+            var accountsWithTargets = new List<SocialAccountWithTargetsDto>();
+            
+            foreach (var account in accounts)
+            {
+                var targets = await _socialService.GetAccountTargetsAsync(account.Id);
+                accountsWithTargets.Add(new SocialAccountWithTargetsDto
+                {
+                    SocialAccount = account,
+                    Targets = targets.ToList()
+                });
+            }
+
+            return Ok(GenericResponse<List<SocialAccountWithTargetsDto>>.CreateSuccess(
+                accountsWithTargets, 
+                "Lấy danh sách tài khoản và trang thành công"));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(GenericResponse<List<SocialAccountWithTargetsDto>>.CreateError(
+                "Token không hợp lệ", 
+                System.Net.HttpStatusCode.Unauthorized, 
+                "UNAUTHORIZED"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting accounts with targets for user");
+            return StatusCode(500, GenericResponse<List<SocialAccountWithTargetsDto>>.CreateError(
+                "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
+                System.Net.HttpStatusCode.InternalServerError, 
+                "INTERNAL_SERVER_ERROR"));
+        }
+    }
+
 }

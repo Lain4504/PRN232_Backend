@@ -88,6 +88,9 @@ namespace AISAM.Common.Models
         [JsonPropertyName("type")]
         public string? Type { get; set; }
         
+        [JsonPropertyName("error_subcode")]
+        public int? ErrorSubcode { get; set; }
+        
         [JsonPropertyName("fbtrace_id")]
         public string? FbTraceId { get; set; }
     }

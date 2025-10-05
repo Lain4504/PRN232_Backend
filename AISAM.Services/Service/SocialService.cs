@@ -75,12 +75,12 @@ namespace AISAM.Services.Service
             redirectUri = AppendUserIdQuery(redirectUri, request.UserId);
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
-            // Check if account already exists
+            // Check if this specific Facebook account is already linked to this user
             var platform = ParseProviderToEnum(request.Provider);
-            var existingAccount = await _socialAccountRepository.GetByPlatformAndAccountIdAsync(platform, accountData.ProviderUserId);
+            var existingAccount = await _socialAccountRepository.GetByUserIdPlatformAndAccountIdAsync(request.UserId, platform, accountData.ProviderUserId);
             if (existingAccount != null)
             {
-                throw new InvalidOperationException("This social account is already linked");
+                throw new InvalidOperationException("Tài khoản mạng xã hội này đã được liên kết với người dùng này");
             }
 
             // Create new social account only (opt-in pages later)
@@ -134,70 +134,108 @@ namespace AISAM.Services.Service
             return integrations.Select(MapToDtoFromIntegration);
         }
 
-        public async Task<IEnumerable<SocialTargetDto>> ListAvailableTargetsAsync(Guid userId, string provider)
+        public async Task<IEnumerable<AvailableTargetDto>> ListAvailableTargetsForAccountAsync(Guid socialAccountId)
         {
-            if (!_providers.TryGetValue(provider, out var providerService))
-            {
-                throw new ArgumentException($"Provider '{provider}' is not supported");
-            }
-
-            var platform = ParseProviderToEnum(provider);
-            var account = await _socialAccountRepository.GetByUserIdAndPlatformAsync(userId, platform);
+            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
             if (account == null)
             {
-                throw new InvalidOperationException($"No linked {provider} account for this user");
+                throw new ArgumentException("Social account not found");
+            }
+
+            if (!_providers.TryGetValue(account.Platform.ToString().ToLower(), out var providerService))
+            {
+                throw new ArgumentException($"Provider '{account.Platform}' is not supported");
             }
 
             var available = await providerService.GetTargetsAsync(account.UserAccessToken);
             return available;
         }
 
-        public async Task<SocialAccountDto> LinkSelectedTargetsAsync(Guid userId, string provider, IEnumerable<string> providerTargetIds)
+        public async Task<SocialAccountDto?> GetSocialAccountByIdAsync(Guid socialAccountId)
         {
-            if (!_providers.TryGetValue(provider, out var providerService))
+            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
+            return account != null ? MapToDto(account) : null;
+        }
+        
+        public async Task<SocialAccountDto> LinkSelectedTargetsForAccountAsync(Guid socialAccountId, LinkSelectedTargetsRequest request)
+        {
+            if (!_providers.TryGetValue(request.Provider, out var providerService))
             {
-                throw new ArgumentException($"Provider '{provider}' is not supported");
+                throw new ArgumentException($"Provider '{request.Provider}' is not supported");
             }
 
-            var platform = ParseProviderToEnum(provider);
-            var account = await _socialAccountRepository.GetByUserIdAndPlatformAsync(userId, platform);
+            var platform = ParseProviderToEnum(request.Provider);
+             
+            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
             if (account == null)
             {
-                throw new InvalidOperationException($"No linked {provider} account for this user");
+                throw new ArgumentException("Social account not found");
             }
-
-            var available = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
-            var selectedSet = new HashSet<string>(providerTargetIds);
-            var selected = available.Where(t => selectedSet.Contains(t.ProviderTargetId));
-
-            // Do not fetch/store per-target tokens during linking; we'll lazy-fetch at publish time
-
-            foreach (var targetDto in selected)
+            
+            // Verify account belongs to the correct platform
+            if (account.Platform != platform)
             {
-                var existingIntegration = await _socialIntegrationRepository.GetByExternalIdAsync(targetDto.ProviderTargetId);
-                if (existingIntegration != null && existingIntegration.SocialAccountId == account.Id)
+                throw new ArgumentException("Social account platform mismatch");
+            }
+            //TO DO: Verify brand belongs to user when brand repository is ready
+            // Verify brand exists and belongs to user
+            //var brandId = _brandRepository.findyByIdAndUserId(request.BrandId, account.UserId);
+            var brandId = request.BrandId;
+            if (brandId == null)
+            {
+                throw new ArgumentException("Brand not found or does not belong to user");
+            }
+            try
+            {
+                var available = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                var selectedSet = new HashSet<string>(request.ProviderTargetIds);
+                var selected = available.Where(t => selectedSet.Contains(t.ProviderTargetId));
+
+                // Get page access tokens for selected targets
+                var targetAccessTokens = await providerService.GetTargetAccessTokensAsync(
+                    account.UserAccessToken,
+                    selected.Select(t => t.ProviderTargetId));
+
+                foreach (var targetDto in selected)
                 {
-                    continue; // already linked
+                    var existingIntegration =
+                        await _socialIntegrationRepository.GetByExternalIdAsync(targetDto.ProviderTargetId);
+                    if (existingIntegration != null && existingIntegration.SocialAccountId == account.Id)
+                    {
+                        continue; // already linked
+                    }
+
+                    // Get page access token for this target
+                    if (!targetAccessTokens.TryGetValue(targetDto.ProviderTargetId, out var pageAccessToken))
+                    {
+                        throw new InvalidOperationException(
+                            $"Could not get access token for page {targetDto.ProviderTargetId}");
+                    }
+
+                    var integration = new SocialIntegration
+                    {
+                        UserId = account.UserId,
+                        BrandId = brandId,
+                        SocialAccountId = account.Id,
+                        Platform = account.Platform,
+                        AccessToken = pageAccessToken, // Page access token from Facebook
+                        ExternalId = targetDto.ProviderTargetId,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    await _socialIntegrationRepository.CreateAsync(integration);
                 }
 
-                var integration = new SocialIntegration
-                {
-                    UserId = userId,
-                    BrandId = Guid.NewGuid(), // TODO: This should come from request or default brand
-                    SocialAccountId = account.Id,
-                    Platform = platform,
-                    AccessToken = null, // Will be fetched later
-                    ExternalId = targetDto.ProviderTargetId,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                await _socialIntegrationRepository.CreateAsync(integration);
+                var reloaded = await _socialAccountRepository.GetByIdWithIntegrationsAsync(account.Id);
+                return MapToDto(reloaded);
+            } 
+            catch (Exception ex) when (!(ex is ArgumentException || ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error linking targets to social account {SocialAccountId}", socialAccountId);
+                throw new ArgumentException("Error linking targets to social account " + ex.Message, ex);
             }
-
-            var reloaded = await _socialAccountRepository.GetByIdWithIntegrationsAsync(account.Id);
-            return MapToDto(reloaded);
         }
 
         public async Task<bool> UnlinkTargetAsync(Guid userId, Guid socialIntegrationId)
@@ -260,6 +298,7 @@ namespace AISAM.Services.Service
             return new SocialAccountDto
             {
                 Id = account.Id,
+                UserId = account.UserId,
                 Provider = account.Platform.ToString().ToLower(),
                 ProviderUserId = account.AccountId ?? string.Empty,
                 AccessToken = account.UserAccessToken,

@@ -21,7 +21,7 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Get available targets (pages, profiles, channels) for the user
         /// </summary>
-        Task<IEnumerable<SocialTargetDto>> GetTargetsAsync(string accessToken);
+        Task<IEnumerable<AvailableTargetDto>> GetTargetsAsync(string accessToken);
 
         /// <summary>
         /// Server-side only: For given provider target IDs (e.g., Facebook Page IDs),

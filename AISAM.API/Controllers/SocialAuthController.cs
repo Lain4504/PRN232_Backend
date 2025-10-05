@@ -70,10 +70,9 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Handle OAuth callback and link social account to user (do not auto-link pages)
+        /// Handle OAuth callback and link social account to user (supports multiple Facebook accounts per user)
         /// </summary>
         [HttpGet("{provider}/callback")]
-        [Authorize]
         public async Task<ActionResult<GenericResponse<object>>> HandleCallback(
             string provider,
             [FromQuery] string code,
@@ -85,11 +84,10 @@ namespace AISAM.API.Controllers
                 // Require userId; do not auto-create users when missing
                 if (!userId.HasValue)
                 {
-                    return BadRequest(new GenericResponse<object>
-                    {
-                        Success = false,
-                        Message = "userId is required"
-                    });
+                    return BadRequest(GenericResponse<object>.CreateError(
+                        "userId is required", 
+                        System.Net.HttpStatusCode.BadRequest, 
+                        "MISSING_USER_ID"));
                 }
 
                 var linkRequest = new LinkSocialAccountRequest
@@ -103,41 +101,34 @@ namespace AISAM.API.Controllers
                 var socialAccount = await _socialService.LinkAccountAsync(linkRequest);
                 var user = await _userService.GetUserByIdAsync(userId.Value);
 
-                return Ok(new GenericResponse<object>
+                // Get available targets (pages) for this newly linked account
+                var availableTargets = await _socialService.ListAvailableTargetsForAccountAsync(socialAccount.Id);
+
+                return Ok(GenericResponse<object>.CreateSuccess(new
                 {
-                    Success = true,
-                    Data = new
-                    {
-                        User = user,
-                        SocialAccount = socialAccount,
-                        Message = $"{provider} account linked successfully. Now select pages to link."
-                    }
-                });
+                    User = user,
+                    SocialAccount = socialAccount,
+                    AvailableTargets = availableTargets,
+                    Message = $"Tài khoản {provider} đã được liên kết thành công. Bây giờ bạn có thể chọn các trang để liên kết."
+                }, $"Tài khoản {provider} đã được liên kết thành công"));
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new GenericResponse<object>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
+                return BadRequest(GenericResponse<object>.CreateError(ex.Message, System.Net.HttpStatusCode.BadRequest, "INVALID_REQUEST"));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new GenericResponse<object>
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
+                return BadRequest(GenericResponse<object>.CreateError(ex.Message, System.Net.HttpStatusCode.BadRequest, "FACEBOOK_OAUTH_ERROR"));
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "HTTP error handling {Provider} callback", provider);
+                return BadRequest(GenericResponse<object>.CreateError("Lỗi kết nối với Facebook. Vui lòng thử lại.", System.Net.HttpStatusCode.BadRequest, "FACEBOOK_CONNECTION_ERROR"));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error handling {Provider} callback", provider);
-                return StatusCode(500, new GenericResponse<object>
-                {
-                    Success = false,
-                    Message = "Internal server error"
-                });
+                return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", System.Net.HttpStatusCode.InternalServerError, "INTERNAL_SERVER_ERROR"));
             }
         }
     }

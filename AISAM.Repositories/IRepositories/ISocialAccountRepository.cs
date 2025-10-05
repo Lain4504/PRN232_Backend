@@ -8,6 +8,7 @@ namespace AISAM.Repositories.IRepositories
         Task<SocialAccount?> GetByIdAsync(Guid id);
         Task<SocialAccount?> GetByIdWithIntegrationsAsync(Guid id);
         Task<SocialAccount?> GetByPlatformAndAccountIdAsync(SocialPlatformEnum platform, string accountId);
+        Task<SocialAccount?> GetByUserIdPlatformAndAccountIdAsync(Guid userId, SocialPlatformEnum platform, string accountId);
         Task<SocialAccount?> GetByUserIdAndPlatformAsync(Guid userId, SocialPlatformEnum platform);
         Task<IEnumerable<SocialAccount>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<SocialAccount>> GetByPlatformAsync(SocialPlatformEnum platform);

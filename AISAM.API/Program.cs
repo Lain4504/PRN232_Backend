@@ -58,10 +58,6 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
-// Register validators from API assembly
-builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.CreateContentRequestValidator>();
-builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.ProductCreateRequestValidator>();
-
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
