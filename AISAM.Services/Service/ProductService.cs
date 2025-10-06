@@ -1,11 +1,13 @@
 ﻿using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
+using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
+using AISAM.Common.Dtos;
 
 namespace AISAM.Services.Service
 {
@@ -62,9 +64,14 @@ namespace AISAM.Services.Service
             {
                 foreach (var file in imageFiles)
                 {
-                    var url = await _supabaseService.UploadFileAsync(file);
-                    if (!string.IsNullOrEmpty(url))
+                    // Upload vào bucket ProductMedia
+                    var fileName = await _supabaseService.UploadFileAsync(file, DefaultBucketEnum.ProductMedia);
+                    if (!string.IsNullOrEmpty(fileName))
+                    {
+                        // Lấy URL public để lưu
+                        var url = _supabaseService.GetPublicUrl(fileName, DefaultBucketEnum.ProductMedia);
                         imageUrls.Add(url);
+                    }
                 }
             }
 
@@ -119,9 +126,12 @@ namespace AISAM.Services.Service
             {
                 foreach (var file in dto.ImageFiles)
                 {
-                    var url = await _supabaseService.UploadFileAsync(file);
-                    if (!string.IsNullOrEmpty(url))
+                    var fileName = await _supabaseService.UploadFileAsync(file, DefaultBucketEnum.ProductMedia);
+                    if (!string.IsNullOrEmpty(fileName))
+                    {
+                        var url = _supabaseService.GetPublicUrl(fileName, DefaultBucketEnum.ProductMedia);
                         currentImages.Add(url);
+                    }
                 }
             }
 

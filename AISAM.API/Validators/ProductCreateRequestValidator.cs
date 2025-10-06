@@ -30,26 +30,5 @@ namespace AISAM.API.Validators
             RuleFor(x => x.ImageFiles)
                 .NotNull().WithMessage("Cần upload ít nhất 1 ảnh")
                 .Must(files => files != null && files.Any()).WithMessage("Cần upload ít nhất 1 ảnh");
-
-            // Tuỳ chọn: kiểm tra từng file (size, content type)
-            RuleForEach(x => x.ImageFiles).ChildRules(file =>
-            {
-                file.RuleFor(f => f.Length)
-                    .LessThanOrEqualTo(5 * 1024 * 1024) // 5MB
-                    .WithMessage("Ảnh không được lớn hơn 5MB");
-
-                file.RuleFor(f => f.ContentType)
-                    .Must(IsSupportedImageType)
-                    .WithMessage("Chỉ hỗ trợ định dạng ảnh jpg, jpeg, png, webp");
-            });
-        }
-
-        private bool IsSupportedImageType(string contentType)
-        {
-            return contentType == "image/jpeg" ||
-                   contentType == "image/jpg" ||
-                   contentType == "image/png" ||
-                   contentType == "image/webp";
-        }
     }
 }

@@ -1,21 +1,46 @@
-﻿// Aliases để tránh conflict tên
+﻿using AISAM.Common.Dtos;
+using AISAM.Data.Enumeration;
+using AISAM.Services.Extensions;
 using SupabaseClient = Supabase.Client;
 using StorageFileOptions = Supabase.Storage.FileOptions;
 using StorageTransformOptions = Supabase.Storage.TransformOptions;
-using StorageFileObject = Supabase.Storage.FileObject;
-using AISAM.Common.Models;
 
 namespace AISAM.Services.Service
 {
     public class SupabaseStorageService
     {
         private readonly SupabaseClient _supabaseClient;
-        private readonly string _bucketName;
 
-        public SupabaseStorageService(SupabaseClient supabaseClient, string bucketName = "image")
+        public SupabaseStorageService(SupabaseClient supabaseClient)
         {
             _supabaseClient = supabaseClient ?? throw new ArgumentNullException(nameof(supabaseClient));
-            _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
+        }
+
+        /// <summary>
+        /// Các loại content type ảnh được hỗ trợ.
+        /// </summary>
+        private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp"
+        };
+
+        private const long MaxImageSize = 5 * 1024 * 1024; // 5MB
+
+        /// <summary>
+        /// Validate ảnh trước khi upload.
+        /// </summary>
+        private static void ValidateImageFile(Microsoft.AspNetCore.Http.IFormFile file)
+        {
+            if (file == null) throw new ArgumentNullException(nameof(file));
+
+            if (file.Length > MaxImageSize)
+                throw new InvalidOperationException("Ảnh không được lớn hơn 5MB");
+
+            if (!AllowedImageTypes.Contains(file.ContentType))
+                throw new InvalidOperationException("Chỉ hỗ trợ định dạng ảnh jpg, jpeg, png, webp");
         }
 
         /// <summary>
@@ -29,17 +54,15 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
-        /// Upload file: đọc stream thành byte[] (vì SDK cần byte[]), set ContentType chính xác.
-        /// Trả về tên file lưu trên bucket
+        /// Upload file (chỉ định bucket)
         /// </summary>
-        public async Task<string> UploadFileAsync(Stream fileStream, string originalFileName, string contentType)
+        public async Task<string> UploadFileAsync(Stream fileStream, string originalFileName, string contentType, DefaultBucketEnum bucket)
         {
             if (fileStream == null) throw new ArgumentNullException(nameof(fileStream));
             if (string.IsNullOrWhiteSpace(originalFileName)) throw new ArgumentException("originalFileName required", nameof(originalFileName));
 
             // đọc stream thành byte[]
             await using var ms = new MemoryStream();
-            // nếu stream có Position, reset về 0 trước khi copy
             if (fileStream.CanSeek)
                 fileStream.Position = 0;
             await fileStream.CopyToAsync(ms);
@@ -47,49 +70,49 @@ namespace AISAM.Services.Service
 
             var safeFileName = GenerateUniqueFileName(originalFileName);
 
-            var bucket = _supabaseClient.Storage.From(_bucketName);
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
 
-            // Sử dụng overload Upload(byte[] bytes, string path, FileOptions options)
-            await bucket.Upload(bytes, safeFileName, new StorageFileOptions
+            await bucketClient.Upload(bytes, safeFileName, new StorageFileOptions
             {
                 ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
-                Upsert = false // không ghi đè
+                Upsert = false
             });
 
             return safeFileName;
         }
 
         /// <summary>
-        /// Helper tiện ích: upload từ IFormFile
+        /// Upload từ IFormFile (chỉ định bucket) + ✅ validation ảnh
         /// </summary>
-        public async Task<string> UploadFileAsync(Microsoft.AspNetCore.Http.IFormFile formFile)
+        public async Task<string> UploadFileAsync(Microsoft.AspNetCore.Http.IFormFile formFile, DefaultBucketEnum bucket)
         {
             if (formFile == null) throw new ArgumentNullException(nameof(formFile));
+
+            // ✅ Validate ảnh trước khi upload
+            ValidateImageFile(formFile);
+
             await using var stream = formFile.OpenReadStream();
-            return await UploadFileAsync(stream, formFile.FileName, formFile.ContentType);
+            return await UploadFileAsync(stream, formFile.FileName, formFile.ContentType, bucket);
         }
 
         /// <summary>
-        /// Download file -> trả về byte[]
+        /// Download file (chỉ định bucket)
         /// </summary>
-        public async Task<byte[]> DownloadFileAsync(string fileName)
+        public async Task<byte[]> DownloadFileAsync(string fileName, DefaultBucketEnum bucket)
         {
             if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("fileName required", nameof(fileName));
 
-            var bucket = _supabaseClient.Storage.From(_bucketName);
-
-            // gọi rõ overload: (string, TransformOptions?, EventHandler<float>?)
-            var bytes = await bucket.Download(fileName, (StorageTransformOptions?)null, null);
-            return bytes;
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
+            return await bucketClient.Download(fileName, (StorageTransformOptions?)null, null);
         }
 
         /// <summary>
-        /// List file objects
+        /// List file objects (chỉ định bucket)
         /// </summary>
-        public async Task<List<FileDto>> ListFilesAsync(string? path = null)
+        public async Task<List<FileDto>> ListFilesAsync(DefaultBucketEnum bucket, string? path = null)
         {
-            var bucket = _supabaseClient.Storage.From(_bucketName);
-            var files = await bucket.List(path ?? string.Empty);
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
+            var files = await bucketClient.List(path ?? string.Empty);
 
             return files.Select(f => new FileDto
             {
@@ -100,33 +123,33 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
-        /// Remove files
+        /// Remove files (chỉ định bucket)
         /// </summary>
-        public async Task RemoveFilesAsync(params string[] fileNames)
+        public async Task RemoveFilesAsync(DefaultBucketEnum bucket, params string[] fileNames)
         {
             if (fileNames == null || fileNames.Length == 0) return;
-            var bucket = _supabaseClient.Storage.From(_bucketName);
-            await bucket.Remove(fileNames.ToList());
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
+            await bucketClient.Remove(fileNames.ToList());
         }
 
         /// <summary>
-        /// Create signed URL
+        /// Create signed URL (chỉ định bucket)
         /// </summary>
-        public async Task<string> CreateSignedUrlAsync(string fileName, int expiresInSeconds = 3600)
+        public async Task<string> CreateSignedUrlAsync(string fileName, DefaultBucketEnum bucket, int expiresInSeconds = 3600)
         {
             if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("fileName required", nameof(fileName));
-            var bucket = _supabaseClient.Storage.From(_bucketName);
-            return await bucket.CreateSignedUrl(fileName, expiresInSeconds);
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
+            return await bucketClient.CreateSignedUrl(fileName, expiresInSeconds);
         }
 
         /// <summary>
-        /// Get public URL
+        /// Get public URL (chỉ định bucket)
         /// </summary>
-        public string GetPublicUrl(string fileName)
+        public string GetPublicUrl(string fileName, DefaultBucketEnum bucket)
         {
             if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("fileName required", nameof(fileName));
-            var bucket = _supabaseClient.Storage.From(_bucketName);
-            return bucket.GetPublicUrl(fileName);
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
+            return bucketClient.GetPublicUrl(fileName);
         }
     }
 }

@@ -3,6 +3,7 @@ namespace AISAM.Common.Models
     public class SocialAccountDto
     {
         public Guid Id { get; set; }
+        public Guid UserId { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string ProviderUserId { get; set; } = string.Empty;
         public string AccessToken { get; set; } = string.Empty;
@@ -23,6 +24,16 @@ namespace AISAM.Common.Models
         public bool IsActive { get; set; }
     }
 
+    public class AvailableTargetDto
+    {
+        public string ProviderTargetId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public string? Category { get; set; }
+        public string? ProfilePictureUrl { get; set; }
+        public bool IsActive { get; set; }
+    }
+
     public class LinkSocialAccountRequest
     {
         public Guid UserId { get; set; }
@@ -33,7 +44,7 @@ namespace AISAM.Common.Models
 
     public class AvailableTargetsResponse
     {
-        public List<SocialTargetDto> Targets { get; set; } = new();
+        public List<AvailableTargetDto> Targets { get; set; } = new();
     }
 
     public class LinkSelectedTargetsRequest
@@ -41,6 +52,13 @@ namespace AISAM.Common.Models
         public Guid UserId { get; set; }
         public string Provider { get; set; } = string.Empty;
         public List<string> ProviderTargetIds { get; set; } = new();
+        public Guid BrandId { get; set; }
+    }
+
+    public class SocialAccountWithTargetsDto
+    {
+        public SocialAccountDto SocialAccount { get; set; } = new();
+        public List<SocialTargetDto> Targets { get; set; } = new();
     }
 }
 

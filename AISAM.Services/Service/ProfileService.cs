@@ -71,7 +71,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
                     return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
@@ -92,7 +92,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
                     return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
@@ -122,7 +122,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
                     return GenericResponse<ProfileResponseDto>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);

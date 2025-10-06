@@ -21,7 +21,7 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Get available targets (pages, profiles, channels) for the user
         /// </summary>
-        Task<IEnumerable<SocialTargetDto>> GetTargetsAsync(string accessToken);
+        Task<IEnumerable<AvailableTargetDto>> GetTargetsAsync(string accessToken);
 
         /// <summary>
         /// Server-side only: For given provider target IDs (e.g., Facebook Page IDs),
@@ -29,20 +29,6 @@ namespace AISAM.Services.IServices
         /// Only used during linking to persist per-target tokens.
         /// </summary>
         Task<Dictionary<string, string>> GetTargetAccessTokensAsync(string userAccessToken, IEnumerable<string> providerTargetIds);
-        
-        /// <summary>
-        /// [TEMP] Facebook-specific: Get page information from a Page Access Token.
-        /// Used only by temporary endpoint /auth/link-page-token to validate/link a Page.
-        /// Will be removed when the official OAuth flow replaces the temp API.
-        /// </summary>
-        Task<FacebookPageInfo> GetPageInfoFromTokenAsync(string pageAccessToken);
-        
-        /// <summary>
-        /// [TEMP] Facebook-specific: Get user information from a User Access Token.
-        /// Supporting method for the temporary /auth/link-page-token flow.
-        /// Will be deleted once the temp API is retired.
-        /// </summary>
-        Task<FacebookUserInfo> GetUserInfoFromTokenAsync(string userAccessToken);
         
         /// <summary>
         /// Publish a post to the specified social integration

@@ -38,6 +38,14 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(sa => sa.Platform == platform && sa.AccountId == accountId);
         }
 
+        public async Task<SocialAccount?> GetByUserIdPlatformAndAccountIdAsync(Guid userId, SocialPlatformEnum platform, string accountId)
+        {
+            return await _context.SocialAccounts
+                .Include(sa => sa.User)
+                .Include(sa => sa.SocialIntegrations)
+                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Platform == platform && sa.AccountId == accountId);
+        }
+
         public async Task<SocialAccount?> GetByUserIdAndPlatformAsync(Guid userId, SocialPlatformEnum platform)
         {
             return await _context.SocialAccounts

@@ -58,10 +58,6 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
-// Register validators from API assembly
-builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.CreateContentRequestValidator>();
-builder.Services.AddValidatorsFromAssemblyContaining<AISAM.API.Validators.ProductCreateRequestValidator>();
-
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
@@ -129,26 +125,26 @@ using var http = new HttpClient();
 var jwksJson = await http.GetStringAsync(jwksUri);
 var jwks = new JsonWebKeySet(jwksJson);
 
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.IncludeErrorDetails = true;
         options.RequireHttpsMetadata = true;
-
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1",
+            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1", 
 
             ValidateAudience = true,
             ValidAudience = "authenticated",
 
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5),
+            ClockSkew = TimeSpan.FromMinutes(5), 
 
             ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = jwks.Keys,   // 👈 load trực tiếp từ Supabase
-            ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 }
+            IssuerSigningKeys = jwks.Keys,   
+            ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 } // Supabase use ES256 (ECDSA with SHA-256)
         };
 
         options.Events = new JwtBearerEvents
