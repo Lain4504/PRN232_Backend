@@ -73,10 +73,7 @@ namespace AISAM.Services.Service
                 // Apply search filter if provided
                 if (!string.IsNullOrWhiteSpace(searchTerm))
                 {
-                    profiles = profiles.Where(p =>
-                        (!string.IsNullOrEmpty(p.CompanyName) && p.CompanyName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                        (!string.IsNullOrEmpty(p.Bio) && p.Bio.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-                    );
+                    profiles = profiles.Where(p => p.CompanyName!.Contains(searchTerm) || p.Bio!.Contains(searchTerm));
                 }
 
                 var profileDtos = profiles.Select(MapToDto);
@@ -105,7 +102,9 @@ namespace AISAM.Services.Service
                     try
                     {
                         // Use SupabaseStorageService which already handles all validations
-                        var fileName = await _storageService.UploadFileAsync(request.AvatarFile, DefaultBucketEnum.Avatar);
+                        var contentType = request.AvatarFile.ContentType ?? "image/png";
+                        using var stream = request.AvatarFile.OpenReadStream();
+                        var fileName = await _storageService.UploadFileAsync(stream, request.AvatarFile.FileName, contentType, DefaultBucketEnum.Avatar);
                         avatarUrl = _storageService.GetPublicUrl(fileName, DefaultBucketEnum.Avatar);
                     }
                     catch (InvalidOperationException ex)
@@ -164,13 +163,13 @@ namespace AISAM.Services.Service
                 }
 
                 // Update CompanyName - normalize and apply
-                profile.CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) 
-                    ? null 
+                profile.CompanyName = string.IsNullOrWhiteSpace(request.CompanyName)
+                    ? null
                     : request.CompanyName.Trim();
 
                 // Update Bio - normalize and apply  
-                profile.Bio = string.IsNullOrWhiteSpace(request.Bio) 
-                    ? null 
+                profile.Bio = string.IsNullOrWhiteSpace(request.Bio)
+                    ? null
                     : request.Bio.Trim();
 
                 // Handle avatar upload if provided, otherwise use URL from request
@@ -179,7 +178,9 @@ namespace AISAM.Services.Service
                     try
                     {
                         // Use SupabaseStorageService which already handles all validations
-                        var fileName = await _storageService.UploadFileAsync(request.AvatarFile, DefaultBucketEnum.Avatar);
+                        var contentType = request.AvatarFile.ContentType ?? "image/png";
+                        using var stream = request.AvatarFile.OpenReadStream();
+                        var fileName = await _storageService.UploadFileAsync(stream, request.AvatarFile.FileName, contentType, DefaultBucketEnum.Avatar);
                         profile.AvatarUrl = _storageService.GetPublicUrl(fileName, DefaultBucketEnum.Avatar);
                     }
                     catch (InvalidOperationException ex)
@@ -195,8 +196,8 @@ namespace AISAM.Services.Service
                 else
                 {
                     // Update AvatarUrl - normalize and apply
-                    profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) 
-                        ? null 
+                    profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl)
+                        ? null
                         : request.AvatarUrl.Trim();
                 }
 

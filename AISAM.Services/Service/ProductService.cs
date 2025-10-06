@@ -65,7 +65,9 @@ namespace AISAM.Services.Service
                 foreach (var file in imageFiles)
                 {
                     // Upload vào bucket ProductMedia
-                    var fileName = await _supabaseService.UploadFileAsync(file, DefaultBucketEnum.ProductMedia);
+                    var contentType = file.ContentType ?? "image/png";
+                    using var stream = file.OpenReadStream();
+                    var fileName = await _supabaseService.UploadFileAsync(stream, file.FileName, contentType, DefaultBucketEnum.ProductMedia);
                     if (!string.IsNullOrEmpty(fileName))
                     {
                         // Lấy URL public để lưu
@@ -126,7 +128,9 @@ namespace AISAM.Services.Service
             {
                 foreach (var file in dto.ImageFiles)
                 {
-                    var fileName = await _supabaseService.UploadFileAsync(file, DefaultBucketEnum.ProductMedia);
+                    var contentType = file.ContentType ?? "image/png";
+                    using var stream = file.OpenReadStream();
+                    var fileName = await _supabaseService.UploadFileAsync(stream, file.FileName, contentType, DefaultBucketEnum.ProductMedia);
                     if (!string.IsNullOrEmpty(fileName))
                     {
                         var url = _supabaseService.GetPublicUrl(fileName, DefaultBucketEnum.ProductMedia);
