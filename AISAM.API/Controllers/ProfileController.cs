@@ -22,18 +22,18 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Get all profiles for a specific user with optional search
+        /// Get all profiles for a specific user with optional search and deletion status filter
         /// </summary>
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<GenericResponse<IEnumerable<ProfileResponseDto>>>> GetUserProfiles(
             Guid userId,
             [FromQuery] string? search = null,
+            [FromQuery] bool? isDeleted = null,
             CancellationToken cancellationToken = default)
         {
             try
             {
-                // Sử dụng SearchUserProfilesAsync vì nó cover cả 2 case: có search và không có search
-                var result = await _profileService.SearchUserProfilesAsync(userId, search, cancellationToken);
+                var result = await _profileService.SearchUserProfilesAsync(userId, search, isDeleted, cancellationToken);
                 return Ok(result);
             }
             catch (Exception ex)

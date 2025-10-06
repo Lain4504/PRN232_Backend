@@ -26,7 +26,8 @@ namespace AISAM.Api.Controllers
             if (request.File == null || request.File.Length == 0)
                 return BadRequest("No file uploaded");
 
-            var fileName = await _storageService.UploadFileAsync(request.File, bucket);
+            using var stream = request.File.OpenReadStream();
+            var fileName = await _storageService.UploadFileAsync(stream, request.File.FileName, request.File.ContentType, bucket);
             var publicUrl = _storageService.GetPublicUrl(fileName, bucket);
 
             return Ok(new { fileName, url = publicUrl });

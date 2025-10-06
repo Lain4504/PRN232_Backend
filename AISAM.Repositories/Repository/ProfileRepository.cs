@@ -40,6 +40,16 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<IEnumerable<Profile>> GetByUserIdIncludingDeletedAsync(Guid userId, bool isDeleted, CancellationToken cancellationToken = default)
+        {
+            return await _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .Where(p => p.UserId == userId && p.IsDeleted == isDeleted)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<Profile> CreateAsync(Profile profile, CancellationToken cancellationToken = default)
         {
             profile.CreatedAt = DateTime.UtcNow;

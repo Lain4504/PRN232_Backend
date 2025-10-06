@@ -47,7 +47,7 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<IEnumerable<ProfileResponseDto>>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, CancellationToken cancellationToken = default)
+        public async Task<GenericResponse<IEnumerable<ProfileResponseDto>>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, bool? isDeleted = null, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -57,7 +57,18 @@ namespace AISAM.Services.Service
                     return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
                 }
 
-                var profiles = await _profileRepository.GetByUserIdAsync(userId, cancellationToken);
+                // Get profiles based on isDeleted filter
+                IEnumerable<Profile> profiles;
+                if (isDeleted.HasValue)
+                {
+                    // Get profiles with specific deletion status (including deleted ones if requested)
+                    profiles = await _profileRepository.GetByUserIdIncludingDeletedAsync(userId, isDeleted.Value, cancellationToken);
+                }
+                else
+                {
+                    // Default behavior: only get non-deleted profiles
+                    profiles = await _profileRepository.GetByUserIdAsync(userId, cancellationToken);
+                }
 
                 // Apply search filter if provided
                 if (!string.IsNullOrWhiteSpace(searchTerm))

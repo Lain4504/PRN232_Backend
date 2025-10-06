@@ -54,7 +54,7 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
-        /// Upload file (chỉ định bucket)
+        /// Upload file (chỉ định bucket) với validation ảnh
         /// </summary>
         public async Task<string> UploadFileAsync(Stream fileStream, string originalFileName, string contentType, DefaultBucketEnum bucket)
         {
@@ -79,20 +79,6 @@ namespace AISAM.Services.Service
             });
 
             return safeFileName;
-        }
-
-        /// <summary>
-        /// Upload từ IFormFile (chỉ định bucket) + ✅ validation ảnh
-        /// </summary>
-        public async Task<string> UploadFileAsync(Microsoft.AspNetCore.Http.IFormFile formFile, DefaultBucketEnum bucket)
-        {
-            if (formFile == null) throw new ArgumentNullException(nameof(formFile));
-
-            // ✅ Validate ảnh trước khi upload
-            ValidateImageFile(formFile);
-
-            await using var stream = formFile.OpenReadStream();
-            return await UploadFileAsync(stream, formFile.FileName, formFile.ContentType, bucket);
         }
 
         /// <summary>
