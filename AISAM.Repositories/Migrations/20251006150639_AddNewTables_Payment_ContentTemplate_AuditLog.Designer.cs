@@ -3,6 +3,7 @@ using System;
 using AISAM.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AISAM.Repositories.Migrations
 {
     [DbContext(typeof(AisamContext))]
-    partial class AisamContextModelSnapshot : ModelSnapshot
+    [Migration("20251006150639_AddNewTables_Payment_ContentTemplate_AuditLog")]
+    partial class AddNewTables_Payment_ContentTemplate_AuditLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
