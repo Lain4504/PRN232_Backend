@@ -17,6 +17,7 @@ namespace AISAM.Services.Service
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
         private readonly FacebookSettings _facebookSettings;
+        private readonly FrontendSettings _frontendSettings;
 
         public SocialService(
             ISocialAccountRepository socialAccountRepository,
@@ -24,7 +25,8 @@ namespace AISAM.Services.Service
             IUserRepository userRepository,
             ILogger<SocialService> logger,
             IEnumerable<IProviderService> providers,
-            IOptions<FacebookSettings> facebookSettings)
+            IOptions<FacebookSettings> facebookSettings,
+            IOptions<FrontendSettings> frontendSettings)
         {
             _socialAccountRepository = socialAccountRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
@@ -32,6 +34,7 @@ namespace AISAM.Services.Service
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
             _facebookSettings = facebookSettings.Value;
+            _frontendSettings = frontendSettings.Value;
         }
 
         public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? userId = null)
@@ -258,8 +261,8 @@ namespace AISAM.Services.Service
         
         private string GetRedirectUri(string provider)
         {
-            // Redirect to frontend callback URL
-            return $"http://localhost:3000/social-callback/{provider}";
+            // Redirect to frontend callback URL from configuration
+            return $"{_frontendSettings.BaseUrl}/social-callback/{provider}";
         }
 
         private string AppendUserIdQuery(string uri, Guid userId)
