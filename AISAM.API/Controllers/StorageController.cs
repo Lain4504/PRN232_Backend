@@ -1,9 +1,6 @@
 using AISAM.Common.Dtos;
-using AISAM.Common.Dtos.Response;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using AISAM.Services.Service;
-using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 
 namespace AISAM.Api.Controllers
@@ -126,16 +123,6 @@ namespace AISAM.Api.Controllers
         {
             var url = _storageService.GetPublicUrl(fileName, bucket);
             return Ok(new { url });
-        }
-
-        private Guid? GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
-            {
-                return userId;
-            }
-            return null;
         }
     }
 }

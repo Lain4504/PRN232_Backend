@@ -62,6 +62,9 @@ builder.Services.AddControllers(options =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 
+// Register FluentValidation validators
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
@@ -134,16 +137,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1", 
+            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1",
 
             ValidateAudience = true,
             ValidAudience = "authenticated",
 
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5), 
+            ClockSkew = TimeSpan.FromMinutes(5),
 
             ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = jwks.Keys,   
+            IssuerSigningKeys = jwks.Keys,
             ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 } // Supabase use ES256 (ECDSA with SHA-256)
         };
 

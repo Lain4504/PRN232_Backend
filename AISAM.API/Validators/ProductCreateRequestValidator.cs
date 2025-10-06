@@ -30,5 +30,6 @@ namespace AISAM.API.Validators
             RuleFor(x => x.ImageFiles)
                 .NotNull().WithMessage("Cần upload ít nhất 1 ảnh")
                 .Must(files => files != null && files.Any()).WithMessage("Cần upload ít nhất 1 ảnh");
+        }
     }
 }

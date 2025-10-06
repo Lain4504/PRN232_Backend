@@ -159,28 +159,5 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<bool>.CreateError("Lỗi hệ thống"));
             }
         }
-
-        /// <summary>
-        /// Permanently delete a profile (only if already soft deleted)
-        /// </summary>
-        [HttpDelete("{id}/permanent")]
-        public async Task<ActionResult<GenericResponse<bool>>> PermanentDeleteProfile(Guid id, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                var result = await _profileService.PermanentDeleteProfileAsync(id, cancellationToken);
-                if (!result.Success)
-                {
-                    return BadRequest(result);
-                }
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Lỗi khi xóa vĩnh viễn hồ sơ với ID: {id}", id);
-                return StatusCode(500, GenericResponse<bool>.CreateError("Lỗi hệ thống"));
-            }
-        }
     }
 }
