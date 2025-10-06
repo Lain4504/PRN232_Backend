@@ -6,6 +6,7 @@ using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
+using AISAM.Common.Dtos;
 
 namespace AISAM.Services.Service
 {

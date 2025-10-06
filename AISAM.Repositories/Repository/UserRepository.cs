@@ -1,4 +1,6 @@
-﻿using AISAM.Repositories.IRepositories;
+﻿using AISAM.Common.Dtos;
+using AISAM.Common.Dtos.Response;
+using AISAM.Repositories.IRepositories;
 using AISAM.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using AISAM.Data.Model;
@@ -14,28 +16,28 @@ namespace AISAM.Repositories.Repository
             _context = context;
         }
 
-        public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByIdAsync(Guid id)
         {
             return await _context.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Id == id);
         }
 
-        public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByEmailAsync(string email)
         {
             return await _context.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
+        public async Task<User> CreateAsync(User user)
         {
             _context.Users.Add(user);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _context.SaveChangesAsync();
             return user;
         }
 
-        public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request)
         {
             var query = _context.Users.AsNoTracking();
 
@@ -46,7 +48,7 @@ namespace AISAM.Repositories.Repository
             }
 
             // Get total count
-            var totalCount = await query.CountAsync(cancellationToken);
+            var totalCount = await query.CountAsync();
 
             // Apply sorting
             query = request.SortBy?.ToLower() switch
@@ -67,7 +69,7 @@ namespace AISAM.Repositories.Repository
                     CreatedAt = u.CreatedAt,
                     SocialAccountsCount = u.SocialAccounts!.Count
                 })
-                .ToListAsync(cancellationToken);
+                .ToListAsync();
 
             return new PagedResult<UserListDto>
             {

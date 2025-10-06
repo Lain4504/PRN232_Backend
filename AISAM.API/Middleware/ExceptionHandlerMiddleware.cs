@@ -31,12 +31,41 @@ namespace AISAM.API.Middleware
         private static Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            HttpStatusCode status;
+            string message;
+            string errorCode;
+
+            switch (exception)
+            {
+                case UnauthorizedAccessException:
+                    status = HttpStatusCode.Unauthorized;
+                    message = "Unauthorized";
+                    errorCode = "UNAUTHORIZED";
+                    break;
+                case ArgumentException:
+                case InvalidOperationException:
+                    status = HttpStatusCode.BadRequest;
+                    message = exception.Message;
+                    errorCode = "BAD_REQUEST";
+                    break;
+                case KeyNotFoundException:
+                    status = HttpStatusCode.NotFound;
+                    message = exception.Message;
+                    errorCode = "NOT_FOUND";
+                    break;
+                default:
+                    status = HttpStatusCode.InternalServerError;
+                    message = "An unexpected error occurred";
+                    errorCode = "INTERNAL_SERVER_ERROR";
+                    break;
+            }
+
+            context.Response.StatusCode = (int)status;
 
             var response = GenericResponse<object>.CreateError(
-                "An unexpected error occurred",
-                HttpStatusCode.InternalServerError,
-                "INTERNAL_SERVER_ERROR");
+                message,
+                status,
+                errorCode);
 
             // Add more detailed error info in development environment
             if (context.RequestServices.GetService(typeof(IWebHostEnvironment)) is IWebHostEnvironment env && env.IsDevelopment())

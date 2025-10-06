@@ -57,6 +57,23 @@ namespace AISAM.Services.Service
                     var errorContent = await tokenResponse.Content.ReadAsStringAsync();
                     _logger.LogError("Facebook token exchange failed with status {StatusCode}: {ErrorContent}", 
                         tokenResponse.StatusCode, errorContent);
+                    
+                    // Try to parse Facebook error response
+                    try
+                    {
+                        var facebookError = JsonSerializer.Deserialize<FacebookErrorResponse>(errorContent);
+                        if (facebookError?.Error != null)
+                        {
+                            var error = facebookError.Error;
+                            var errorMessage = GetFacebookErrorMessage(error);
+                            throw new InvalidOperationException(errorMessage);
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // If we can't parse as Facebook error, use generic error
+                    }
+                    
                     throw new HttpRequestException($"Facebook token exchange failed: {tokenResponse.StatusCode} - {errorContent}");
                 }
 
@@ -102,7 +119,7 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<IEnumerable<SocialTargetDto>> GetTargetsAsync(string accessToken)
+        public async Task<IEnumerable<AvailableTargetDto>> GetTargetsAsync(string accessToken)
         {
             try
             {
@@ -117,10 +134,10 @@ namespace AISAM.Services.Service
 
                 if (pagesData?.Data == null)
                 {
-                    return new List<SocialTargetDto>();
+                    return new List<AvailableTargetDto>();
                 }
 
-                return pagesData.Data.Select(page => new SocialTargetDto
+                return pagesData.Data.Select(page => new AvailableTargetDto
                 {
                     ProviderTargetId = page.Id,
                     Name = page.Name ?? "",
@@ -364,64 +381,23 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<FacebookPageInfo> GetPageInfoFromTokenAsync(string pageAccessToken)
+        private static string GetFacebookErrorMessage(FacebookError error)
         {
-            try
+            // Handle specific Facebook OAuth error codes
+            switch (error.Code)
             {
-                var pageUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/me?fields=id,name,category,picture&access_token={pageAccessToken}";
-                var response = await _httpClient.GetAsync(pageUrl);
-                response.EnsureSuccessStatusCode();
-
-                var pageJson = await response.Content.ReadAsStringAsync();
-                var pageData = JsonSerializer.Deserialize<FacebookPageData>(pageJson);
-
-                if (pageData?.Id == null)
-                {
-                    throw new InvalidOperationException("Failed to get page info from Facebook");
-                }
-
-                return new FacebookPageInfo
-                {
-                    Id = pageData.Id,
-                    Name = pageData.Name,
-                    Category = pageData.Category,
-                    Picture = pageData.Picture
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting Facebook page info from token");
-                throw;
-            }
-        }
-
-        public async Task<FacebookUserInfo> GetUserInfoFromTokenAsync(string userAccessToken)
-        {
-            try
-            {
-                var userUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/me?fields=id,name,email&access_token={userAccessToken}";
-                var response = await _httpClient.GetAsync(userUrl);
-                response.EnsureSuccessStatusCode();
-
-                var userJson = await response.Content.ReadAsStringAsync();
-                var userData = JsonSerializer.Deserialize<FacebookUserResponse>(userJson);
-
-                if (userData?.Id == null)
-                {
-                    throw new InvalidOperationException("Failed to get user info from Facebook");
-                }
-
-                return new FacebookUserInfo
-                {
-                    Id = userData.Id,
-                    Name = userData.Name,
-                    Email = userData.Email
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting Facebook user info from token");
-                throw;
+                case 100 when error.ErrorSubcode == 36009:
+                    return "Mã xác thực đã được sử dụng. Vui lòng thử lại quá trình đăng nhập Facebook.";
+                case 100:
+                    return $"Lỗi xác thực Facebook: {error.Message}";
+                case 190:
+                    return "Token Facebook đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.";
+                case 200:
+                    return "Không có quyền truy cập. Vui lòng cấp quyền cần thiết.";
+                case 102:
+                    return "Phiên đăng nhập Facebook đã hết hạn. Vui lòng đăng nhập lại.";
+                default:
+                    return $"Lỗi Facebook ({error.Code}): {error.Message}";
             }
         }
     }
