@@ -3,7 +3,10 @@
     public enum DefaultBucketEnum
     {
         Avatar,
-        Image,
-        Video
+        BrandAssets,
+        ProductMedia,
+        ContentMedia,
+        AiGenerated,
+        Misc
     }
 }
