@@ -308,18 +308,6 @@ namespace AISAM.Services.Service
             await _contentRepository.UpdateAsync(existing);
             return true;
         }
-
-        public async Task<bool> HardDeleteAsync(Guid contentId)
-        {
-            var existing = await _contentRepository.GetByIdIncludingDeletedAsync(contentId);
-            if (existing == null)
-            {
-                return false;
-            }
-            await _contentRepository.HardDeleteAsync(contentId);
-            return true;
-        }
-
         private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult)
         {
             return new ContentResponseDto

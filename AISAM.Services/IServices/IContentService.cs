@@ -44,9 +44,5 @@ namespace AISAM.Services.IServices
         /// </summary>
         Task<bool> RestoreAsync(Guid contentId);
 
-        /// <summary>
-        /// Hard delete content permanently
-        /// </summary>
-        Task<bool> HardDeleteAsync(Guid contentId);
     }
 }

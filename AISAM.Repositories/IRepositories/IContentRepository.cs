@@ -22,7 +22,6 @@ namespace AISAM.Repositories.IRepositories
         Task<Content> CreateAsync(Content content);
         Task UpdateAsync(Content content);
         Task DeleteAsync(Guid id);
-        Task HardDeleteAsync(Guid id);
         Task RestoreAsync(Guid id);
         Task<bool> ExistsAsync(Guid id);
     }

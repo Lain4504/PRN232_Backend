@@ -8,6 +8,9 @@ namespace AISAM.Services.IServices
 {
     public interface IApprovalService
     {
+        // Content approval flow additions
+        Task<ApprovalResponseDto> SubmitForApprovalAsync(Guid contentId, Guid actorUserId);
+        Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorUserId);
         /// <summary>
         /// Create new approval request
         /// </summary>
@@ -47,12 +50,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Approve content
         /// </summary>
-        Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, string? notes = null);
+        Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, Guid actorUserId, string? notes = null);
         
         /// <summary>
         /// Reject content
         /// </summary>
-        Task<ApprovalResponseDto> RejectAsync(Guid approvalId, string? notes = null);
+        Task<ApprovalResponseDto> RejectAsync(Guid approvalId, Guid actorUserId, string? notes = null);
         
         /// <summary>
         /// Soft delete approval
@@ -63,11 +66,6 @@ namespace AISAM.Services.IServices
         /// Restore soft-deleted approval
         /// </summary>
         Task<bool> RestoreAsync(Guid approvalId);
-        
-        /// <summary>
-        /// Hard delete approval permanently
-        /// </summary>
-        Task<bool> HardDeleteAsync(Guid approvalId);
         
         /// <summary>
         /// Check if content has pending approval
