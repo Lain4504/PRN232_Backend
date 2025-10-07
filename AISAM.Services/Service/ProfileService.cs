@@ -57,24 +57,8 @@ namespace AISAM.Services.Service
                     return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
                 }
 
-                // Get profiles based on isDeleted filter
-                IEnumerable<Profile> profiles;
-                if (isDeleted.HasValue)
-                {
-                    // Get profiles with specific deletion status (including deleted ones if requested)
-                    profiles = await _profileRepository.GetByUserIdIncludingDeletedAsync(userId, isDeleted.Value, cancellationToken);
-                }
-                else
-                {
-                    // Default behavior: only get non-deleted profiles
-                    profiles = await _profileRepository.GetByUserIdAsync(userId, cancellationToken);
-                }
-
-                // Apply search filter if provided
-                if (!string.IsNullOrWhiteSpace(searchTerm))
-                {
-                    profiles = profiles.Where(p => p.CompanyName!.Contains(searchTerm) || p.Bio!.Contains(searchTerm));
-                }
+                // Use repository method to search profiles
+                var profiles = await _profileRepository.SearchUserProfilesAsync(userId, searchTerm, isDeleted, cancellationToken);
 
                 var profileDtos = profiles.Select(MapToDto);
                 return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateSuccess(profileDtos, "Tìm kiếm hồ sơ thành công");
@@ -101,10 +85,8 @@ namespace AISAM.Services.Service
                 {
                     try
                     {
-                        // Use SupabaseStorageService which already handles all validations
-                        var contentType = request.AvatarFile.ContentType ?? "image/png";
-                        using var stream = request.AvatarFile.OpenReadStream();
-                        var fileName = await _storageService.UploadFileAsync(stream, request.AvatarFile.FileName, contentType, DefaultBucketEnum.Avatar);
+                        // Use UploadFileAsync which handles validation and stream extraction automatically
+                        var fileName = await _storageService.UploadFileAsync(request.AvatarFile, DefaultBucketEnum.Avatar);
                         avatarUrl = _storageService.GetPublicUrl(fileName, DefaultBucketEnum.Avatar);
                     }
                     catch (InvalidOperationException ex)
@@ -177,10 +159,8 @@ namespace AISAM.Services.Service
                 {
                     try
                     {
-                        // Use SupabaseStorageService which already handles all validations
-                        var contentType = request.AvatarFile.ContentType ?? "image/png";
-                        using var stream = request.AvatarFile.OpenReadStream();
-                        var fileName = await _storageService.UploadFileAsync(stream, request.AvatarFile.FileName, contentType, DefaultBucketEnum.Avatar);
+                        // Use UploadFileAsync which handles validation and stream extraction automatically
+                        var fileName = await _storageService.UploadFileAsync(request.AvatarFile, DefaultBucketEnum.Avatar);
                         profile.AvatarUrl = _storageService.GetPublicUrl(fileName, DefaultBucketEnum.Avatar);
                     }
                     catch (InvalidOperationException ex)

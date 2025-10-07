@@ -101,5 +101,36 @@ namespace AISAM.Repositories.Repository
             return await _context.Profiles
                 .AnyAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
         }
+
+        public async Task<IEnumerable<Profile>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, bool? isDeleted = null, CancellationToken cancellationToken = default)
+        {
+            var query = _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .Where(p => p.UserId == userId);
+
+            // Apply isDeleted filter
+            if (isDeleted.HasValue)
+            {
+                query = query.Where(p => p.IsDeleted == isDeleted.Value);
+            }
+            else
+            {
+                // Default behavior: only get non-deleted profiles
+                query = query.Where(p => !p.IsDeleted);
+            }
+
+            // Apply search filter if provided
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                query = query.Where(p => 
+                    (p.CompanyName != null && p.CompanyName.Contains(searchTerm)) ||
+                    (p.Bio != null && p.Bio.Contains(searchTerm)));
+            }
+
+            return await query
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

@@ -54,12 +54,18 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
-        /// Upload file (chỉ định bucket) với validation ảnh
+        /// Upload file (chỉ định bucket) - nhận IFormFile và tự động parse stream/contentType
         /// </summary>
-        public async Task<string> UploadFileAsync(Stream fileStream, string originalFileName, string contentType, DefaultBucketEnum bucket)
+        public async Task<string> UploadFileAsync(Microsoft.AspNetCore.Http.IFormFile file, DefaultBucketEnum bucket)
         {
-            if (fileStream == null) throw new ArgumentNullException(nameof(fileStream));
-            if (string.IsNullOrWhiteSpace(originalFileName)) throw new ArgumentException("originalFileName required", nameof(originalFileName));
+            if (file == null) throw new ArgumentNullException(nameof(file));
+
+            // Validate image file nếu là ảnh
+            ValidateImageFile(file);
+
+            // Extract content type and stream từ IFormFile
+            var contentType = file.ContentType ?? "image/png";
+            using var fileStream = file.OpenReadStream();
 
             // đọc stream thành byte[]
             await using var ms = new MemoryStream();
@@ -68,7 +74,7 @@ namespace AISAM.Services.Service
             await fileStream.CopyToAsync(ms);
             var bytes = ms.ToArray();
 
-            var safeFileName = GenerateUniqueFileName(originalFileName);
+            var safeFileName = GenerateUniqueFileName(file.FileName);
 
             var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
 

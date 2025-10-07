@@ -1,3 +1,4 @@
+using AISAM.Common;
 using AISAM.Common.Dtos;
 using Microsoft.AspNetCore.Mvc;
 using AISAM.Services.Service;
@@ -21,17 +22,34 @@ namespace AISAM.Api.Controllers
         /// </summary>
         [HttpPost("{bucket}/upload")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> Upload(DefaultBucketEnum bucket, [FromForm] UploadFileRequest request)
+        public async Task<ActionResult<GenericResponse<UploadFileResponse>>> Upload(DefaultBucketEnum bucket, [FromForm] UploadFileRequest request)
         {
             if (request.File == null || request.File.Length == 0)
-                return BadRequest("No file uploaded");
+                return BadRequest(GenericResponse<UploadFileResponse>.CreateError("Không có file được tải lên", System.Net.HttpStatusCode.BadRequest));
 
-            using var stream = request.File.OpenReadStream();
-            var fileName = await _storageService.UploadFileAsync(stream, request.File.FileName, request.File.ContentType, bucket);
-            var publicUrl = _storageService.GetPublicUrl(fileName, bucket);
+            try
+            {
+                var fileName = await _storageService.UploadFileAsync(request.File, bucket);
+                var publicUrl = _storageService.GetPublicUrl(fileName, bucket);
 
-            return Ok(new { fileName, url = publicUrl });
+                var response = new UploadFileResponse
+                {
+                    FileName = fileName,
+                    Url = publicUrl
+                };
+
+                return Ok(GenericResponse<UploadFileResponse>.CreateSuccess(response, "Upload file thành công"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(GenericResponse<UploadFileResponse>.CreateError(ex.Message, System.Net.HttpStatusCode.BadRequest));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<UploadFileResponse>.CreateError($"Lỗi khi upload file: {ex.Message}", System.Net.HttpStatusCode.InternalServerError));
+            }
         }
+
 
         /// <summary>
         /// Download file
@@ -50,80 +68,110 @@ namespace AISAM.Api.Controllers
         /// Lấy danh sách file trong bucket (có phân trang, search, sort)
         /// </summary>
         [HttpGet("{bucket}/files")]
-        public async Task<IActionResult> ListFiles(
+        public async Task<ActionResult<GenericResponse<PagedResult<FileDto>>>> ListFiles(
             DefaultBucketEnum bucket,
             [FromQuery] PaginationRequest request,
             [FromQuery] string? path = null)
         {
-            var allFiles = await _storageService.ListFilesAsync(bucket, path);
-
-            var query = allFiles.AsQueryable();
-
-            if (!string.IsNullOrEmpty(request.SearchTerm))
+            try
             {
-                query = query.Where(f =>
-                    f.Name.Contains(request.SearchTerm, StringComparison.OrdinalIgnoreCase));
-            }
+                var allFiles = await _storageService.ListFilesAsync(bucket, path);
 
-            if (!string.IsNullOrEmpty(request.SortBy))
-            {
-                query = request.SortBy.ToLower() switch
+                var query = allFiles.AsQueryable();
+
+                if (!string.IsNullOrEmpty(request.SearchTerm))
                 {
-                    "name" => request.SortDescending ? query.OrderByDescending(f => f.Name) : query.OrderBy(f => f.Name),
-                    "lastmodified" => request.SortDescending ? query.OrderByDescending(f => f.LastModified) : query.OrderBy(f => f.LastModified),
-                    "size" => request.SortDescending ? query.OrderByDescending(f => f.Size) : query.OrderBy(f => f.Size),
-                    _ => query
+                    query = query.Where(f =>
+                        f.Name.Contains(request.SearchTerm, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (!string.IsNullOrEmpty(request.SortBy))
+                {
+                    query = request.SortBy.ToLower() switch
+                    {
+                        "name" => request.SortDescending ? query.OrderByDescending(f => f.Name) : query.OrderBy(f => f.Name),
+                        "lastmodified" => request.SortDescending ? query.OrderByDescending(f => f.LastModified) : query.OrderBy(f => f.LastModified),
+                        "size" => request.SortDescending ? query.OrderByDescending(f => f.Size) : query.OrderBy(f => f.Size),
+                        _ => query
+                    };
+                }
+
+                var totalCount = query.Count();
+                var data = query
+                    .Skip((request.Page - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToList();
+
+                var result = new PagedResult<FileDto>
+                {
+                    Data = data,
+                    TotalCount = totalCount,
+                    Page = request.Page,
+                    PageSize = request.PageSize
                 };
+
+                return Ok(GenericResponse<PagedResult<FileDto>>.CreateSuccess(result, "Lấy danh sách file thành công"));
             }
-
-            var totalCount = query.Count();
-            var data = query
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToList();
-
-            var result = new PagedResult<FileDto>
+            catch (Exception ex)
             {
-                Data = data,
-                TotalCount = totalCount,
-                Page = request.Page,
-                PageSize = request.PageSize
-            };
-
-            return Ok(result);
+                return StatusCode(500, GenericResponse<PagedResult<FileDto>>.CreateError($"Lỗi khi lấy danh sách file: {ex.Message}", System.Net.HttpStatusCode.InternalServerError));
+            }
         }
 
         /// <summary>
         /// Xóa file
         /// </summary>
         [HttpDelete("{bucket}/files")]
-        public async Task<IActionResult> Remove(DefaultBucketEnum bucket, [FromBody] string[] fileNames)
+        public async Task<ActionResult<GenericResponse<bool>>> Remove(DefaultBucketEnum bucket, [FromBody] string[] fileNames)
         {
             if (fileNames == null || fileNames.Length == 0)
-                return BadRequest("No file names provided");
+                return BadRequest(GenericResponse<bool>.CreateError("Không có tên file được cung cấp", System.Net.HttpStatusCode.BadRequest));
 
-            await _storageService.RemoveFilesAsync(bucket, fileNames);
-            return NoContent();
+            try
+            {
+                await _storageService.RemoveFilesAsync(bucket, fileNames);
+                return Ok(GenericResponse<bool>.CreateSuccess(true, "Xóa file thành công"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<bool>.CreateError($"Lỗi khi xóa file: {ex.Message}", System.Net.HttpStatusCode.InternalServerError));
+            }
         }
 
         /// <summary>
         /// Tạo signed URL
         /// </summary>
         [HttpGet("{bucket}/signed-url")]
-        public async Task<IActionResult> SignedUrl(DefaultBucketEnum bucket, [FromQuery] string fileName, [FromQuery] int expires = 3600)
+        public async Task<ActionResult<GenericResponse<SignedUrlResponse>>> SignedUrl(DefaultBucketEnum bucket, [FromQuery] string fileName, [FromQuery] int expires = 3600)
         {
-            var url = await _storageService.CreateSignedUrlAsync(fileName, bucket, expires);
-            return Ok(new { url });
+            try
+            {
+                var url = await _storageService.CreateSignedUrlAsync(fileName, bucket, expires);
+                var response = new SignedUrlResponse { Url = url };
+                return Ok(GenericResponse<SignedUrlResponse>.CreateSuccess(response, "Tạo signed URL thành công"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<SignedUrlResponse>.CreateError($"Lỗi khi tạo signed URL: {ex.Message}", System.Net.HttpStatusCode.InternalServerError));
+            }
         }
 
         /// <summary>
         /// Lấy public URL
         /// </summary>
         [HttpGet("{bucket}/public-url")]
-        public IActionResult PublicUrl(DefaultBucketEnum bucket, [FromQuery] string fileName)
+        public ActionResult<GenericResponse<PublicUrlResponse>> PublicUrl(DefaultBucketEnum bucket, [FromQuery] string fileName)
         {
-            var url = _storageService.GetPublicUrl(fileName, bucket);
-            return Ok(new { url });
+            try
+            {
+                var url = _storageService.GetPublicUrl(fileName, bucket);
+                var response = new PublicUrlResponse { Url = url };
+                return Ok(GenericResponse<PublicUrlResponse>.CreateSuccess(response, "Lấy public URL thành công"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<PublicUrlResponse>.CreateError($"Lỗi khi lấy public URL: {ex.Message}", System.Net.HttpStatusCode.InternalServerError));
+            }
         }
     }
 }
@@ -132,4 +180,20 @@ public class UploadFileRequest
 {
     [FromForm(Name = "file")]
     public IFormFile File { get; set; } = default!;
+}
+
+public class UploadFileResponse
+{
+    public string FileName { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+}
+
+public class SignedUrlResponse
+{
+    public string Url { get; set; } = string.Empty;
+}
+
+public class PublicUrlResponse
+{
+    public string Url { get; set; } = string.Empty;
 }

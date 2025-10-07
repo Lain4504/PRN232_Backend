@@ -8,6 +8,7 @@ namespace AISAM.Repositories.IRepositories
         Task<Profile?> GetByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default);
         Task<IEnumerable<Profile>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
         Task<IEnumerable<Profile>> GetByUserIdIncludingDeletedAsync(Guid userId, bool isDeleted, CancellationToken cancellationToken = default);
+        Task<IEnumerable<Profile>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, bool? isDeleted = null, CancellationToken cancellationToken = default);
         Task<Profile> CreateAsync(Profile profile, CancellationToken cancellationToken = default);
         Task<Profile> UpdateAsync(Profile profile, CancellationToken cancellationToken = default);
         Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
