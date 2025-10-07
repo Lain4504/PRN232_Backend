@@ -6,6 +6,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using AISAM.API.Utils;
 
 namespace AISAM.API.Controllers
 {
@@ -60,9 +61,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                    return Unauthorized(GenericResponse<PagedResult<BrandResponseDto>>.CreateError("Invalid user token"));
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var paginationRequest = new PaginationRequest
                 {
@@ -75,6 +74,10 @@ namespace AISAM.API.Controllers
 
                 var result = await _brandService.GetPagedByUserIdAsync(userId, paginationRequest);
                 return Ok(GenericResponse<PagedResult<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<PagedResult<BrandResponseDto>>.CreateError("Token không hợp lệ"));
             }
             catch (Exception ex)
             {
@@ -93,12 +96,14 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                    return Unauthorized(GenericResponse<BrandResponseDto>.CreateError("Invalid user token"));
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var created = await _brandService.CreateAsync(userId, request);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, GenericResponse<BrandResponseDto>.CreateSuccess(created, "Tạo brand thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<BrandResponseDto>.CreateError("Token không hợp lệ"));
             }
             catch (ArgumentException ex)
             {
@@ -122,15 +127,17 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                    return Unauthorized(GenericResponse<BrandResponseDto>.CreateError("Invalid user token"));
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var updated = await _brandService.UpdateAsync(id, userId, request);
                 if (updated == null)
                     return NotFound(GenericResponse<BrandResponseDto>.CreateError("Không tìm thấy brand hoặc không có quyền truy cập"));
 
                 return Ok(GenericResponse<BrandResponseDto>.CreateSuccess(updated, "Cập nhật brand thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<BrandResponseDto>.CreateError("Token không hợp lệ"));
             }
             catch (ArgumentException ex)
             {
@@ -154,15 +161,17 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                    return Unauthorized(GenericResponse<object>.CreateError("Invalid user token"));
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var success = await _brandService.SoftDeleteAsync(id, userId);
                 if (!success)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy brand hoặc không có quyền truy cập"));
 
                 return Ok(GenericResponse<object>.CreateSuccess(null, "Xóa brand thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<object>.CreateError("Token không hợp lệ"));
             }
             catch (Exception ex)
             {
@@ -181,15 +190,17 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                    return Unauthorized(GenericResponse<object>.CreateError("Invalid user token"));
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var ok = await _brandService.RestoreAsync(id, userId);
                 if (!ok)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy brand hoặc không ở trạng thái đã xóa"));
 
                 return Ok(GenericResponse<object>.CreateSuccess(null, "Khôi phục brand thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<object>.CreateError("Token không hợp lệ"));
             }
             catch (Exception ex)
             {

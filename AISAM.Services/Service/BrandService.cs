@@ -5,16 +5,19 @@ using AISAM.Common.Models;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using System;
 
 namespace AISAM.Services.Service
 {
     public class BrandService : IBrandService
     {
         private readonly IBrandRepository _brandRepository;
+        private readonly IProfileRepository _profileRepository;
 
-        public BrandService(IBrandRepository brandRepository)
+        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository)
         {
             _brandRepository = brandRepository;
+            _profileRepository = profileRepository;
         }
 
         /// <summary>
@@ -53,6 +56,10 @@ namespace AISAM.Services.Service
             if (!await _brandRepository.UserExistsAsync(userId))
                 throw new ArgumentException("User not found.");
 
+            // Kiểm tra Profile tồn tại nếu có ProfileId
+            if (dto.ProfileId.HasValue && !await _profileRepository.ExistsAsync(dto.ProfileId.Value))
+                throw new ArgumentException("Profile not found.");
+
             var brand = new Brand
             {
                 Id = Guid.NewGuid(),
@@ -79,6 +86,10 @@ namespace AISAM.Services.Service
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null || brand.IsDeleted || brand.UserId != userId) return null;
+
+            // Kiểm tra Profile tồn tại nếu có ProfileId mới
+            if (dto.ProfileId.HasValue && !await _profileRepository.ExistsAsync(dto.ProfileId.Value))
+                throw new ArgumentException("Profile not found.");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
                 brand.Name = dto.Name;
