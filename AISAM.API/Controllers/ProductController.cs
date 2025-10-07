@@ -50,7 +50,7 @@ namespace AISAM.API.Controllers
         /// GET api/products?page=1&pageSize=10
         /// </summary>
         [HttpGet]
-        [Authorize]
+        //[Authorize]
         public async Task<ActionResult<GenericResponse<PagedResult<ProductResponseDto>>>> GetProducts(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
