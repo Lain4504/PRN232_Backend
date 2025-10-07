@@ -4,9 +4,9 @@ using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
-using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using Microsoft.AspNetCore.Authorization;
+using AISAM.API.Utils;
 
 namespace AISAM.API.Controllers
 {
@@ -16,10 +16,12 @@ namespace AISAM.API.Controllers
     {
         private readonly IContentService _contentService;
         private readonly ILogger<ContentController> _logger;
+        private readonly IApprovalService _approvalService;
 
-        public ContentController(IContentService contentService, ILogger<ContentController> logger)
+        public ContentController(IContentService contentService, IApprovalService approvalService, ILogger<ContentController> logger)
         {
             _contentService = contentService;
+            _approvalService = approvalService;
             _logger = logger;
         }
 
@@ -52,6 +54,37 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<ContentResponseDto>.CreateError(
                     "Đã xảy ra lỗi khi tạo nội dung"
                 ));
+            }
+        }
+
+        /// <summary>
+        /// Submit content for approval
+        /// </summary>
+        [HttpPost("{contentId}/submit")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<ApprovalResponseDto>>> Submit(Guid contentId)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+
+                var result = await _approvalService.SubmitForApprovalAsync(contentId, userId);
+                return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Gửi phê duyệt thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Submit unauthorized for content {ContentId}", contentId);
+                return StatusCode(403, GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid submit for content {ContentId}", contentId);
+                return BadRequest(GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error submitting content {ContentId}", contentId);
+                return StatusCode(500, GenericResponse<ApprovalResponseDto>.CreateError("Đã xảy ra lỗi khi gửi phê duyệt"));
             }
         }
 
@@ -127,29 +160,6 @@ namespace AISAM.API.Controllers
             {
                 _logger.LogError(ex, "Error restoring content {ContentId}", contentId);
                 return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi khi khôi phục nội dung"));
-            }
-        }
-
-        /// <summary>
-        /// Hard delete content permanently
-        /// </summary>
-        [HttpDelete("{contentId}/hard")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<object>>> HardDelete(Guid contentId)
-        {
-            try
-            {
-                var ok = await _contentService.HardDeleteAsync(contentId);
-                if (!ok)
-                {
-                    return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung"));
-                }
-                return Ok(GenericResponse<object>.CreateSuccess(null, "Xóa vĩnh viễn nội dung thành công"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error hard deleting content {ContentId}", contentId);
-                return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi khi xóa vĩnh viễn nội dung"));
             }
         }
 

@@ -21,6 +21,13 @@ namespace AISAM.API.Validators
             RuleFor(x => x.Notes)
                 .MaximumLength(1000)
                 .WithMessage("Notes cannot exceed 1000 characters");
+
+            When(x => x.Status == ContentStatusEnum.Rejected, () =>
+            {
+                RuleFor(x => x.Notes)
+                    .NotEmpty()
+                    .WithMessage("Notes is required when rejecting");
+            });
         }
     }
 }
