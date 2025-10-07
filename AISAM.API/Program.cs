@@ -15,6 +15,8 @@ using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using AISAM.Repositories.Repositories;
+using Npgsql;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -103,8 +105,20 @@ if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supaba
 
 // Add Entity Framework - Supabase Postgres via Npgsql
 // Expect connection string from env or appsettings ConnectionStrings:DefaultConnection (Supabase URI)
+// ✅ Thay vì dùng connection string trực tiếp, ta dùng NpgsqlDataSourceBuilder
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(
+    builder.Configuration.GetConnectionString("DefaultConnection")
+);
+
+// 👇 Thêm dòng này để bật dynamic JSON serialization
+dataSourceBuilder.EnableDynamicJson();
+
+var dataSource = dataSourceBuilder.Build();
+
+// ✅ Đăng ký DbContext với data source vừa tạo
 builder.Services.AddDbContext<AisamContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(dataSource)
+);
 
 // Add HTTP Client for API calls
 builder.Services.AddHttpClient();
@@ -118,6 +132,7 @@ builder.Services.AddScoped<IAiGenerationRepository, AiGenerationRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
+builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -129,6 +144,7 @@ builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
