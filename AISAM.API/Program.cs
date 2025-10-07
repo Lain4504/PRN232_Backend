@@ -49,7 +49,7 @@ if (!string.IsNullOrEmpty(geminiApiKey))
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
-        options.Filters.Add<ValidationFilter>();
+    options.Filters.Add<ValidationFilter>();
 })
     .AddJsonOptions(options =>
     {
@@ -61,6 +61,9 @@ builder.Services.AddControllers(options =>
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
+
+// Register FluentValidation validators
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 
 // Configure Facebook Settings
@@ -103,6 +106,7 @@ builder.Services.AddScoped<ISocialIntegrationRepository, SocialIntegrationReposi
 builder.Services.AddScoped<IContentRepository, ContentRepository>();
 builder.Services.AddScoped<IAiGenerationRepository, AiGenerationRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -112,6 +116,7 @@ builder.Services.AddScoped<AISAM.Services.IServices.IAIService, AISAM.Services.S
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
@@ -132,16 +137,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1", 
+            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1",
 
             ValidateAudience = true,
             ValidAudience = "authenticated",
 
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5), 
+            ClockSkew = TimeSpan.FromMinutes(5),
 
             ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = jwks.Keys,   
+            IssuerSigningKeys = jwks.Keys,
             ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 } // Supabase use ES256 (ECDSA with SHA-256)
         };
 
@@ -205,9 +210,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "AISAM Social Media API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "AISAM Social Media API",
         Version = "v1",
         Description = "API for managing social media integration and posting"
     });
