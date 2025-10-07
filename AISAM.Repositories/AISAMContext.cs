@@ -23,7 +23,6 @@ namespace AISAM.Repositories
         public DbSet<TeamMember> TeamMembers { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<Approval> Approvals { get; set; }
-        public DbSet<AdminLog> AdminLogs { get; set; }
         public DbSet<Ad> Ads { get; set; }
         public DbSet<AdCampaign> AdCampaigns { get; set; }
         public DbSet<AdSet> AdSets { get; set; }
@@ -32,6 +31,9 @@ namespace AISAM.Repositories
         public DbSet<ContentCalendar> ContentCalendars { get; set; }
         public DbSet<AiGeneration> AiGenerations { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<ContentTemplate> ContentTemplates { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -226,18 +228,6 @@ namespace AISAM.Repositories
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // AdminLog entity configuration
-            modelBuilder.Entity<AdminLog>(entity =>
-            {
-                entity.HasKey(al => al.Id);
-                entity.HasIndex(al => al.AdminId);
-                entity.HasIndex(al => al.ActionType);
-                entity.HasIndex(al => al.CreatedAt);
-                entity.HasOne(al => al.Admin)
-                      .WithMany(u => u.AdminLogs)
-                      .HasForeignKey(al => al.AdminId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
 
             // AdCampaign entity configuration
             modelBuilder.Entity<AdCampaign>(entity =>
@@ -343,6 +333,50 @@ namespace AISAM.Repositories
                 entity.HasOne(n => n.User)
                       .WithMany(u => u.Notifications)
                       .HasForeignKey(n => n.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Payment entity configuration
+            modelBuilder.Entity<Payment>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Status).HasConversion<int>().HasDefaultValue(PaymentStatusEnum.Pending);
+                entity.Property(p => p.Amount).HasPrecision(10, 2);
+                entity.HasIndex(p => p.UserId);
+                entity.HasIndex(p => p.Status);
+                entity.HasOne(p => p.User)
+                      .WithMany()
+                      .HasForeignKey(p => p.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(p => p.Subscription)
+                      .WithMany()
+                      .HasForeignKey(p => p.SubscriptionId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ContentTemplate entity configuration
+            modelBuilder.Entity<ContentTemplate>(entity =>
+            {
+                entity.HasKey(ct => ct.Id);
+                entity.HasIndex(ct => ct.BrandId);
+                entity.HasIndex(ct => ct.TemplateType);
+                entity.HasIndex(ct => ct.IsActive);
+                entity.HasOne(ct => ct.Brand)
+                      .WithMany()
+                      .HasForeignKey(ct => ct.BrandId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // AuditLog entity configuration
+            modelBuilder.Entity<AuditLog>(entity =>
+            {
+                entity.HasKey(al => al.Id);
+                entity.HasIndex(al => al.ActorId);
+                entity.HasIndex(al => al.TargetTable);
+                entity.HasIndex(al => al.CreatedAt);
+                entity.HasOne(al => al.Actor)
+                      .WithMany()
+                      .HasForeignKey(al => al.ActorId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
         }

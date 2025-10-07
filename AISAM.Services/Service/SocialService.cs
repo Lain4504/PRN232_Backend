@@ -17,6 +17,7 @@ namespace AISAM.Services.Service
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
         private readonly FacebookSettings _facebookSettings;
+        private readonly FrontendSettings _frontendSettings;
 
         public SocialService(
             ISocialAccountRepository socialAccountRepository,
@@ -24,7 +25,8 @@ namespace AISAM.Services.Service
             IUserRepository userRepository,
             ILogger<SocialService> logger,
             IEnumerable<IProviderService> providers,
-            IOptions<FacebookSettings> facebookSettings)
+            IOptions<FacebookSettings> facebookSettings,
+            IOptions<FrontendSettings> frontendSettings)
         {
             _socialAccountRepository = socialAccountRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
@@ -32,6 +34,7 @@ namespace AISAM.Services.Service
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
             _facebookSettings = facebookSettings.Value;
+            _frontendSettings = frontendSettings.Value;
         }
 
         public async Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? userId = null)
@@ -42,10 +45,6 @@ namespace AISAM.Services.Service
             }
 
             var redirectUri = GetRedirectUri(provider);
-            if (userId.HasValue)
-            {
-                redirectUri = AppendUserIdQuery(redirectUri, userId.Value);
-            }
             var actualState = state ?? Guid.NewGuid().ToString();
             var authUrl = await providerService.GetAuthUrlAsync(actualState, redirectUri);
 
@@ -71,8 +70,7 @@ namespace AISAM.Services.Service
             }
 
             var redirectUri = GetRedirectUri(request.Provider);
-            // Must be IDENTICAL to the redirect_uri used in the OAuth dialog (including userId param)
-            redirectUri = AppendUserIdQuery(redirectUri, request.UserId);
+            // Must be IDENTICAL to the redirect_uri used in the OAuth dialog
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
             // Check if this specific Facebook account is already linked to this user
@@ -263,15 +261,8 @@ namespace AISAM.Services.Service
         
         private string GetRedirectUri(string provider)
         {
-            // Use configured redirect URI from settings
-            if (provider == "facebook")
-            {
-                // For Facebook, use the configured redirect URI from FacebookSettings
-                return _facebookSettings.RedirectUri;
-            }
-            
-            // For other providers, use the default pattern
-            return $"http://localhost:5000/auth/{provider}/callback";
+            // Redirect to frontend callback URL from configuration
+            return $"{_frontendSettings.BaseUrl}/social-callback/{provider}";
         }
 
         private string AppendUserIdQuery(string uri, Guid userId)

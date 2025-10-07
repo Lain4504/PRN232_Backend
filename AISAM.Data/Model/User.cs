@@ -32,7 +32,6 @@ namespace AISAM.Data.Model
         public virtual ICollection<Team> Teams { get; set; } = new List<Team>();
         public virtual ICollection<TeamMember> TeamMembers { get; set; } = new List<TeamMember>();
         public virtual ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
-        public virtual ICollection<AdminLog> AdminLogs { get; set; } = new List<AdminLog>();
         public virtual ICollection<AdCampaign> AdCampaigns { get; set; } = new List<AdCampaign>();
         public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     }
