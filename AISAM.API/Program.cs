@@ -117,6 +117,7 @@ builder.Services.AddScoped<IContentRepository, ContentRepository>();
 builder.Services.AddScoped<IAiGenerationRepository, AiGenerationRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
+builder.Services.AddScoped<IBrandRepository, BrandRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -127,6 +128,7 @@ builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IBrandService, BrandService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
