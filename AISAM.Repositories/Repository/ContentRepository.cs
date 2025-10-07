@@ -162,19 +162,6 @@ namespace AISAM.Repositories.Repository
                 await _context.SaveChangesAsync();
             }
         }
-
-        public async Task HardDeleteAsync(Guid id)
-        {
-            var content = await _context.Contents
-                .FirstOrDefaultAsync(c => c.Id == id);
-
-            if (content != null)
-            {
-                _context.Contents.Remove(content);
-                await _context.SaveChangesAsync();
-            }
-        }
-
         public async Task<bool> ExistsAsync(Guid id)
         {
             return await _context.Contents

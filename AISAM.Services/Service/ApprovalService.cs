@@ -7,6 +7,8 @@ using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using System.Linq;
 
 namespace AISAM.Services.Service
 {
@@ -15,20 +17,175 @@ namespace AISAM.Services.Service
         private readonly IApprovalRepository _approvalRepository;
         private readonly IContentRepository _contentRepository;
         private readonly IUserRepository _userRepository;
+        private readonly INotificationRepository _notificationRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly ILogger<ApprovalService> _logger;
 
         public ApprovalService(
             IApprovalRepository approvalRepository,
             IContentRepository contentRepository,
             IUserRepository userRepository,
+            INotificationRepository notificationRepository,
+            ITeamMemberRepository teamMemberRepository,
+            ISubscriptionRepository subscriptionRepository,
             ILogger<ApprovalService> logger)
         {
             _approvalRepository = approvalRepository;
             _contentRepository = contentRepository;
             _userRepository = userRepository;
+            _notificationRepository = notificationRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _subscriptionRepository = subscriptionRepository;
             _logger = logger;
         }
 
+        public async Task<ApprovalResponseDto> SubmitForApprovalAsync(Guid contentId, Guid actorUserId)
+        {
+            var content = await _contentRepository.GetByIdAsync(contentId) ?? throw new ArgumentException("Content not found");
+
+            if (content.Status != ContentStatusEnum.Draft)
+            {
+                throw new ArgumentException("Content must be in DRAFT to submit");
+            }
+
+            var brandOwnerId = content.Brand.UserId;
+
+            // quota check based on brand owner
+            var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(brandOwnerId);
+            if (subscription != null)
+            {
+                var used = await _subscriptionRepository.CountApprovedOrPublishedThisMonthAsync(brandOwnerId);
+                if (used >= subscription.QuotaPostsPerMonth)
+                {
+                    throw new UnauthorizedAccessException("Quota exceeded for this month");
+                }
+            }
+
+            var actor = await _userRepository.GetByIdAsync(actorUserId) ?? throw new ArgumentException("User not found");
+
+            // Permissions & approvers resolve
+            var approverIds = new List<Guid>();
+
+            if (actor.Role == UserRoleEnum.Admin)
+            {
+                // admin auto-approve path
+                content.Status = ContentStatusEnum.Approved;
+                await _contentRepository.UpdateAsync(content);
+
+                var approval = await _approvalRepository.CreateAsync(new Approval
+                {
+                    ContentId = content.Id,
+                    ApproverId = actorUserId,
+                    Status = ContentStatusEnum.Approved,
+                    Notes = "Auto-approved by admin",
+                    ApprovedAt = DateTime.UtcNow
+                });
+
+                await _notificationRepository.CreateAsync(new Notification
+                {
+                    UserId = brandOwnerId,
+                    Title = "Content approved",
+                    Message = $"Your content '{content.Title}' was auto-approved by admin",
+                    Type = NotificationTypeEnum.SystemUpdate,
+                    TargetId = content.Id,
+                    TargetType = "content"
+                });
+
+                _logger.LogInformation("Admin {AdminId} auto-approved content {ContentId}", actorUserId, content.Id);
+                return MapToResponseDto(approval);
+            }
+
+            if (actorUserId == brandOwnerId)
+            {
+                // owner self-approval allowed as auto-approval (simple user)
+                content.Status = ContentStatusEnum.Approved;
+                await _contentRepository.UpdateAsync(content);
+
+                var approval = await _approvalRepository.CreateAsync(new Approval
+                {
+                    ContentId = content.Id,
+                    ApproverId = actorUserId,
+                    Status = ContentStatusEnum.Approved,
+                    Notes = "Auto-approved by owner",
+                    ApprovedAt = DateTime.UtcNow
+                });
+
+                await _notificationRepository.CreateAsync(new Notification
+                {
+                    UserId = brandOwnerId,
+                    Title = "Content approved",
+                    Message = $"Your content '{content.Title}' was auto-approved",
+                    Type = NotificationTypeEnum.SystemUpdate,
+                    TargetId = content.Id,
+                    TargetType = "content"
+                });
+
+                _logger.LogInformation("Owner {OwnerId} auto-approved content {ContentId}", actorUserId, content.Id);
+                return MapToResponseDto(approval);
+            }
+
+            // Vendor team multi-approver: approvers are team members with can_approve
+            var teamMembers = await _teamMemberRepository.GetByVendorIdAsync(actorUserId);
+            var canApproveMembers = teamMembers
+                .Where(tm => HasPermission(tm.Permissions, "can_approve"))
+                .Select(tm => tm.UserId)
+                .Distinct()
+                .ToList();
+
+            if (canApproveMembers.Count == 0)
+            {
+                // fallback: assign to brand owner
+                approverIds.Add(brandOwnerId);
+            }
+            else
+            {
+                approverIds.AddRange(canApproveMembers);
+            }
+
+            // Create approvals pending and update content status
+            foreach (var approverId in approverIds)
+            {
+                await _approvalRepository.CreateAsync(new Approval
+                {
+                    ContentId = content.Id,
+                    ApproverId = approverId,
+                    Status = ContentStatusEnum.PendingApproval
+                });
+
+                await _notificationRepository.CreateAsync(new Notification
+                {
+                    UserId = approverId,
+                    Title = "Approval needed",
+                    Message = $"Please review content '{content.Title}'",
+                    Type = NotificationTypeEnum.ApprovalNeeded,
+                    TargetId = content.Id,
+                    TargetType = "content"
+                });
+            }
+
+            content.Status = ContentStatusEnum.PendingApproval;
+            await _contentRepository.UpdateAsync(content);
+
+            _logger.LogInformation("User {UserId} submitted content {ContentId} for approval to {Count} approvers", actorUserId, content.Id, approverIds.Count);
+            // Return first approval created for simplicity
+            var first = await _approvalRepository.GetByContentIdAsync(content.Id);
+            return MapToResponseDto(first.First());
+        }
+
+        public async Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorUserId)
+        {
+            var page = request.Page <= 0 ? 1 : request.Page;
+            var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+            var (items, total) = await _approvalRepository.GetPagedAsync(page, pageSize, request.SearchTerm, request.SortBy, request.SortDescending, ContentStatusEnum.PendingApproval, null, actorUserId, false);
+            return new PagedResult<ApprovalResponseDto>
+            {
+                Data = items.Select(MapToResponseDto).ToList(),
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
         public async Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request)
         {
             // Validate content exists
@@ -36,6 +193,11 @@ namespace AISAM.Services.Service
             if (content == null)
             {
                 throw new ArgumentException("Content not found");
+            }
+
+            if (content.Status != ContentStatusEnum.Draft)
+            {
+                throw new ArgumentException("Content status must be DRAFT to create approval");
             }
 
             // Validate approver exists
@@ -144,8 +306,15 @@ namespace AISAM.Services.Service
             };
         }
 
-        public async Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, string? notes = null)
+        public async Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, Guid actorUserId, string? notes = null)
         {
+            // validate permissions: actor must be the approver or admin
+            var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
+            if (approval.ApproverId != actorUserId)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to approve this item");
+            }
+
             var updateRequest = new UpdateApprovalRequest
             {
                 Status = ContentStatusEnum.Approved,
@@ -155,8 +324,20 @@ namespace AISAM.Services.Service
             return await UpdateApprovalAsync(approvalId, updateRequest);
         }
 
-        public async Task<ApprovalResponseDto> RejectAsync(Guid approvalId, string? notes = null)
+        public async Task<ApprovalResponseDto> RejectAsync(Guid approvalId, Guid actorUserId, string? notes = null)
         {
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                throw new ArgumentException("Notes are required to reject");
+            }
+
+            // validate permissions: actor must be the approver or admin
+            var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
+            if (approval.ApproverId != actorUserId)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to reject this item");
+            }
+
             var updateRequest = new UpdateApprovalRequest
             {
                 Status = ContentStatusEnum.Rejected,
@@ -192,21 +373,6 @@ namespace AISAM.Services.Service
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error restoring approval {ApprovalId}", approvalId);
-                return false;
-            }
-        }
-
-        public async Task<bool> HardDeleteAsync(Guid approvalId)
-        {
-            try
-            {
-                await _approvalRepository.HardDeleteAsync(approvalId);
-                _logger.LogInformation("Hard deleted approval {ApprovalId}", approvalId);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error hard deleting approval {ApprovalId}", approvalId);
                 return false;
             }
         }
@@ -251,6 +417,41 @@ namespace AISAM.Services.Service
                     CreatedAt = approval.Approver.CreatedAt
                 } : null
             };
+        }
+
+        private static bool HasPermission(string? permissionsJson, string permissionKey)
+        {
+            if (string.IsNullOrWhiteSpace(permissionsJson) || string.IsNullOrWhiteSpace(permissionKey))
+            {
+                return false;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(permissionsJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
+                if (!doc.RootElement.TryGetProperty(permissionKey, out var value))
+                {
+                    return false;
+                }
+
+                return value.ValueKind switch
+                {
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Number => value.TryGetInt32(out var num) && num != 0,
+                    JsonValueKind.String => bool.TryParse(value.GetString(), out var b) ? b : false,
+                    _ => false
+                };
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

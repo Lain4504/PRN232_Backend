@@ -120,6 +120,9 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
 builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -181,19 +184,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    // Add policies for resource-based authorization
-    options.AddPolicy("BrandOwnership", policy =>
-        policy.Requirements.Add(new AISAM.API.Authorization.BrandOwnershipRequirement()));
-    
-    options.AddPolicy("AdminAccess", policy =>
-        policy.Requirements.Add(new AISAM.API.Authorization.AdminAccessRequirement()));
-});
-
-// Register authorization handlers
-builder.Services.AddScoped<IAuthorizationHandler, AISAM.API.Authorization.ApprovalAuthorizationHandler>();
-
+builder.Services.AddAuthorization();
 // Disable automatic 400 for model validation to allow custom GenericResponse
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -284,8 +275,7 @@ app.UseSwaggerUI();
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
-// Add authorization logging middleware
-app.UseMiddleware<AuthorizationLoggingMiddleware>();
+// Authorization logging middleware removed
 
 app.UseHttpsRedirection();
 
