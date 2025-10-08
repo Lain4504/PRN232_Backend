@@ -134,6 +134,7 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
+builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -146,13 +147,13 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<ITeamService, TeamService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
 
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
-
 // Fetch JWKS 1 lần khi app start
 using var http = new HttpClient();
 var jwksJson = await http.GetStringAsync(jwksUri);
