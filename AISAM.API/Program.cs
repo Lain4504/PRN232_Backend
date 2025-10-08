@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using AISAM.Repositories.Repositories;
 using Npgsql;
+using AISAM.Services.Config;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -136,6 +137,8 @@ builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
+
+builder.Services.AddSingleton<RolePermissionConfig>();
 
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 

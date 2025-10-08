@@ -46,8 +46,13 @@ namespace AISAM.Repositories.Repositories
             };
         }
 
+        // Lấy TeamMember theo Id (primary key)
         public async Task<TeamMember?> GetByIdAsync(Guid id) =>
             await _context.TeamMembers.FindAsync(id);
+
+        // Lấy TeamMember theo UserId
+        public async Task<TeamMember?> GetByUserIdAsync(Guid userId) =>
+            await _context.TeamMembers.FirstOrDefaultAsync(tm => tm.UserId == userId);
 
         public async Task<TeamMember> AddAsync(TeamMember entity)
         {

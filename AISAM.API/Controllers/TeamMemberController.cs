@@ -1,10 +1,10 @@
 ﻿using AISAM.Common;
 using AISAM.Common.Dtos;
-using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
-using Microsoft.AspNetCore.Authorization;
+using AISAM.API.Utils;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AISAM.API.Controllers
 {
@@ -21,27 +21,9 @@ namespace AISAM.API.Controllers
             _logger = logger;
         }
 
-        [HttpGet("{id}")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<TeamMemberResponseDto>>> GetById(Guid id)
-        {
-            try
-            {
-                var member = await _teamMemberService.GetByIdAsync(id);
-                if (member == null)
-                    return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
-
-                return Ok(GenericResponse<TeamMemberResponseDto>.CreateSuccess(member, "Lấy thành viên thành công"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting team member {MemberId}", id);
-                return StatusCode(500, GenericResponse<TeamMemberResponseDto>.CreateError("Lỗi khi lấy thành viên"));
-            }
-        }
-
+        // ✅ Lấy danh sách phân trang
         [HttpGet]
-        //[Authorize]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<PagedResult<TeamMemberResponseDto>>>> GetPaged([FromQuery] PaginationRequest request)
         {
             try
@@ -52,18 +34,55 @@ namespace AISAM.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting team members");
-                return StatusCode(500, GenericResponse<PagedResult<TeamMemberResponseDto>>.CreateError("Lỗi khi lấy danh sách"));
+                return StatusCode(500, GenericResponse<PagedResult<TeamMemberResponseDto>>.CreateError("Lỗi khi lấy danh sách thành viên"));
             }
         }
 
+        // ✅ Lấy chi tiết member
+        [HttpGet("{id}")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<TeamMemberResponseDto>>> GetById(Guid id)
+        {
+            try
+            {
+                // Lấy userId từ JWT token
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+
+                var member = await _teamMemberService.GetByIdAsync(id, userId);
+                if (member == null)
+                    return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
+
+                return Ok(GenericResponse<TeamMemberResponseDto>.CreateSuccess(member, "Lấy chi tiết thành viên thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Không có quyền xem chi tiết thành viên");
+                return Forbid(GenericResponse<TeamMemberResponseDto>.CreateError(ex.Message).Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi lấy chi tiết team member");
+                return StatusCode(500, GenericResponse<TeamMemberResponseDto>.CreateError("Lỗi hệ thống"));
+            }
+        }
+
+        // ✅ Tạo team member
         [HttpPost]
-        //[Authorize]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<TeamMemberResponseDto>>> Create([FromBody] TeamMemberCreateRequest request)
         {
             try
             {
-                var created = await _teamMemberService.CreateAsync(request);
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, GenericResponse<TeamMemberResponseDto>.CreateSuccess(created, "Tạo thành viên thành công"));
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var created = await _teamMemberService.CreateAsync(request, userId);
+
+                return CreatedAtAction(nameof(GetById), new { id = created.Id },
+                    GenericResponse<TeamMemberResponseDto>.CreateSuccess(created, "Tạo thành viên thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Không có quyền thêm thành viên");
+                return Forbid(GenericResponse<TeamMemberResponseDto>.CreateError(ex.Message).Message);
             }
             catch (ArgumentException ex)
             {
@@ -77,17 +96,25 @@ namespace AISAM.API.Controllers
             }
         }
 
+        // ✅ Cập nhật team member
         [HttpPut("{id}")]
         [Authorize]
         public async Task<ActionResult<GenericResponse<TeamMemberResponseDto>>> Update(Guid id, [FromBody] TeamMemberUpdateRequest request)
         {
             try
             {
-                var updated = await _teamMemberService.UpdateAsync(id, request);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var updated = await _teamMemberService.UpdateAsync(id, request, userId);
+
                 if (updated == null)
                     return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
 
                 return Ok(GenericResponse<TeamMemberResponseDto>.CreateSuccess(updated, "Cập nhật thành viên thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Không có quyền cập nhật thành viên");
+                return Forbid(GenericResponse<TeamMemberResponseDto>.CreateError(ex.Message).Message);
             }
             catch (ArgumentException ex)
             {
@@ -97,26 +124,34 @@ namespace AISAM.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating team member {MemberId}", id);
-                return StatusCode(500, GenericResponse<TeamMemberResponseDto>.CreateError("Lỗi khi cập nhật"));
+                return StatusCode(500, GenericResponse<TeamMemberResponseDto>.CreateError("Lỗi hệ thống"));
             }
         }
 
+        // ✅ Xóa team member
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<ActionResult<GenericResponse<object>>> Delete(Guid id)
         {
             try
             {
-                var ok = await _teamMemberService.DeleteAsync(id);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var ok = await _teamMemberService.DeleteAsync(id, userId);
+
                 if (!ok)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy thành viên"));
 
                 return Ok(GenericResponse<object>.CreateSuccess(null, "Xóa thành viên thành công"));
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Không có quyền xóa thành viên");
+                return Forbid(GenericResponse<object>.CreateError(ex.Message).Message);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting team member {MemberId}", id);
-                return StatusCode(500, GenericResponse<object>.CreateError("Lỗi khi xóa thành viên"));
+                return StatusCode(500, GenericResponse<object>.CreateError("Lỗi hệ thống"));
             }
         }
     }
