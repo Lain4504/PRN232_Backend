@@ -1,5 +1,6 @@
 using AISAM.Common;
 using AISAM.Common.Models;
+using AISAM.Common.Dtos.Request;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
 using AISAM.Common.Dtos.Response;
@@ -71,35 +72,35 @@ namespace AISAM.API.Controllers
 
         /// <summary>
         /// Handle OAuth callback and link social account to user (supports multiple Facebook accounts per user)
+        /// This endpoint is called by the frontend after OAuth redirect
         /// </summary>
-        [HttpGet("{provider}/callback")]
+        [HttpPost("{provider}/callback")]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<object>>> HandleCallback(
             string provider,
-            [FromQuery] string code,
-            [FromQuery] string? state = null,
-            [FromQuery] Guid? userId = null)
+            [FromBody] SocialCallbackRequest request)
         {
             try
             {
-                // Require userId; do not auto-create users when missing
-                if (!userId.HasValue)
+                // Validate request
+                if (request == null || request.UserId == Guid.Empty)
                 {
                     return BadRequest(GenericResponse<object>.CreateError(
-                        "userId is required", 
+                        "Invalid request data", 
                         System.Net.HttpStatusCode.BadRequest, 
-                        "MISSING_USER_ID"));
+                        "INVALID_REQUEST"));
                 }
 
                 var linkRequest = new LinkSocialAccountRequest
                 {
-                    UserId = userId.Value,
+                    UserId = request.UserId,
                     Provider = provider,
-                    Code = code,
-                    State = state
+                    Code = request.Code,
+                    State = request.State
                 };
 
                 var socialAccount = await _socialService.LinkAccountAsync(linkRequest);
-                var user = await _userService.GetUserByIdAsync(userId.Value);
+                var user = await _userService.GetUserByIdAsync(request.UserId);
 
                 // Get available targets (pages) for this newly linked account
                 var availableTargets = await _socialService.ListAvailableTargetsForAccountAsync(socialAccount.Id);

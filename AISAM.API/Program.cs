@@ -49,6 +49,12 @@ if (!string.IsNullOrEmpty(geminiApiKey))
     builder.Configuration["Gemini:ApiKey"] = geminiApiKey;
 }
 
+var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
+if (!string.IsNullOrEmpty(frontendBaseUrl))
+{
+    builder.Configuration["FrontendSettings:BaseUrl"] = frontendBaseUrl;
+}
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
@@ -72,6 +78,10 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
+
+// Configure Frontend Settings
+builder.Services.Configure<FrontendSettings>(
+    builder.Configuration.GetSection("FrontendSettings"));
 
 // Configure Gemini Settings
 builder.Services.Configure<GeminiSettings>(
