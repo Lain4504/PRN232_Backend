@@ -186,21 +186,15 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.SuppressModelStateInvalidFilter = true;
 });
 
-// Add CORS policy (supports credentials and specific origins)
-var configuredOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>() ?? Array.Empty<string>();
+var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+var configuredOrigins = Array.Empty<string>();
 
-// Fallback to env var CORS_ALLOWED_ORIGINS (comma-separated) if config is empty
-if (configuredOrigins.Length == 0)
+if (!string.IsNullOrWhiteSpace(corsEnv))
 {
-    var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
-    if (!string.IsNullOrWhiteSpace(corsEnv))
-    {
-        configuredOrigins = corsEnv
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    }
+    configuredOrigins = corsEnv
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
+
 
 builder.Services.AddCors(options =>
 {
