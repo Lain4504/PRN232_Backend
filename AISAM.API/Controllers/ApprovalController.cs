@@ -68,7 +68,7 @@ namespace AISAM.API.Controllers
 
             try
             {
-                var result = await _approvalService.CreateApprovalAsync(request);
+                var result = await _approvalService.CreateApprovalAsync(request, userId);
                 
                 _logger.LogInformation("CreateApproval completed successfully. ApprovalId: {ApprovalId}, UserId: {UserId}", 
                     result.Id, userId);
@@ -123,7 +123,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var result = await _approvalService.UpdateApprovalAsync(id, request);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _approvalService.UpdateApprovalAsync(id, request, userId);
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Cập nhật yêu cầu phê duyệt thành công"));
             }
             catch (ArgumentException ex)

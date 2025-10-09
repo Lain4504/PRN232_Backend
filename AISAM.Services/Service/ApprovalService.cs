@@ -9,6 +9,7 @@ using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Linq;
+using AISAM.Services.Helper;
 
 namespace AISAM.Services.Service
 {
@@ -20,6 +21,7 @@ namespace AISAM.Services.Service
         private readonly INotificationRepository _notificationRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ApprovalService> _logger;
 
         public ApprovalService(
@@ -29,6 +31,7 @@ namespace AISAM.Services.Service
             INotificationRepository notificationRepository,
             ITeamMemberRepository teamMemberRepository,
             ISubscriptionRepository subscriptionRepository,
+            RolePermissionConfig rolePermissionConfig,
             ILogger<ApprovalService> logger)
         {
             _approvalRepository = approvalRepository;
@@ -37,6 +40,7 @@ namespace AISAM.Services.Service
             _notificationRepository = notificationRepository;
             _teamMemberRepository = teamMemberRepository;
             _subscriptionRepository = subscriptionRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
@@ -47,6 +51,13 @@ namespace AISAM.Services.Service
             if (content.Status != ContentStatusEnum.Draft)
             {
                 throw new ArgumentException("Content must be in DRAFT to submit");
+            }
+
+            // Check if user has permission to submit for approval
+            var canSubmit = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL");
+            if (!canSubmit)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to submit content for approval");
             }
 
             var brandOwnerId = content.Brand.UserId;
@@ -125,10 +136,10 @@ namespace AISAM.Services.Service
                 return MapToResponseDto(approval);
             }
 
-            // Vendor team multi-approver: approvers are team members with can_approve
+            // Vendor team multi-approver: approvers are team members with APPROVE_CONTENT permission
             var teamMembers = await _teamMemberRepository.GetByVendorIdAsync(actorUserId);
             var canApproveMembers = teamMembers
-                .Where(tm => HasPermission(tm.Permissions, "can_approve"))
+                .Where(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, "APPROVE_CONTENT"))
                 .Select(tm => tm.UserId)
                 .Distinct()
                 .ToList();
@@ -175,6 +186,13 @@ namespace AISAM.Services.Service
 
         public async Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorUserId)
         {
+            // Check if user has permission to view approvals
+            var canView = await CanUserPerformActionAsync(actorUserId, "VIEW_APPROVALS");
+            if (!canView)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view approvals");
+            }
+
             var page = request.Page <= 0 ? 1 : request.Page;
             var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
             var (items, total) = await _approvalRepository.GetPagedAsync(page, pageSize, request.SearchTerm, request.SortBy, request.SortDescending, ContentStatusEnum.PendingApproval, null, actorUserId, false);
@@ -186,8 +204,15 @@ namespace AISAM.Services.Service
                 PageSize = pageSize
             };
         }
-        public async Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request)
+        public async Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request, Guid actorUserId)
         {
+            // Check if user has permission to manage approvals
+            var canManage = await CanUserPerformActionAsync(actorUserId, "MANAGE_APPROVALS");
+            if (!canManage)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to create approvals");
+            }
+
             // Validate content exists
             var content = await _contentRepository.GetByIdAsync(request.ContentId);
             if (content == null)
@@ -200,11 +225,17 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Content status must be DRAFT to create approval");
             }
 
-            // Validate approver exists
+            // Validate approver exists and has approval permission
             var approver = await _userRepository.GetByIdAsync(request.ApproverId);
             if (approver == null)
             {
                 throw new ArgumentException("Approver not found");
+            }
+
+            var canApproverApprove = await CanUserPerformActionAsync(request.ApproverId, "APPROVE_CONTENT");
+            if (!canApproverApprove)
+            {
+                throw new ArgumentException("Selected approver does not have permission to approve content");
             }
 
             // Create approval entity
@@ -228,12 +259,19 @@ namespace AISAM.Services.Service
             return MapToResponseDto(createdApproval);
         }
 
-        public async Task<ApprovalResponseDto> UpdateApprovalAsync(Guid approvalId, UpdateApprovalRequest request)
+        public async Task<ApprovalResponseDto> UpdateApprovalAsync(Guid approvalId, UpdateApprovalRequest request, Guid actorUserId)
         {
             var approval = await _approvalRepository.GetByIdAsync(approvalId);
             if (approval == null)
             {
                 throw new ArgumentException("Approval not found");
+            }
+
+            // Check if user has permission to update this approval
+            var canUpdate = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "MANAGE_APPROVALS");
+            if (!canUpdate)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to update this approval");
             }
 
             approval.Status = request.Status;
@@ -308,9 +346,12 @@ namespace AISAM.Services.Service
 
         public async Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, Guid actorUserId, string? notes = null)
         {
-            // validate permissions: actor must be the approver or admin
+            // validate permissions: actor must be the approver or have APPROVE_CONTENT permission
             var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
-            if (approval.ApproverId != actorUserId)
+            
+            // Check if user is the assigned approver or has permission to approve
+            var canApprove = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
+            if (!canApprove)
             {
                 throw new UnauthorizedAccessException("You are not allowed to approve this item");
             }
@@ -321,7 +362,7 @@ namespace AISAM.Services.Service
                 Notes = notes
             };
 
-            return await UpdateApprovalAsync(approvalId, updateRequest);
+            return await UpdateApprovalAsync(approvalId, updateRequest, actorUserId);
         }
 
         public async Task<ApprovalResponseDto> RejectAsync(Guid approvalId, Guid actorUserId, string? notes = null)
@@ -331,9 +372,12 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Notes are required to reject");
             }
 
-            // validate permissions: actor must be the approver or admin
+            // validate permissions: actor must be the approver or have REJECT_CONTENT permission
             var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
-            if (approval.ApproverId != actorUserId)
+            
+            // Check if user is the assigned approver or has permission to reject
+            var canReject = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "REJECT_CONTENT");
+            if (!canReject)
             {
                 throw new UnauthorizedAccessException("You are not allowed to reject this item");
             }
@@ -344,7 +388,7 @@ namespace AISAM.Services.Service
                 Notes = notes
             };
 
-            return await UpdateApprovalAsync(approvalId, updateRequest);
+            return await UpdateApprovalAsync(approvalId, updateRequest, actorUserId);
         }
 
         public async Task<bool> SoftDeleteAsync(Guid approvalId)
@@ -419,39 +463,29 @@ namespace AISAM.Services.Service
             };
         }
 
-        private static bool HasPermission(string? permissionsJson, string permissionKey)
+        /// <summary>
+        /// Validate if a user can perform an approval action
+        /// </summary>
+        private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission)
         {
-            if (string.IsNullOrWhiteSpace(permissionsJson) || string.IsNullOrWhiteSpace(permissionKey))
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            // Admin users have all permissions
+            if (user.Role == UserRoleEnum.Admin)
             {
-                return false;
+                return true;
             }
 
-            try
+            // Check team member's actual permissions (not role-based)
+            var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            if (teamMember != null)
             {
-                using var doc = JsonDocument.Parse(permissionsJson);
-                if (doc.RootElement.ValueKind != JsonValueKind.Object)
-                {
-                    return false;
-                }
-
-                if (!doc.RootElement.TryGetProperty(permissionKey, out var value))
-                {
-                    return false;
-                }
-
-                return value.ValueKind switch
-                {
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    JsonValueKind.Number => value.TryGetInt32(out var num) && num != 0,
-                    JsonValueKind.String => bool.TryParse(value.GetString(), out var b) ? b : false,
-                    _ => false
-                };
+                // Only check the actual permissions assigned to this team member
+                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
             }
-            catch
-            {
-                return false;
-            }
+
+            return false;
         }
     }
 }

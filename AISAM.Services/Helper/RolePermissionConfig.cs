@@ -1,11 +1,13 @@
 ﻿using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
-namespace AISAM.Services.Config
+namespace AISAM.Services.Helper
 {
     public class RolePermissionConfig
     {
         private readonly Dictionary<string, List<string>> _rolePermissions = new();
         private readonly Dictionary<string, string> _permissionDescriptions = new();
+        private readonly ILogger<RolePermissionConfig> _logger;
 
         private readonly JsonSerializerOptions _jsonOptions = new()
         {
@@ -13,8 +15,9 @@ namespace AISAM.Services.Config
             WriteIndented = true
         };
 
-        public RolePermissionConfig()
+        public RolePermissionConfig(ILogger<RolePermissionConfig> logger)
         {
+            _logger = logger;
             LoadRoles();
             LoadPermissions();
         }
@@ -41,7 +44,7 @@ namespace AISAM.Services.Config
                 }
             }
 
-            Console.WriteLine($"[DEBUG] Loaded roles: {_rolePermissions.Count}");
+            _logger.LogInformation("Loaded {Count} roles from team_roles.json", _rolePermissions.Count);
         }
 
         private void LoadPermissions()
@@ -64,7 +67,7 @@ namespace AISAM.Services.Config
                     _permissionDescriptions[key] = desc;
             }
 
-            Console.WriteLine($"[DEBUG] Loaded {_permissionDescriptions.Count} permission descriptions.");
+            _logger.LogInformation("Loaded {Count} permission descriptions from team_permissions.json", _permissionDescriptions.Count);
         }
 
         public bool RoleHasPermission(string role, string permission)
@@ -78,13 +81,27 @@ namespace AISAM.Services.Config
             if (_rolePermissions.TryGetValue(role, out var permissions))
             {
                 var hasPermission = permissions.Any(p => string.Equals(p, permission, StringComparison.OrdinalIgnoreCase));
-                Console.WriteLine($"[DEBUG] Role '{role}' has permission '{permission}': {hasPermission}");
+                _logger.LogDebug("Role '{Role}' has permission '{Permission}': {HasPermission}", role, permission, hasPermission);
                 return hasPermission;
             }
 
-            Console.WriteLine($"[DEBUG] Role '{role}' not found in _rolePermissions.");
+            _logger.LogWarning("Role '{Role}' not found in role permissions configuration", role);
             return false;
         }
+
+        /// <summary>
+        /// Check if custom permissions contain the specified permission
+        /// </summary>
+        public bool HasCustomPermission(List<string> customPermissions, string permission)
+        {
+            if (customPermissions == null || !customPermissions.Any() || string.IsNullOrEmpty(permission))
+            {
+                return false;
+            }
+
+            return customPermissions.Any(p => string.Equals(p, permission.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
 
         public List<string> GetPermissionsByRole(string role)
         {

@@ -14,12 +14,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Create new approval request
         /// </summary>
-        Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request);
+        Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request, Guid actorUserId);
         
         /// <summary>
         /// Update approval status and notes
         /// </summary>
-        Task<ApprovalResponseDto> UpdateApprovalAsync(Guid approvalId, UpdateApprovalRequest request);
+        Task<ApprovalResponseDto> UpdateApprovalAsync(Guid approvalId, UpdateApprovalRequest request, Guid actorUserId);
         
         /// <summary>
         /// Get approval by ID
