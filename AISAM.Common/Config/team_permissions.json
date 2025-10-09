@@ -11,5 +11,10 @@
   "VIEW_TEAM_ANALYTICS": "Xem thống kê team",
   "INVITE_MEMBER": "Mời thành viên mới tham gia",
   "APPROVE_JOIN_REQUEST": "Duyệt yêu cầu tham gia team",
-  "LEAVE_TEAM": "Rời khỏi team"
+  "LEAVE_TEAM": "Rời khỏi team",
+  "SUBMIT_FOR_APPROVAL": "Gửi nội dung để duyệt",
+  "APPROVE_CONTENT": "Duyệt nội dung",
+  "REJECT_CONTENT": "Từ chối nội dung",
+  "VIEW_APPROVALS": "Xem danh sách yêu cầu duyệt",
+  "MANAGE_APPROVALS": "Quản lý toàn bộ quy trình duyệt"
 }
