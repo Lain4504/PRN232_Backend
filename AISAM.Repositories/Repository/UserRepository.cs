@@ -1,7 +1,6 @@
 ﻿using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Response;
 using AISAM.Repositories.IRepositories;
-using AISAM.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using AISAM.Data.Model;
 
