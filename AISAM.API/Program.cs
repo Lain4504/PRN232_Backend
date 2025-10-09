@@ -134,6 +134,10 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<IContentCalendarRepository, ContentCalendarRepository>();
+builder.Services.AddScoped<IPerformanceReportRepository, PerformanceReportRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -146,6 +150,10 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddHostedService<ScheduledPostingWorker>();
+builder.Services.AddHostedService<MetricsPullWorker>();
+
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
