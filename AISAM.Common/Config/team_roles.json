@@ -1,0 +1,31 @@
+{
+  "Vendor": {
+    "description": "Owner of the team, full control",
+    "permissions": [
+      "CREATE_TEAM",
+      "UPDATE_TEAM",
+      "DELETE_TEAM",
+      "LIST_TEAM_MEMBERS",
+      "LIST_TEAM_MEMBERS_BY_ID",
+      "ADD_MEMBER",
+      "REMOVE_MEMBER",
+      "UPDATE_MEMBER_ROLE"
+    ]
+  },
+  "TeamLeader": {
+    "description": "Can manage team members",
+    "permissions": [
+      "LIST_TEAM_MEMBERS",
+      "LIST_TEAM_MEMBERS_BY_ID",
+      "ADD_MEMBER",
+      "REMOVE_MEMBER",
+      "UPDATE_MEMBER_ROLE"
+    ]
+  },
+  "Member": {
+    "description": "Can only view member list",
+    "permissions": [
+      "LIST_TEAM_MEMBERS"
+    ]
+  }
+}
