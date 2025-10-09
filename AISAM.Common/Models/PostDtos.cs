@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace AISAM.Common.Models
 {
     public class PostDto
@@ -12,5 +10,3 @@ namespace AISAM.Common.Models
         public string? Metadata { get; set; }
     }
 }
-
-
