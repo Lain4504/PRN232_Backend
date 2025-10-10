@@ -134,18 +134,20 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
-builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
