@@ -1,11 +1,11 @@
-using AISAM.API.Controllers;
+using AISAM.Common.Dtos.Request;
 using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using FluentValidation;
 
 namespace AISAM.API.Validators
 {
-    public class PublishRequestValidator : AbstractValidator<PostsController.PublishRequest>
+    public class PublishRequestValidator : AbstractValidator<PublishPostRequest>
     {
         private readonly IContentRepository _contentRepository;
         private readonly IBrandRepository _brandRepository;
@@ -30,7 +30,7 @@ namespace AISAM.API.Validators
         }
 
         public async Task<FluentValidation.Results.ValidationResult> ValidateAsync(
-            PostsController.PublishRequest request,
+            PublishPostRequest request,
             Guid contentId,
             Guid userId)
         {

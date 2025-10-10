@@ -69,13 +69,8 @@ builder.Services.AddControllers(options =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 
-// Register FluentValidation validators
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-
 // Register custom validators with dependencies
 builder.Services.AddScoped<PublishRequestValidator>();
-builder.Services.AddScoped<ScheduleRequestValidator>();
-
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
@@ -125,7 +120,6 @@ builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IContentCalendarRepository, ContentCalendarRepository>();
-builder.Services.AddScoped<IPerformanceReportRepository, PerformanceReportRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 // Add services
@@ -139,8 +133,6 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddHostedService<ScheduledPostingWorker>();
-builder.Services.AddHostedService<MetricsPullWorker>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();

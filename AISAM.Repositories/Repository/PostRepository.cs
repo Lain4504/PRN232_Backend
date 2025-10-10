@@ -91,6 +91,10 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<IEnumerable<Post>> GetAllAsync()
+        {
+            return await _context.Posts.ToListAsync();
+        }
     }
 }
-

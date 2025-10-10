@@ -15,7 +15,6 @@ namespace AISAM.Services.Service
         private readonly IContentRepository _contentRepository;
         private readonly ISocialIntegrationRepository _integrationRepository;
         private readonly ISocialAccountRepository _accountRepository;
-        private readonly IPerformanceReportRepository _reportRepository;
         private readonly IContentCalendarRepository _calendarRepository;
         private readonly INotificationRepository _notificationRepository;
         private readonly IBrandRepository _brandRepository;
@@ -27,7 +26,6 @@ namespace AISAM.Services.Service
             IContentRepository contentRepository,
             ISocialIntegrationRepository integrationRepository,
             ISocialAccountRepository accountRepository,
-            IPerformanceReportRepository reportRepository,
             IContentCalendarRepository calendarRepository,
             INotificationRepository notificationRepository,
             IBrandRepository brandRepository,
@@ -38,88 +36,11 @@ namespace AISAM.Services.Service
             _contentRepository = contentRepository;
             _integrationRepository = integrationRepository;
             _accountRepository = accountRepository;
-            _reportRepository = reportRepository;
             _calendarRepository = calendarRepository;
             _notificationRepository = notificationRepository;
             _brandRepository = brandRepository;
             _providers = providers;
             _logger = logger;
-        }
-
-        public async Task<PublishResultDto> PublishPostAsync(Guid userId, Guid contentId, IEnumerable<Guid> integrationIds)
-        {
-            var content = await _contentRepository.GetByIdAsync(contentId);
-            var brand = await _brandRepository.GetByIdAsync(content!.BrandId);
-
-            var results = new List<PublishResultDto>();
-
-            foreach (var integrationId in integrationIds)
-            {
-                var integration = await _integrationRepository.GetByIdAsync(integrationId);
-                var provider = ResolveProvider(integration!.Platform);
-
-                var postDto = new PostDto
-                {
-                    Message = content.TextContent ?? string.Empty,
-                    ImageUrls = !string.IsNullOrEmpty(content.ImageUrl) ? new List<string> { content.ImageUrl } : new List<string>(),
-                    VideoUrl = content.VideoUrl,
-                    LinkUrl = null
-                };
-
-                var result = await provider.PublishAsync(integration.SocialAccount, integration, postDto);
-                if (result.Success)
-                {
-                    var post = new Post
-                    {
-                        ContentId = content.Id,
-                        IntegrationId = integration.Id,
-                        ExternalPostId = result.ProviderPostId,
-                        PublishedAt = result.PostedAt ?? DateTime.UtcNow,
-                        Status = ContentStatusEnum.Published
-                    };
-                    await _postRepository.CreateAsync(post);
-
-                    // Update content status to published
-                    content.Status = ContentStatusEnum.Published;
-                    await _contentRepository.UpdateAsync(content);
-
-                    await SendNotificationAsync(brand.UserId, "post_published", post.Id, $"Đã xuất bản lên {integration.Platform}");
-                }
-                else
-                {
-                    await SendNotificationAsync(brand.UserId, "post_failed", content.Id, result.ErrorMessage ?? "Xuất bản thất bại");
-                }
-
-                results.Add(result);
-            }
-
-            // Aggregate result (success if at least one success)
-            var anySuccess = results.Any(r => r.Success);
-            return new PublishResultDto
-            {
-                Success = anySuccess,
-                ErrorMessage = anySuccess ? null : string.Join("; ", results.Select(r => r.ErrorMessage).Where(e => !string.IsNullOrWhiteSpace(e)))
-            };
-        }
-
-        public async Task<Guid> SchedulePostAsync(Guid userId, Guid contentId, Guid integrationId, DateTime scheduledAtUtc)
-        {
-
-            var schedule = new ContentCalendar
-            {
-                ContentId = contentId,
-                ScheduledDate = scheduledAtUtc.Date,
-                ScheduledTime = scheduledAtUtc.TimeOfDay,
-                IsDeleted = false
-            };
-            schedule = await _calendarRepository.CreateAsync(schedule);
-
-            var content = await _contentRepository.GetByIdAsync(contentId);
-            var brand = await _brandRepository.GetByIdAsync(content!.BrandId);
-
-            await SendNotificationAsync(brand!.UserId, "post_scheduled", schedule.Id, "Post scheduled");
-
-            return schedule.Id;
         }
 
         public async Task<PagedResult<PostListItemDto>> GetPostsAsync(Guid requesterId, Guid? brandId, int page, int pageSize, ContentStatusEnum? status = null)
@@ -138,12 +59,51 @@ namespace AISAM.Services.Service
                     ExternalPostId = p.ExternalPostId,
                     PublishedAt = p.PublishedAt,
                     Status = p.Status,
-                    IsDeleted = p.IsDeleted
+                    IsDeleted = p.IsDeleted,
+                    Link = GeneratePermalink(p.ExternalPostId)
                 }).ToList()
             };
         }
 
-        public async Task<bool> DeleteOrCancelPostAsync(Guid requesterId, Guid postId, bool isAdminOverride = false)
+        public async Task<PostListItemDto?> GetPostByIdAsync(Guid requesterId, Guid postId)
+        {
+            var post = await _postRepository.GetByIdAsync(postId);
+            if (post == null)
+            {
+                return null;
+            }
+
+            var brand = await _brandRepository.GetByIdAsync(post.Content.BrandId)
+                ?? throw new ArgumentException("Thương hiệu không tồn tại");
+            if (brand.UserId != requesterId)
+            {
+                throw new UnauthorizedAccessException("Bạn không có quyền");
+            }
+
+            return new PostListItemDto
+            {
+                Id = post.Id,
+                ContentId = post.ContentId,
+                IntegrationId = post.IntegrationId,
+                ExternalPostId = post.ExternalPostId,
+                PublishedAt = post.PublishedAt,
+                Status = post.Status,
+                IsDeleted = post.IsDeleted,
+                Link = GeneratePermalink(post.ExternalPostId)
+            };
+        }
+
+        private static string? GeneratePermalink(string? externalPostId)
+        {
+            if (string.IsNullOrWhiteSpace(externalPostId))
+            {
+                return null;
+            }
+            // For Facebook, the composite id can be opened directly
+            return $"https://www.facebook.com/{externalPostId}";
+        }
+
+        public async Task<bool> DeletePostAsync(Guid requesterId, Guid postId, bool isAdminOverride = false)
         {
             var post = await _postRepository.GetByIdAsync(postId)
                 ?? throw new ArgumentException("Post không tồn tại");
@@ -162,6 +122,9 @@ namespace AISAM.Services.Service
                 {
                     var integration = await _integrationRepository.GetByIdAsync(post.IntegrationId)
                         ?? throw new ArgumentException("Integration không tồn tại");
+
+                    var platformName = integration.Platform.ToString().ToLower();
+
                     var ok = await _postRepository.SoftDeleteAsync(postId);
                     if (ok)
                     {
@@ -186,73 +149,6 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<bool> PullReportsAsync(Guid requesterId, Guid postId)
-        {
-            var post = await _postRepository.GetByIdAsync(postId)
-                ?? throw new ArgumentException("Post không tồn tại");
-            var brand = await _brandRepository.GetByIdAsync(post.Content.BrandId)
-                ?? throw new ArgumentException("Thương hiệu không tồn tại");
-            if (brand.UserId != requesterId)
-            {
-                throw new UnauthorizedAccessException("Bạn không có quyền");
-            }
-
-            var integration = await _integrationRepository.GetByIdAsync(post.IntegrationId)
-                ?? throw new ArgumentException("Integration không tồn tại");
-            var provider = ResolveProvider(integration.Platform);
-
-            // Fake insights for demo; integrate provider insights API here
-            var raw = JsonSerializer.Serialize(new { impressions = 100, engagement = 5, ctr = 0.05m });
-
-            var report = new PerformanceReport
-            {
-                PostId = post.Id,
-                ReportDate = DateTime.UtcNow.Date,
-                Impressions = 100,
-                Engagement = 5,
-                Ctr = 0.05m,
-                EstimatedRevenue = 0,
-                RawData = raw
-            };
-            await _reportRepository.UpsertAsync(report);
-
-            // Optional notification for low CTR
-            if (report.Ctr < 0.01m)
-            {
-                await SendNotificationAsync(brand.UserId, "performance_alert", post.Id, "Low CTR detected");
-            }
-
-            return true;
-        }
-
-        public async Task<bool> ReAuthIntegrationAsync(Guid requesterId, Guid integrationId)
-        {
-            var integration = await _integrationRepository.GetByIdAsync(integrationId)
-                ?? throw new ArgumentException("Integration không tồn tại");
-
-            var brand = await _brandRepository.GetByIdAsync(integration.BrandId)
-                ?? throw new ArgumentException("Thương hiệu không tồn tại");
-            if (brand.UserId != requesterId)
-            {
-                throw new UnauthorizedAccessException("Bạn không có quyền");
-            }
-
-            var provider = ResolveProvider(integration.Platform);
-            await provider.RefreshTokenIfNeededAsync(integration.SocialAccount);
-            return true;
-        }
-
-        private IProviderService ResolveProvider(SocialPlatformEnum platform)
-        {
-            var name = platform.ToString().ToLower();
-            var provider = _providers.FirstOrDefault(p => p.ProviderName.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (provider == null)
-            {
-                throw new InvalidOperationException($"Nhà cung cấp '{name}' không được hỗ trợ");
-            }
-            return provider;
-        }
-
         private async Task SendNotificationAsync(Guid userId, string type, Guid targetId, string? message)
         {
             if (!Enum.TryParse<NotificationTypeEnum>(type, true, out var notificationType))
@@ -269,6 +165,22 @@ namespace AISAM.Services.Service
                 CreatedAt = DateTime.UtcNow
             };
             await _notificationRepository.CreateAsync(noti);
+        }
+
+        public async Task<IEnumerable<PostListItemDto>> GetAllPostsAsync()
+        {
+            var posts = await _postRepository.GetAllAsync();
+            return posts.Select(p => new PostListItemDto
+            {
+                Id = p.Id,
+                ContentId = p.ContentId,
+                IntegrationId = p.IntegrationId,
+                ExternalPostId = p.ExternalPostId,
+                PublishedAt = p.PublishedAt,
+                Status = p.Status,
+                IsDeleted = p.IsDeleted,
+                Link = GeneratePermalink(p.ExternalPostId)
+            }).ToList();
         }
     }
 }

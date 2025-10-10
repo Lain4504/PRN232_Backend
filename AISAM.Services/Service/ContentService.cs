@@ -15,6 +15,7 @@ namespace AISAM.Services.Service
         private readonly IContentRepository _contentRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IPostRepository _postRepository;
         private readonly ILogger<ContentService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
 
@@ -22,12 +23,14 @@ namespace AISAM.Services.Service
             IContentRepository contentRepository,
             ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
+            IPostRepository postRepository,
             ILogger<ContentService> logger,
             IEnumerable<IProviderService> providers)
         {
             _contentRepository = contentRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
+            _postRepository = postRepository;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
         }
@@ -78,6 +81,17 @@ namespace AISAM.Services.Service
                     content.Status = ContentStatusEnum.Rejected;
                     await _contentRepository.UpdateAsync(content);
                     
+					// Create a rejected post record when immediate publish fails
+					var failedPost = new Post
+					{
+						ContentId = content.Id,
+						IntegrationId = request.IntegrationId.Value,
+						ExternalPostId = null,
+						PublishedAt = DateTime.UtcNow,
+						Status = ContentStatusEnum.Rejected
+					};
+					await _postRepository.CreateAsync(failedPost);
+					
                     _logger.LogError("Failed to publish content {ContentId}: {Error}", 
                         content.Id, publishResult.ErrorMessage);
                 }
@@ -186,6 +200,23 @@ namespace AISAM.Services.Service
                 
                 if (result.Success)
                 {
+                    // Persist post record on successful publish
+                    var post = new Post
+                    {
+                        ContentId = content.Id,
+                        IntegrationId = integration.Id,
+                        ExternalPostId = result.ProviderPostId,
+                        PublishedAt = result.PostedAt ?? DateTime.UtcNow,
+                        Status = ContentStatusEnum.Published
+                    };
+                    await _postRepository.CreateAsync(post);
+
+                    // Update content status to published
+                    content.Status = ContentStatusEnum.Published;
+                    await _contentRepository.UpdateAsync(content);
+
+                    // Removed audit logging per latest requirement
+
                     _logger.LogInformation("Successfully published content {ContentId} to {Platform}", 
                         contentId, platformName);
                 }

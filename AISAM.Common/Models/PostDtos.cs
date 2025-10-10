@@ -12,5 +12,3 @@ namespace AISAM.Common.Models
         public string? Metadata { get; set; }
     }
 }
-
-
