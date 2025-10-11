@@ -5,6 +5,7 @@ using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 using AISAM.Data.Model;
 
@@ -16,6 +17,9 @@ namespace AISAM.Services.Service
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IUserRepository _userRepository;
         private readonly IPostRepository _postRepository;
+        private readonly IBrandRepository _brandRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ContentService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
 
@@ -24,6 +28,9 @@ namespace AISAM.Services.Service
             ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
             IPostRepository postRepository,
+            IBrandRepository brandRepository,
+            ITeamMemberRepository teamMemberRepository,
+            RolePermissionConfig rolePermissionConfig,
             ILogger<ContentService> logger,
             IEnumerable<IProviderService> providers)
         {
@@ -31,6 +38,9 @@ namespace AISAM.Services.Service
             _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
             _postRepository = postRepository;
+            _brandRepository = brandRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
         }
@@ -42,6 +52,13 @@ namespace AISAM.Services.Service
             if (user == null)
             {
                 throw new ArgumentException("User not found");
+            }
+
+            // Check if user has permission to create content
+            var canCreate = await CanUserPerformActionAsync(request.UserId, "CREATE_CONTENT", request.BrandId);
+            if (!canCreate)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to create content");
             }
 
             // Create content entity
@@ -67,7 +84,7 @@ namespace AISAM.Services.Service
             // If publish immediately, publish to specified integration
             if (request.PublishImmediately && request.IntegrationId.HasValue)
             {
-                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value);
+                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, request.UserId);
                 if (publishResult.Success)
                 {
                     content.Status = ContentStatusEnum.Published;
@@ -100,7 +117,7 @@ namespace AISAM.Services.Service
             return MapToDto(content, publishResult);
         }
 
-        public async Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId)
+        public async Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId, Guid userId)
         {
             // Get content
             var content = await _contentRepository.GetByIdAsync(contentId);
@@ -110,6 +127,17 @@ namespace AISAM.Services.Service
                 {
                     Success = false,
                     ErrorMessage = "Content not found"
+                };
+            }
+
+            // Check if user has permission to publish content
+            var canPublish = await CanUserPerformActionAsync(userId, "PUBLISH_POST", content.BrandId);
+            if (!canPublish)
+            {
+                return new PublishResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "You are not allowed to publish this content"
                 };
             }
 
@@ -239,12 +267,19 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId)
+        public async Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId, Guid userId)
         {
             var content = await _contentRepository.GetByIdAsync(contentId);
             if (content == null)
             {
                 return null;
+            }
+
+            // Check if user has access to view this content
+            var canView = await CanUserPerformActionAsync(userId, "CREATE_CONTENT", content.BrandId);
+            if (!canView)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view this content");
             }
 
             return MapToDto(content, null);
@@ -308,6 +343,55 @@ namespace AISAM.Services.Service
             await _contentRepository.UpdateAsync(existing);
             return true;
         }
+
+        /// <summary>
+        /// Check if user can perform action with required permission
+        /// </summary>
+        private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission, Guid? brandId = null)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            // Admin users have all permissions
+            if (user.Role == UserRoleEnum.Admin)
+            {
+                return true;
+            }
+
+            // If brandId is provided, check if user is brand owner or team member
+            if (brandId.HasValue)
+            {
+                var brand = await _brandRepository.GetByIdAsync(brandId.Value);
+                if (brand == null) return false;
+
+                // User is brand owner
+                if (brand.UserId == userId)
+                {
+                    return true;
+                }
+
+                // Check if user is team member of brand owner with required permission
+                var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+                if (teamMember == null) return false;
+
+                // Check if team member belongs to the brand owner's vendor
+                if (teamMember.Team.VendorId != brand.UserId) return false;
+
+                // Check if team member has required permission
+                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
+            }
+
+            // Check team member's actual permissions (not role-based)
+            var userTeamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            if (userTeamMember != null)
+            {
+                // Only check the actual permissions assigned to this team member
+                return _rolePermissionConfig.HasCustomPermission(userTeamMember.Permissions, permission);
+            }
+
+            return false;
+        }
+
         private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult)
         {
             return new ContentResponseDto

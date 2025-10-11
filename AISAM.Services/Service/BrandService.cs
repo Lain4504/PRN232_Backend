@@ -5,6 +5,7 @@ using AISAM.Common.Models;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using System;
 
 namespace AISAM.Services.Service
@@ -13,11 +14,15 @@ namespace AISAM.Services.Service
     {
         private readonly IBrandRepository _brandRepository;
         private readonly IProfileRepository _profileRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository)
+        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, RolePermissionConfig rolePermissionConfig)
         {
             _brandRepository = brandRepository;
             _profileRepository = profileRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _rolePermissionConfig = rolePermissionConfig;
         }
 
         /// <summary>
@@ -39,10 +44,17 @@ namespace AISAM.Services.Service
         /// <summary>
         /// Lấy thông tin chi tiết brand theo Id
         /// </summary>
-        public async Task<BrandResponseDto?> GetByIdAsync(Guid id)
+        public async Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid userId)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null || brand.IsDeleted) return null;
+
+            // Check if user has access to this brand (owner or team member)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "VIEW_TEAM_DETAILS");
+            if (!hasAccess)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to access this brand");
+            }
 
             return MapToResponse(brand);
         }
@@ -85,7 +97,14 @@ namespace AISAM.Services.Service
         public async Task<BrandResponseDto?> UpdateAsync(Guid id, Guid userId, UpdateBrandRequest dto)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
-            if (brand == null || brand.IsDeleted || brand.UserId != userId) return null;
+            if (brand == null || brand.IsDeleted) return null;
+
+            // Check if user has permission to update this brand (owner or team member with UPDATE_TEAM)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "UPDATE_TEAM");
+            if (!hasAccess)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to update this brand");
+            }
 
             // Kiểm tra Profile tồn tại nếu có ProfileId mới
             if (dto.ProfileId.HasValue && !await _profileRepository.ExistsAsync(dto.ProfileId.Value))
@@ -124,7 +143,14 @@ namespace AISAM.Services.Service
         public async Task<bool> SoftDeleteAsync(Guid id, Guid userId)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
-            if (brand == null || brand.IsDeleted || brand.UserId != userId) return false;
+            if (brand == null || brand.IsDeleted) return false;
+
+            // Check if user has permission to delete this brand (owner or team member with DELETE_TEAM)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "DELETE_TEAM");
+            if (!hasAccess)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to delete this brand");
+            }
 
             brand.IsDeleted = true;
             brand.UpdatedAt = DateTime.UtcNow;
@@ -138,13 +164,45 @@ namespace AISAM.Services.Service
         public async Task<bool> RestoreAsync(Guid id, Guid userId)
         {
             var brand = await _brandRepository.GetByIdIncludingDeletedAsync(id);
-            if (brand == null || !brand.IsDeleted || brand.UserId != userId) return false;
+            if (brand == null || !brand.IsDeleted) return false;
+
+            // Check if user has permission to restore this brand (owner or team member with DELETE_TEAM)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "DELETE_TEAM");
+            if (!hasAccess)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to restore this brand");
+            }
 
             brand.IsDeleted = false;
             brand.UpdatedAt = DateTime.UtcNow;
 
             await _brandRepository.UpdateAsync(brand);
             return true;
+        }
+
+        /// <summary>
+        /// Check if user can access brand with required permission
+        /// </summary>
+        private async Task<bool> CanUserAccessBrandAsync(Guid userId, Guid brandId, string requiredPermission)
+        {
+            var brand = await _brandRepository.GetByIdAsync(brandId);
+            if (brand == null) return false;
+
+            // User is brand owner
+            if (brand.UserId == userId)
+            {
+                return true;
+            }
+
+            // Check if user is team member of brand owner with required permission
+            var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            if (teamMember == null) return false;
+
+            // Check if team member belongs to the brand owner's vendor
+            if (teamMember.Team.VendorId != brand.UserId) return false;
+
+            // Check if team member has required permission
+            return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, requiredPermission);
         }
 
         /// <summary>

@@ -100,8 +100,13 @@ namespace AISAM.API.Controllers
 
             try
             {
-                var result = await _approvalService.GetApprovalByIdAsync(id);
+                var result = await _approvalService.GetApprovalByIdAsync(id, userId);
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result!));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to approval {ApprovalId}", id);
+                return StatusCode(403, GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
@@ -205,8 +210,14 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var result = await _approvalService.GetApprovalsByContentIdAsync(contentId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _approvalService.GetApprovalsByContentIdAsync(contentId, userId);
                 return Ok(GenericResponse<IEnumerable<ApprovalResponseDto>>.CreateSuccess(result));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to approvals for content {ContentId}", contentId);
+                return StatusCode(403, GenericResponse<IEnumerable<ApprovalResponseDto>>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
@@ -224,8 +235,14 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var result = await _approvalService.GetApprovalsByApproverIdAsync(approverId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _approvalService.GetApprovalsByApproverIdAsync(approverId, userId);
                 return Ok(GenericResponse<IEnumerable<ApprovalResponseDto>>.CreateSuccess(result));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to approvals for approver {ApproverId}", approverId);
+                return StatusCode(403, GenericResponse<IEnumerable<ApprovalResponseDto>>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
@@ -252,6 +269,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var request = new PaginationRequest
                 {
                     Page = page,
@@ -261,11 +279,14 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _approvalService.GetPagedApprovalsAsync(request, status, contentId, approverId, onlyDeleted);
-                
-                // Authorization filtering removed; service should enforce permissions
+                var result = await _approvalService.GetPagedApprovalsAsync(request, status, contentId, approverId, onlyDeleted, userId);
 
                 return Ok(GenericResponse<PagedResult<ApprovalResponseDto>>.CreateSuccess(result));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to paged approvals");
+                return StatusCode(403, GenericResponse<PagedResult<ApprovalResponseDto>>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
@@ -283,13 +304,19 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var result = await _approvalService.SoftDeleteAsync(id);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _approvalService.SoftDeleteAsync(id, userId);
                 if (!result)
                 {
                     return NotFound(GenericResponse<bool>.CreateError("Không tìm thấy yêu cầu phê duyệt"));
                 }
 
                 return Ok(GenericResponse<bool>.CreateSuccess(result, "Xóa yêu cầu phê duyệt thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to delete approval {ApprovalId}", id);
+                return StatusCode(403, GenericResponse<bool>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
@@ -307,13 +334,19 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var result = await _approvalService.RestoreAsync(id);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _approvalService.RestoreAsync(id, userId);
                 if (!result)
                 {
                     return NotFound(GenericResponse<bool>.CreateError("Không tìm thấy yêu cầu phê duyệt đã xóa"));
                 }
 
                 return Ok(GenericResponse<bool>.CreateSuccess(result, "Khôi phục yêu cầu phê duyệt thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to restore approval {ApprovalId}", id);
+                return StatusCode(403, GenericResponse<bool>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
