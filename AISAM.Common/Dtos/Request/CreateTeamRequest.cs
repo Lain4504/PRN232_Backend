@@ -10,5 +10,8 @@ namespace AISAM.Common.DTOs.Request
 
         [StringLength(1000, ErrorMessage = "Mô tả không được vượt quá 1000 ký tự")]
         public string? Description { get; set; }
+
+        // Optional: Có thể assign brand ngay khi tạo team
+        public List<Guid>? BrandIds { get; set; }
     }
 }

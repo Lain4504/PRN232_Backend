@@ -4,6 +4,8 @@ using AISAM.Common;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using AISAM.Common.Dtos.Response;
+using AISAM.Common.Dtos.Request;
 using System.Security.Claims;
 
 namespace AISAM.API.Controllers
@@ -131,6 +133,28 @@ namespace AISAM.API.Controllers
             }
 
             var result = await _teamService.DeleteTeamAsync(id, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Lấy danh sách thành viên trong team
+        /// </summary>
+        [HttpGet("{teamId}/members")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<TeamMemberResponseDto>>>> GetTeamMembers(Guid teamId)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<TeamMemberResponseDto>>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.GetTeamMembersAsync(teamId, userId);
 
             if (result.Success)
             {

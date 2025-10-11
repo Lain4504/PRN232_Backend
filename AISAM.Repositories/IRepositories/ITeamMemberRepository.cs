@@ -15,6 +15,7 @@ namespace AISAM.Repositories.IRepositories
         Task<TeamMember> AddAsync(TeamMember entity);
         Task UpdateAsync(TeamMember entity);
         Task<bool> DeleteAsync(Guid id);
+        Task<int> DeleteByTeamIdAsync(Guid teamId);
 
         Task<bool> TeamExistsAsync(Guid teamId);
         Task<bool> UserExistsAsync(Guid userId);
