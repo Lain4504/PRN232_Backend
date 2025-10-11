@@ -1,4 +1,4 @@
-﻿namespace AISAM.Common.Dtos.Response
+namespace AISAM.Common.Dtos.Response
 {
     public class TeamMemberResponseDto
     {
@@ -9,5 +9,6 @@
         public List<string> Permissions { get; set; } = new();
         public DateTime JoinedAt { get; set; }
         public bool IsActive { get; set; }
+        public string UserEmail { get; set; } = string.Empty;
     }
 }

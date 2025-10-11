@@ -135,6 +135,8 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
+builder.Services.AddScoped<ITeamRepository, TeamRepository>();
+builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -151,6 +153,7 @@ builder.Services.AddScoped<IPostService, PostService>();
 
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
+builder.Services.AddScoped<ITeamService, TeamService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 

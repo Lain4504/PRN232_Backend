@@ -70,6 +70,15 @@ namespace AISAM.Services.Helper
             _logger.LogInformation("Loaded {Count} permission descriptions from team_permissions.json", _permissionDescriptions.Count);
         }
 
+        public bool HasCustomPermission(List<string> customPermissions, string permission)
+        {
+            if (customPermissions == null || !customPermissions.Any() || string.IsNullOrEmpty(permission))
+            {
+                return false;
+            }
+
+            return customPermissions.Any(p => string.Equals(p, permission.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
         public bool RoleHasPermission(string role, string permission)
         {
             if (string.IsNullOrEmpty(role) || string.IsNullOrEmpty(permission))
@@ -88,20 +97,6 @@ namespace AISAM.Services.Helper
             _logger.LogWarning("Role '{Role}' not found in role permissions configuration", role);
             return false;
         }
-
-        /// <summary>
-        /// Check if custom permissions contain the specified permission
-        /// </summary>
-        public bool HasCustomPermission(List<string> customPermissions, string permission)
-        {
-            if (customPermissions == null || !customPermissions.Any() || string.IsNullOrEmpty(permission))
-            {
-                return false;
-            }
-
-            return customPermissions.Any(p => string.Equals(p, permission.Trim(), StringComparison.OrdinalIgnoreCase));
-        }
-
 
         public List<string> GetPermissionsByRole(string role)
         {

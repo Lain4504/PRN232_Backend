@@ -101,6 +101,21 @@ namespace AISAM.Repositories.Repositories
             return true;
         }
 
+        public async Task<int> DeleteByTeamIdAsync(Guid teamId)
+        {
+            var teamMembers = await _context.TeamMembers
+                .Where(tm => tm.TeamId == teamId && tm.IsActive)
+                .ToListAsync();
+
+            if (!teamMembers.Any())
+                return 0;
+
+            // Remove all team members
+            _context.TeamMembers.RemoveRange(teamMembers);
+            await _context.SaveChangesAsync();
+            return teamMembers.Count;
+        }
+
         public async Task<bool> TeamExistsAsync(Guid teamId) =>
             await _context.Teams.AnyAsync(x => x.Id == teamId);
 

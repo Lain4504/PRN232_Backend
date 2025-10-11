@@ -21,6 +21,7 @@ namespace AISAM.Repositories
         public DbSet<Profile> Profiles { get; set; }
         public DbSet<Team> Teams { get; set; }
         public DbSet<TeamMember> TeamMembers { get; set; }
+        public DbSet<TeamBrand> TeamBrands { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<Approval> Approvals { get; set; }
         public DbSet<Ad> Ads { get; set; }
@@ -175,8 +176,10 @@ namespace AISAM.Repositories
             modelBuilder.Entity<Team>(entity =>
             {
                 entity.HasKey(t => t.Id);
+                entity.Property(t => t.Status).HasConversion<int>().HasDefaultValue(TeamStatusEnum.Active);
                 entity.HasIndex(t => t.VendorId);
                 entity.HasIndex(t => t.Name);
+                entity.HasIndex(t => t.Status);
                 entity.HasOne(t => t.Vendor)
                       .WithMany(u => u.Teams)
                       .HasForeignKey(t => t.VendorId)
@@ -196,6 +199,23 @@ namespace AISAM.Repositories
                 entity.HasOne(tm => tm.User)
                       .WithMany(u => u.TeamMembers)
                       .HasForeignKey(tm => tm.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // TeamBrand entity configuration
+            modelBuilder.Entity<TeamBrand>(entity =>
+            {
+                entity.HasKey(tb => tb.Id);
+                entity.HasIndex(tb => tb.TeamId);
+                entity.HasIndex(tb => tb.BrandId);
+                entity.HasIndex(tb => tb.IsActive);
+                entity.HasOne(tb => tb.Team)
+                      .WithMany(t => t.TeamBrands)
+                      .HasForeignKey(tb => tb.TeamId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(tb => tb.Brand)
+                      .WithMany(b => b.TeamBrands)
+                      .HasForeignKey(tb => tb.BrandId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 

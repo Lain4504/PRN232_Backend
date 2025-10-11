@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using AISAM.Data.Enumeration;
 
 namespace AISAM.Data.Model
 {
@@ -19,19 +20,27 @@ namespace AISAM.Data.Model
         [Column("name")]
         public string Name { get; set; } = string.Empty;
 
+        [MaxLength(1000)]
         [Column("description")]
         public string? Description { get; set; }
 
         [Column("is_deleted")]
         public bool IsDeleted { get; set; } = false;
 
+        [Column("status")]
+        public TeamStatusEnum Status { get; set; } = TeamStatusEnum.Active;
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
+
         // Navigation properties
         [ForeignKey("VendorId")]
-        public virtual User Vendor { get; set; } = null!;
+        public virtual User? Vendor { get; set; }
 
         public virtual ICollection<TeamMember> TeamMembers { get; set; } = new List<TeamMember>();
+        public virtual ICollection<TeamBrand> TeamBrands { get; set; } = new List<TeamBrand>();
     }
 }
