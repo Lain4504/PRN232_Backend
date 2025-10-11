@@ -98,20 +98,6 @@ namespace AISAM.Services.Helper
             return false;
         }
 
-        /// <summary>
-        /// Check if custom permissions contain the specified permission
-        /// </summary>
-        public bool HasCustomPermission(List<string> customPermissions, string permission)
-        {
-            if (customPermissions == null || !customPermissions.Any() || string.IsNullOrEmpty(permission))
-            {
-                return false;
-            }
-
-            return customPermissions.Any(p => string.Equals(p, permission.Trim(), StringComparison.OrdinalIgnoreCase));
-        }
-
-
         public List<string> GetPermissionsByRole(string role)
         {
             if (string.IsNullOrEmpty(role)) return new List<string>();
