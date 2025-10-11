@@ -2,6 +2,7 @@ using AISAM.Common.DTOs.Request;
 using AISAM.Common.DTOs.Response;
 using AISAM.Common;
 using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Services.Config;
@@ -13,13 +14,15 @@ namespace AISAM.Services.Service
         private readonly ITeamRepository _teamRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public TeamService(ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IUserRepository userRepository, RolePermissionConfig rolePermissionConfig)
+        public TeamService(ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IUserRepository userRepository, IProfileRepository profileRepository, RolePermissionConfig rolePermissionConfig)
         {
             _teamMemberRepository = teamMemberRepository;
             _teamRepository = teamRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
             _rolePermissionConfig = rolePermissionConfig;
         }
 
@@ -27,11 +30,20 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserRole = await GetRoleByUserId(userId);
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if ((!_rolePermissionConfig.RoleHasPermission(currentUserRole, "CREATE_TEAM")) &&
-                    (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "CREATE_TEAM")))
+                // Kiểm tra quyền tạo team: user phải có role Vendor và profileType Business
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null || user.Role != UserRoleEnum.Vendor)
+                {
                     throw new UnauthorizedAccessException("Bạn không có quyền tạo team.");
+                }
+
+                // Lấy profiles của user để kiểm tra profileType
+                var profiles = await _profileRepository.GetByUserIdAsync(userId);
+                var activeProfile = profiles.FirstOrDefault(p => !p.IsDeleted);
+                if (activeProfile == null || activeProfile.ProfileType != ProfileTypeEnum.Business)
+                {
+                    throw new UnauthorizedAccessException("Bạn không có quyền tạo team.");
+                }
 
                 // Kiểm tra tên team đã tồn tại chưa
                 var existingTeam = await _teamRepository.ExistsByNameAndVendorAsync(request.Name, userId);
@@ -61,7 +73,9 @@ namespace AISAM.Services.Service
                         TeamId = createdTeam.Id,
                         UserId = userId,
                         Role = "Vendor",
-                        Permissions = new List<string> { },
+                        Permissions = new List<string> { "CREATE_TEAM", "UPDATE_TEAM", "DELETE_TEAM", 
+                        "LIST_TEAM_MEMBERS", "LIST_TEAM_MEMBERS_BY_ID", "ADD_MEMBER", "REMOVE_MEMBER", 
+                        "UPDATE_MEMBER_ROLE" },
                         JoinedAt = DateTime.UtcNow,
                         IsActive = true
                     };
@@ -74,8 +88,6 @@ namespace AISAM.Services.Service
                     Console.WriteLine($"Warning: Failed to create team member for user {userId} in team {createdTeam.Id}: {ex.Message}");
                 }
 
-                // Lấy thông tin user để có email
-                var user = await _userRepository.GetByIdAsync(userId);
                 var response = new TeamResponse
                 {
                     Id = createdTeam.Id,
@@ -98,10 +110,8 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserRole = await GetRoleByUserId(userId);
                 var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if ((!_rolePermissionConfig.RoleHasPermission(currentUserRole, "LIST_TEAM_MEMBERS")) &&
-                    (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "LIST_TEAM_MEMBERS")))
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "LIST_TEAM_MEMBERS"))
                     throw new UnauthorizedAccessException("Bạn không có quyền xem thông tin team.");
 
                 // Lấy thông tin team theo ID
@@ -110,7 +120,6 @@ namespace AISAM.Services.Service
                 {
                     return GenericResponse<TeamResponse>.CreateError("Không tìm thấy team với ID được cung cấp.");
                 }
-
 
                 // Lấy thông tin vendor để có email
                 var vendor = await _userRepository.GetByIdAsync(team.VendorId);
@@ -136,10 +145,8 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserRole = await GetRoleByUserId(userId);
                 var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if ((!_rolePermissionConfig.RoleHasPermission(currentUserRole, "LIST_TEAM_MEMBERS")) &&
-                    (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "LIST_TEAM_MEMBERS")))
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "LIST_TEAM_MEMBERS"))
                     throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách team.");
 
                 // Lấy danh sách teams theo vendor
@@ -175,10 +182,8 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserRole = await GetRoleByUserId(userId);
                 var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if ((!_rolePermissionConfig.RoleHasPermission(currentUserRole, "UPDATE_TEAM")) &&
-                    (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM")))
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
                     throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
 
                 // Lấy thông tin team hiện tại
@@ -229,10 +234,8 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserRole = await GetRoleByUserId(userId);
                 var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if ((!_rolePermissionConfig.RoleHasPermission(currentUserRole, "DELETE_TEAM")) &&
-                    (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "DELETE_TEAM")))
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "DELETE_TEAM"))
                     throw new UnauthorizedAccessException("Bạn không có quyền xóa team.");
 
                 // Lấy thông tin team hiện tại để kiểm tra tồn tại
@@ -253,16 +256,6 @@ namespace AISAM.Services.Service
             }
         }
 
-        
-        
-
-        private async Task<string> GetRoleByUserId(Guid userId)
-        {
-            var member = await _teamMemberRepository.GetByUserIdAsync(userId);
-            if (member == null || string.IsNullOrEmpty(member.Role))
-                return "Member"; // default role
-            return member.Role;
-        }
         private async Task<List<string>> GetPermissionsByUserId(Guid userId)
         {
             var member = await _teamMemberRepository.GetByUserIdAsync(userId);
