@@ -37,7 +37,7 @@ namespace AISAM.API.Validators
 				RuleFor(x => x.VideoUrl).Empty().WithMessage("video_url must be empty for text_only");
 			});
 
-			When(x => x.PublishImmediately, () =>
+            When(x => x.PublishImmediately, () =>
 			{
 				RuleFor(x => x.IntegrationId)
 					.NotNull().WithMessage("integrationId is required when publishImmediately is true");
@@ -72,5 +72,3 @@ namespace AISAM.API.Validators
 		}
 	}
 }
-
-

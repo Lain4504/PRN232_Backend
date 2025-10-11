@@ -35,7 +35,7 @@ namespace AISAM.API.Controllers
 
                 var result = await _contentService.CreateContentAsync(request);
                 
-                var message = request.PublishImmediately 
+                var message = request.PublishImmediately
                     ? "Tạo và đăng bài thành công" 
                     : "Tạo nội dung thành công";
 
