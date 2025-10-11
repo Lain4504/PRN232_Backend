@@ -1,14 +1,11 @@
 using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
-using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using System.Linq;
 using AISAM.Services.Helper;
 
 namespace AISAM.Services.Service
@@ -18,9 +15,7 @@ namespace AISAM.Services.Service
         private readonly IApprovalRepository _approvalRepository;
         private readonly IContentRepository _contentRepository;
         private readonly IUserRepository _userRepository;
-        private readonly INotificationRepository _notificationRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
-        private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ApprovalService> _logger;
 
@@ -28,18 +23,14 @@ namespace AISAM.Services.Service
             IApprovalRepository approvalRepository,
             IContentRepository contentRepository,
             IUserRepository userRepository,
-            INotificationRepository notificationRepository,
             ITeamMemberRepository teamMemberRepository,
-            ISubscriptionRepository subscriptionRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<ApprovalService> logger)
         {
             _approvalRepository = approvalRepository;
             _contentRepository = contentRepository;
             _userRepository = userRepository;
-            _notificationRepository = notificationRepository;
             _teamMemberRepository = teamMemberRepository;
-            _subscriptionRepository = subscriptionRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
@@ -93,15 +84,7 @@ namespace AISAM.Services.Service
                     ApprovedAt = DateTime.UtcNow
                 });
 
-                // await _notificationRepository.CreateAsync(new Notification
-                // {
-                //     UserId = brandOwnerId,
-                //     Title = "Content approved",
-                //     Message = $"Your content '{content.Title}' was auto-approved by admin",
-                //     Type = NotificationTypeEnum.SystemUpdate,
-                //     TargetId = content.Id,
-                //     TargetType = "content"
-                // });
+                // TODO: notify team members that content is approved
 
                 _logger.LogInformation("Admin {AdminId} auto-approved content {ContentId}", actorUserId, content.Id);
                 return MapToResponseDto(approval);
@@ -122,15 +105,7 @@ namespace AISAM.Services.Service
                     ApprovedAt = DateTime.UtcNow
                 });
 
-                // await _notificationRepository.CreateAsync(new Notification
-                // {
-                //     UserId = brandOwnerId,
-                //     Title = "Content approved",
-                //     Message = $"Your content '{content.Title}' was auto-approved",
-                //     Type = NotificationTypeEnum.SystemUpdate,
-                //     TargetId = content.Id,
-                //     TargetType = "content"
-                // });
+                // TODO: notify team members that content is approved
 
                 _logger.LogInformation("Owner {OwnerId} auto-approved content {ContentId}", actorUserId, content.Id);
                 return MapToResponseDto(approval);
@@ -164,15 +139,7 @@ namespace AISAM.Services.Service
                     Status = ContentStatusEnum.PendingApproval
                 });
 
-                // await _notificationRepository.CreateAsync(new Notification
-                // {
-                //     UserId = approverId,
-                //     Title = "Approval needed",
-                //     Message = $"Please review content '{content.Title}'",
-                //     Type = NotificationTypeEnum.ApprovalNeeded,
-                //     TargetId = content.Id,
-                //     TargetType = "content"
-                // });
+                // TODO: notify team members that content is approved
             }
 
             content.Status = ContentStatusEnum.PendingApproval;
@@ -207,7 +174,7 @@ namespace AISAM.Services.Service
         public async Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request, Guid actorUserId)
         {
             // Check if user has permission to manage approvals
-            var canManage = await CanUserPerformActionAsync(actorUserId, "MANAGE_APPROVALS");
+            var canManage = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL");
             if (!canManage)
             {
                 throw new UnauthorizedAccessException("You are not allowed to create approvals");
@@ -268,7 +235,7 @@ namespace AISAM.Services.Service
             }
 
             // Check if user has permission to update this approval
-            var canUpdate = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "MANAGE_APPROVALS");
+            var canUpdate = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
             if (!canUpdate)
             {
                 throw new UnauthorizedAccessException("You are not allowed to update this approval");

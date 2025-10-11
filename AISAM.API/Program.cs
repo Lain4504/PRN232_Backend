@@ -18,7 +18,6 @@ using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
-using AISAM.Services.Config;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
