@@ -33,11 +33,17 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var brand = await _brandService.GetByIdAsync(id);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var brand = await _brandService.GetByIdAsync(id, userId);
                 if (brand == null)
                     return NotFound(GenericResponse<BrandResponseDto>.CreateError("Không tìm thấy brand"));
 
                 return Ok(GenericResponse<BrandResponseDto>.CreateSuccess(brand, "Lấy brand thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to brand {BrandId}", id);
+                return StatusCode(403, GenericResponse<BrandResponseDto>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {

@@ -45,7 +45,7 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
             }
 
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "LIST_TEAM_MEMBERS_BY_ID"))
+            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "VIEW_TEAM_MEMBER_DETAILS"))
                 throw new UnauthorizedAccessException("Bạn không có quyền xem chi tiết thành viên.");
 
             var entity = await _teamMemberRepository.GetByIdAsync(id);

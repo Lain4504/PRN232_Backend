@@ -265,20 +265,43 @@ namespace AISAM.Services.Service
             return MapToResponseDto(approval);
         }
 
-        public async Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId)
+        public async Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId, Guid userId)
         {
+            // Check if user has permission to view approvals
+            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS");
+            if (!canView)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view approvals");
+            }
+
             var approval = await _approvalRepository.GetByIdAsync(approvalId);
             return approval != null ? MapToResponseDto(approval) : null;
         }
 
-        public async Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId)
+        public async Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId, Guid userId)
         {
+            // Check if user has permission to view approvals
+            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS");
+            if (!canView)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view approvals");
+            }
+
             var approvals = await _approvalRepository.GetByContentIdAsync(contentId);
             return approvals.Select(MapToResponseDto);
         }
 
-        public async Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId)
+        public async Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId, Guid userId)
         {
+            // Check if user has permission to view approvals or is the approver themselves
+            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS");
+            var isApprover = userId == approverId;
+            
+            if (!canView && !isApprover)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view approvals");
+            }
+
             var approvals = await _approvalRepository.GetByApproverIdAsync(approverId);
             return approvals.Select(MapToResponseDto);
         }
@@ -291,6 +314,16 @@ namespace AISAM.Services.Service
             bool onlyDeleted = false,
             Guid? filterByUserId = null)
         {
+            // Check if user has permission to view approvals
+            if (filterByUserId.HasValue)
+            {
+                var canView = await CanUserPerformActionAsync(filterByUserId.Value, "VIEW_APPROVALS");
+                if (!canView)
+                {
+                    throw new UnauthorizedAccessException("You are not allowed to view approvals");
+                }
+            }
+
             var (items, totalCount) = await _approvalRepository.GetPagedAsync(
                 request.Page,
                 request.PageSize,
@@ -358,10 +391,23 @@ namespace AISAM.Services.Service
             return await UpdateApprovalAsync(approvalId, updateRequest, actorUserId);
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid approvalId)
+        public async Task<bool> SoftDeleteAsync(Guid approvalId, Guid userId)
         {
             try
             {
+                // Check if user has permission to manage approvals (Admin or APPROVE_CONTENT)
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new UnauthorizedAccessException("User not found");
+                }
+
+                var canManage = user.Role == UserRoleEnum.Admin || await CanUserPerformActionAsync(userId, "APPROVE_CONTENT");
+                if (!canManage)
+                {
+                    throw new UnauthorizedAccessException("You are not allowed to delete approvals");
+                }
+
                 await _approvalRepository.DeleteAsync(approvalId);
                 _logger.LogInformation("Soft deleted approval {ApprovalId}", approvalId);
                 return true;
@@ -373,10 +419,23 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<bool> RestoreAsync(Guid approvalId)
+        public async Task<bool> RestoreAsync(Guid approvalId, Guid userId)
         {
             try
             {
+                // Check if user has permission to manage approvals (Admin or APPROVE_CONTENT)
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new UnauthorizedAccessException("User not found");
+                }
+
+                var canManage = user.Role == UserRoleEnum.Admin || await CanUserPerformActionAsync(userId, "APPROVE_CONTENT");
+                if (!canManage)
+                {
+                    throw new UnauthorizedAccessException("You are not allowed to restore approvals");
+                }
+
                 await _approvalRepository.RestoreAsync(approvalId);
                 _logger.LogInformation("Restored approval {ApprovalId}", approvalId);
                 return true;

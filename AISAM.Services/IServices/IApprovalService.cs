@@ -28,17 +28,17 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Get approval by ID
         /// </summary>
-        Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId);
+        Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId, Guid userId);
         
         /// <summary>
         /// Get all approvals for a content
         /// </summary>
-        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId);
+        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId, Guid userId);
         
         /// <summary>
         /// Get all approvals assigned to an approver
         /// </summary>
-        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId);
+        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId, Guid userId);
         
         /// <summary>
         /// Get paged approvals with filters
@@ -64,12 +64,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Soft delete approval
         /// </summary>
-        Task<bool> SoftDeleteAsync(Guid approvalId);
+        Task<bool> SoftDeleteAsync(Guid approvalId, Guid userId);
         
         /// <summary>
         /// Restore soft-deleted approval
         /// </summary>
-        Task<bool> RestoreAsync(Guid approvalId);
+        Task<bool> RestoreAsync(Guid approvalId, Guid userId);
         
         /// <summary>
         /// Check if content has pending approval

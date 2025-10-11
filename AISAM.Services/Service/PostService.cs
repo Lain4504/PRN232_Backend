@@ -5,6 +5,7 @@ using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 
 namespace AISAM.Services.Service
@@ -18,6 +19,9 @@ namespace AISAM.Services.Service
         private readonly IContentCalendarRepository _calendarRepository;
         private readonly INotificationRepository _notificationRepository;
         private readonly IBrandRepository _brandRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly IEnumerable<IProviderService> _providers;
         private readonly ILogger<PostService> _logger;
 
@@ -29,6 +33,9 @@ namespace AISAM.Services.Service
             IContentCalendarRepository calendarRepository,
             INotificationRepository notificationRepository,
             IBrandRepository brandRepository,
+            ITeamMemberRepository teamMemberRepository,
+            IUserRepository userRepository,
+            RolePermissionConfig rolePermissionConfig,
             IEnumerable<IProviderService> providers,
             ILogger<PostService> logger)
         {
@@ -39,12 +46,22 @@ namespace AISAM.Services.Service
             _calendarRepository = calendarRepository;
             _notificationRepository = notificationRepository;
             _brandRepository = brandRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _userRepository = userRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _providers = providers;
             _logger = logger;
         }
 
         public async Task<PagedResult<PostListItemDto>> GetPostsAsync(Guid requesterId, Guid? brandId, int page, int pageSize, ContentStatusEnum? status = null)
         {
+            // Check if user has permission to view posts
+            var canView = await CanUserPerformActionAsync(requesterId, "VIEW_POSTS", brandId);
+            if (!canView)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view posts");
+            }
+
             var posts = await _postRepository.GetPagedAsync(brandId, requesterId, page, pageSize, includeDeleted: false, status);
             return new PagedResult<PostListItemDto>
             {
@@ -75,9 +92,12 @@ namespace AISAM.Services.Service
 
             var brand = await _brandRepository.GetByIdAsync(post.Content.BrandId)
                 ?? throw new ArgumentException("Thương hiệu không tồn tại");
-            if (brand.UserId != requesterId)
+
+            // Check if user has permission to view this post
+            var canView = await CanUserPerformActionAsync(requesterId, "VIEW_POSTS", brand.Id);
+            if (!canView)
             {
-                throw new UnauthorizedAccessException("Bạn không có quyền");
+                throw new UnauthorizedAccessException("Bạn không có quyền xem bài viết này");
             }
 
             return new PostListItemDto
@@ -110,9 +130,12 @@ namespace AISAM.Services.Service
 
             var brand = await _brandRepository.GetByIdAsync(post.Content.BrandId)
                 ?? throw new ArgumentException("Thương hiệu không tồn tại");
-            if (!isAdminOverride && brand.UserId != requesterId)
+
+            // Check if user has permission to delete this post
+            var canDelete = isAdminOverride || await CanUserPerformActionAsync(requesterId, "DELETE_POST", brand.Id);
+            if (!canDelete)
             {
-                throw new UnauthorizedAccessException("Bạn không có quyền");
+                throw new UnauthorizedAccessException("Bạn không có quyền xóa bài viết này");
             }
 
             // If already published with external id, try platform delete; otherwise soft delete
@@ -165,6 +188,54 @@ namespace AISAM.Services.Service
                 CreatedAt = DateTime.UtcNow
             };
             await _notificationRepository.CreateAsync(noti);
+        }
+
+        /// <summary>
+        /// Check if user can perform action with required permission
+        /// </summary>
+        private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission, Guid? brandId = null)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            // Admin users have all permissions
+            if (user.Role == UserRoleEnum.Admin)
+            {
+                return true;
+            }
+
+            // If brandId is provided, check if user is brand owner or team member
+            if (brandId.HasValue)
+            {
+                var brand = await _brandRepository.GetByIdAsync(brandId.Value);
+                if (brand == null) return false;
+
+                // User is brand owner
+                if (brand.UserId == userId)
+                {
+                    return true;
+                }
+
+                // Check if user is team member of brand owner with required permission
+                var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+                if (teamMember == null) return false;
+
+                // Check if team member belongs to the brand owner's vendor
+                if (teamMember.Team.VendorId != brand.UserId) return false;
+
+                // Check if team member has required permission
+                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
+            }
+
+            // Check team member's actual permissions (not role-based)
+            var userTeamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            if (userTeamMember != null)
+            {
+                // Only check the actual permissions assigned to this team member
+                return _rolePermissionConfig.HasCustomPermission(userTeamMember.Permissions, permission);
+            }
+
+            return false;
         }
 
         public async Task<IEnumerable<PostListItemDto>> GetAllPostsAsync()

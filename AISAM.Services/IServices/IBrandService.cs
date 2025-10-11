@@ -9,7 +9,7 @@ namespace AISAM.Services.IServices
     {
         Task<PagedResult<BrandResponseDto>> GetPagedByUserIdAsync(Guid userId, PaginationRequest request);
 
-        Task<BrandResponseDto?> GetByIdAsync(Guid id);
+        Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid userId);
 
         Task<BrandResponseDto> CreateAsync(Guid userId, CreateBrandRequest dto);
 

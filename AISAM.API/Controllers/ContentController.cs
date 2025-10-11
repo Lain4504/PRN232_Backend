@@ -99,7 +99,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var result = await _contentService.PublishContentAsync(contentId, integrationId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.PublishContentAsync(contentId, integrationId, userId);
                 
                 var message = result.Success 
                     ? "Đăng bài thành công" 
@@ -172,7 +173,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var content = await _contentService.GetContentByIdAsync(contentId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var content = await _contentService.GetContentByIdAsync(contentId, userId);
                 
                 if (content == null)
                 {
@@ -180,6 +182,11 @@ namespace AISAM.API.Controllers
                 }
 
                 return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(content, "Lấy thông tin nội dung thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to content {ContentId}", contentId);
+                return StatusCode(403, GenericResponse<ContentResponseDto>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {

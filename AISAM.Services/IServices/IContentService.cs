@@ -16,12 +16,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Publish existing content to social integration
         /// </summary>
-        Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId);
+        Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId, Guid userId);
         
         /// <summary>
         /// Get content by ID
         /// </summary>
-        Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId);
+        Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId, Guid userId);
         
 
         /// <summary>
