@@ -70,6 +70,15 @@ namespace AISAM.Services.Helper
             _logger.LogInformation("Loaded {Count} permission descriptions from team_permissions.json", _permissionDescriptions.Count);
         }
 
+        public bool HasCustomPermission(List<string> customPermissions, string permission)
+        {
+            if (customPermissions == null || !customPermissions.Any() || string.IsNullOrEmpty(permission))
+            {
+                return false;
+            }
+
+            return customPermissions.Any(p => string.Equals(p, permission.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
         public bool RoleHasPermission(string role, string permission)
         {
             if (string.IsNullOrEmpty(role) || string.IsNullOrEmpty(permission))

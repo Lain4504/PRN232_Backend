@@ -1,5 +1,4 @@
-﻿using AISAM.Common.Dtos.Request;
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace AISAM.Common.Validators
 {
