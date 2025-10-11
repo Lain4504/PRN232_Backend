@@ -16,6 +16,9 @@ using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using AISAM.Repositories.Repositories;
+using Npgsql;
+using AISAM.Services.Config;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -103,8 +106,20 @@ if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supaba
 
 // Add Entity Framework - Supabase Postgres via Npgsql
 // Expect connection string from env or appsettings ConnectionStrings:DefaultConnection (Supabase URI)
+// ✅ Thay vì dùng connection string trực tiếp, ta dùng NpgsqlDataSourceBuilder
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(
+    builder.Configuration.GetConnectionString("DefaultConnection")
+);
+
+// 👇 Thêm dòng này để bật dynamic JSON serialization
+dataSourceBuilder.EnableDynamicJson();
+
+var dataSource = dataSourceBuilder.Build();
+
+// ✅ Đăng ký DbContext với data source vừa tạo
 builder.Services.AddDbContext<AisamContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(dataSource)
+);
 
 // Add HTTP Client for API calls
 builder.Services.AddHttpClient();
@@ -117,6 +132,7 @@ builder.Services.AddScoped<IContentRepository, ContentRepository>();
 builder.Services.AddScoped<IAiGenerationRepository, AiGenerationRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
+builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IBrandRepository, BrandRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IContentCalendarRepository, ContentCalendarRepository>();
@@ -126,16 +142,19 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
-builder.Services.AddScoped<AISAM.Services.IServices.IAIService, AISAM.Services.Service.AIService>();
+builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
+
+builder.Services.AddSingleton<RolePermissionConfig>();
 
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 
@@ -190,21 +209,15 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.SuppressModelStateInvalidFilter = true;
 });
 
-// Add CORS policy (supports credentials and specific origins)
-var configuredOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>() ?? Array.Empty<string>();
+var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+var configuredOrigins = Array.Empty<string>();
 
-// Fallback to env var CORS_ALLOWED_ORIGINS (comma-separated) if config is empty
-if (configuredOrigins.Length == 0)
+if (!string.IsNullOrWhiteSpace(corsEnv))
 {
-    var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
-    if (!string.IsNullOrWhiteSpace(corsEnv))
-    {
-        configuredOrigins = corsEnv
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    }
+    configuredOrigins = corsEnv
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
+
 
 builder.Services.AddCors(options =>
 {

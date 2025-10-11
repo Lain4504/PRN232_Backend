@@ -24,7 +24,7 @@ namespace AISAM.Data.Model
         public string Role { get; set; } = string.Empty;
 
         [Column("permissions", TypeName = "jsonb")]
-        public string Permissions { get; set; } = "{}"; // JSON permissions
+        public List<string> Permissions { get; set; } = new(); // JSON permissions
 
         [Column("joined_at")]
         public DateTime JoinedAt { get; set; } = DateTime.UtcNow;

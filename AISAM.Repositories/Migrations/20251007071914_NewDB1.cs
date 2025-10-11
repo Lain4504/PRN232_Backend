@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AISAM.Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class NewDB : Migration
+    public partial class NewDB1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -250,7 +251,7 @@ namespace AISAM.Repositories.Migrations
                     team_id = table.Column<Guid>(type: "uuid", nullable: false),
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     role = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    permissions = table.Column<string>(type: "jsonb", nullable: false),
+                    permissions = table.Column<List<string>>(type: "jsonb", nullable: false),
                     joined_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false)
                 },

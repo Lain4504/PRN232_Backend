@@ -1,0 +1,15 @@
+{
+  "CREATE_TEAM": "Tạo team mới",
+  "UPDATE_TEAM": "Cập nhật thông tin team",
+  "DELETE_TEAM": "Xóa team",
+  "LIST_TEAM_MEMBERS": "Xem danh sách thành viên trong team",
+  "LIST_TEAM_MEMBERS_BY_ID": "Xem chi tiết thành viên trong team",
+  "ADD_MEMBER": "Thêm thành viên vào team",
+  "REMOVE_MEMBER": "Xóa thành viên khỏi team",
+  "UPDATE_MEMBER_ROLE": "Cập nhật vai trò hoặc quyền của thành viên",
+  "ASSIGN_TASK": "Giao nhiệm vụ cho thành viên khác",
+  "VIEW_TEAM_ANALYTICS": "Xem thống kê team",
+  "INVITE_MEMBER": "Mời thành viên mới tham gia",
+  "APPROVE_JOIN_REQUEST": "Duyệt yêu cầu tham gia team",
+  "LEAVE_TEAM": "Rời khỏi team"
+}
