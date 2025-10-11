@@ -1,6 +1,9 @@
 using AISAM.Common.DTOs.Request;
 using AISAM.Common.DTOs.Response;
 using AISAM.Common;
+using AISAM.Common.Dtos;
+using AISAM.Common.Dtos.Request;
+using AISAM.Common.Dtos.Response;
 
 namespace AISAM.Services.IServices
 {
@@ -11,5 +14,6 @@ namespace AISAM.Services.IServices
         Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByVendorAsync(Guid vendorId, Guid userId);
         Task<GenericResponse<TeamResponse>> UpdateTeamAsync(Guid id, CreateTeamRequest request, Guid userId);
         Task<GenericResponse<bool>> DeleteTeamAsync(Guid id, Guid userId);
+        Task<GenericResponse<IEnumerable<TeamMemberResponseDto>>> GetTeamMembersAsync(Guid teamId, Guid userId);
     }
 }

@@ -59,5 +59,6 @@ namespace AISAM.Data.Model
         public virtual ICollection<Content> Contents { get; set; } = new List<Content>();
         public virtual ICollection<SocialIntegration> SocialIntegrations { get; set; } = new List<SocialIntegration>();
         public virtual ICollection<AdCampaign> AdCampaigns { get; set; } = new List<AdCampaign>();
+        public virtual ICollection<TeamBrand> TeamBrands { get; set; } = new List<TeamBrand>();
     }
 }
