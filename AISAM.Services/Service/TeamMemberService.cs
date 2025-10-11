@@ -40,7 +40,12 @@ namespace AISAM.Services.Service
         {
             var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
 
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember?.Permissions, "LIST_TEAM_MEMBERS_BY_ID"))
+            if (currentUserMember == null)
+            {
+                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+            }
+
+            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "LIST_TEAM_MEMBERS_BY_ID"))
                 throw new UnauthorizedAccessException("Bạn không có quyền xem chi tiết thành viên.");
 
             var entity = await _teamMemberRepository.GetByIdAsync(id);
@@ -51,7 +56,12 @@ namespace AISAM.Services.Service
         {
             var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
 
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember?.Permissions, "ADD_MEMBER"))
+            if (currentUserMember == null)
+            {
+                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+            }
+
+            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "ADD_MEMBER"))
                 throw new InvalidOperationException("Bạn không có quyền thêm thành viên.");
 
             if (!await _teamMemberRepository.TeamExistsAsync(request.TeamId))
@@ -85,8 +95,13 @@ namespace AISAM.Services.Service
         public async Task<TeamMemberResponseDto?> UpdateAsync(Guid id, TeamMemberUpdateRequest request, Guid userId)
         {
             var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            
+            if (currentUserMember == null)
+            {
+                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+            }
 
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember?.Permissions, "UPDATE_MEMBER_ROLE"))
+            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "UPDATE_MEMBER_ROLE"))
                 throw new UnauthorizedAccessException("Bạn không có quyền cập nhật thành viên.");
 
             var entity = await _teamMemberRepository.GetByIdAsync(id);
@@ -122,8 +137,13 @@ namespace AISAM.Services.Service
         public async Task<bool> DeleteAsync(Guid id, Guid userId)
         {
             var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            
+            if (currentUserMember == null)
+            {
+                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+            }
 
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember?.Permissions, "REMOVE_MEMBER"))
+            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "REMOVE_MEMBER"))
                 throw new UnauthorizedAccessException("Bạn không có quyền xóa thành viên.");
 
             var result = await _teamMemberRepository.DeleteAsync(id);

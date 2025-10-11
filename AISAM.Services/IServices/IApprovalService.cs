@@ -10,6 +10,10 @@ namespace AISAM.Services.IServices
     {
         // Content approval flow additions
         Task<ApprovalResponseDto> SubmitForApprovalAsync(Guid contentId, Guid actorUserId);
+        
+        /// <summary>
+        /// Get pending approvals assigned to a user with pagination
+        /// </summary>
         Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorUserId);
         /// <summary>
         /// Create new approval request

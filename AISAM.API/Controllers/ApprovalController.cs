@@ -3,11 +3,8 @@ using AISAM.Common;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
-using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using Microsoft.AspNetCore.Authorization;
-using AISAM.Repositories.IRepositories;
-using System.Security.Claims;
 using AISAM.Common.Dtos;
 using AISAM.API.Utils;
 

@@ -13,8 +13,7 @@
       "SUBMIT_FOR_APPROVAL",
       "APPROVE_CONTENT",
       "REJECT_CONTENT",
-      "VIEW_APPROVALS",
-      "MANAGE_APPROVALS"
+      "VIEW_APPROVALS"
     ]
   },
   "TeamLeader": {
