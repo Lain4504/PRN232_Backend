@@ -12,7 +12,7 @@ using AISAM.API.Utils;
 namespace AISAM.API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/team")]
     [Authorize]
     public class TeamController : ControllerBase
     {
@@ -29,11 +29,6 @@ namespace AISAM.API.Controllers
         [HttpPost]
         public async Task<ActionResult<GenericResponse<TeamResponse>>> CreateTeam([FromBody] CreateTeamRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(GenericResponse<TeamResponse>.CreateError("Dữ liệu không hợp lệ"));
-            }
-
             var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
@@ -100,11 +95,6 @@ namespace AISAM.API.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<GenericResponse<TeamResponse>>> UpdateTeam(Guid id, [FromBody] CreateTeamRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(GenericResponse<TeamResponse>.CreateError("Dữ liệu không hợp lệ"));
-            }
-
             var userId = UserClaimsHelper.GetUserIdOrThrow(User);       
             if (userId == Guid.Empty)
             {
