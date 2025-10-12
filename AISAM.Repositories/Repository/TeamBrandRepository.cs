@@ -38,6 +38,12 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
+        public async Task<TeamBrand?> GetByTeamAndBrandAsync(Guid teamId, Guid brandId)
+        {
+            return await _context.TeamBrands
+                .FirstOrDefaultAsync(tb => tb.TeamId == teamId && tb.BrandId == brandId && tb.IsActive);
+        }
+
         public async Task<bool> DeleteAsync(Guid teamId, Guid brandId)
         {
             var teamBrand = await _context.TeamBrands
@@ -100,6 +106,12 @@ namespace AISAM.Repositories.Repository
 
             await _context.SaveChangesAsync();
             return teamBrands.Count;
+        }
+
+        public async Task UpdateAsync(TeamBrand teamBrand)
+        {
+            _context.TeamBrands.Update(teamBrand);
+            await _context.SaveChangesAsync();
         }
     }
 }
