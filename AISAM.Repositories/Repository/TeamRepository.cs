@@ -25,7 +25,7 @@ namespace AISAM.Repositories.Repositories
             return await _context.Teams
                 .Include(t => t.Vendor)
                 .Include(t => t.TeamMembers)
-                .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+                .FirstOrDefaultAsync(t => t.Id == id);
         }
 
         public async Task<IEnumerable<Team>> GetByVendorIdAsync(Guid vendorId, Guid userId)
@@ -33,7 +33,7 @@ namespace AISAM.Repositories.Repositories
             return await _context.Teams
                 .Include(t => t.Vendor)
                 .Include(t => t.TeamMembers)
-                .Where(t => t.VendorId == vendorId && !t.IsDeleted)
+                .Where(t => t.VendorId == vendorId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
         }
