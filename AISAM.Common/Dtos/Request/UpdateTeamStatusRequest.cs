@@ -1,6 +1,6 @@
 using AISAM.Data.Enumeration;
 
-namespace AISAM.Common.DTOs.Request
+namespace AISAM.Common.Dtos.Request
 {
     public class UpdateTeamStatusRequest
     {

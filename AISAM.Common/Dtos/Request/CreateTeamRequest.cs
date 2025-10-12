@@ -1,4 +1,4 @@
-namespace AISAM.Common.DTOs.Request
+namespace AISAM.Common.Dtos.Request
 {
     public class CreateTeamRequest
     {
