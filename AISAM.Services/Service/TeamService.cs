@@ -1,5 +1,5 @@
-using AISAM.Common.DTOs.Request;
-using AISAM.Common.DTOs.Response;
+using AISAM.Common.Dtos.Request;
+using AISAM.Common.Dtos.Response;
 using AISAM.Common;
 using AISAM.Data.Model;
 using AISAM.Data.Enumeration;

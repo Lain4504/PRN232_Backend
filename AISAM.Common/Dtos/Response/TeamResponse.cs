@@ -1,4 +1,4 @@
-namespace AISAM.Common.DTOs.Response
+namespace AISAM.Common.Dtos.Response
 {
     public class TeamResponse
     {
