@@ -1,12 +1,10 @@
 using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
-using AISAM.Common.Models;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Services.Helper;
-using System;
 
 namespace AISAM.Services.Service
 {
@@ -69,8 +67,11 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("User not found.");
 
             // Kiểm tra Profile tồn tại nếu có ProfileId
-            if (dto.ProfileId.HasValue && !await _profileRepository.ExistsAsync(dto.ProfileId.Value))
-                throw new ArgumentException("Profile not found.");
+            if (dto.ProfileId.HasValue)
+            {
+                if (!await _profileRepository.ExistsAsync(dto.ProfileId.Value))
+                    throw new ArgumentException("Profile not found.");
+            }
 
             var brand = new Brand
             {
@@ -82,7 +83,7 @@ namespace AISAM.Services.Service
                 Slogan = dto.Slogan,
                 Usp = dto.Usp,
                 TargetAudience = dto.TargetAudience,
-                ProfileId = dto.ProfileId,
+                ProfileId = dto.ProfileId ?? null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -107,9 +108,12 @@ namespace AISAM.Services.Service
             }
 
             // Kiểm tra Profile tồn tại nếu có ProfileId mới
-            if (dto.ProfileId.HasValue && !await _profileRepository.ExistsAsync(dto.ProfileId.Value))
-                throw new ArgumentException("Profile not found.");
-
+            if (dto.ProfileId.HasValue)
+            {
+                if (!await _profileRepository.ExistsAsync(dto.ProfileId.Value))
+                    throw new ArgumentException("Profile not found.");
+            }
+            // Cập nhật các trường nếu có trong DTO
             if (!string.IsNullOrWhiteSpace(dto.Name))
                 brand.Name = dto.Name;
 

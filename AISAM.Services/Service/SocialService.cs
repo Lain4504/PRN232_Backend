@@ -16,7 +16,6 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
-        private readonly FacebookSettings _facebookSettings;
         private readonly FrontendSettings _frontendSettings;
 
         public SocialService(
@@ -25,7 +24,6 @@ namespace AISAM.Services.Service
             IUserRepository userRepository,
             ILogger<SocialService> logger,
             IEnumerable<IProviderService> providers,
-            IOptions<FacebookSettings> facebookSettings,
             IOptions<FrontendSettings> frontendSettings)
         {
             _socialAccountRepository = socialAccountRepository;
@@ -33,7 +31,6 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
-            _facebookSettings = facebookSettings.Value;
             _frontendSettings = frontendSettings.Value;
         }
 
@@ -88,6 +85,7 @@ namespace AISAM.Services.Service
                 Platform = platform,
                 AccountId = accountData.ProviderUserId,
                 UserAccessToken = accountData.AccessToken,
+                RefreshToken = accountData.RefreshToken,
                 ExpiresAt = accountData.ExpiresAt,
                 IsActive = true
             };
@@ -179,10 +177,6 @@ namespace AISAM.Services.Service
             // Verify brand exists and belongs to user
             //var brandId = _brandRepository.findyByIdAndUserId(request.BrandId, account.UserId);
             var brandId = request.BrandId;
-            if (brandId == null)
-            {
-                throw new ArgumentException("Brand not found or does not belong to user");
-            }
             try
             {
                 var available = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
@@ -190,11 +184,12 @@ namespace AISAM.Services.Service
                 var selected = available.Where(t => selectedSet.Contains(t.ProviderTargetId));
 
                 // Get page access tokens for selected targets
+                var availableTargetDtos = selected as AvailableTargetDto[] ?? selected.ToArray();
                 var targetAccessTokens = await providerService.GetTargetAccessTokensAsync(
                     account.UserAccessToken,
-                    selected.Select(t => t.ProviderTargetId));
+                    availableTargetDtos.Select(t => t.ProviderTargetId));
 
-                foreach (var targetDto in selected)
+                foreach (var targetDto in availableTargetDtos)
                 {
                     var existingIntegration =
                         await _socialIntegrationRepository.GetByExternalIdAsync(targetDto.ProviderTargetId);
@@ -227,6 +222,10 @@ namespace AISAM.Services.Service
                 }
 
                 var reloaded = await _socialAccountRepository.GetByIdWithIntegrationsAsync(account.Id);
+                if (reloaded == null)
+                {
+                    throw new InvalidOperationException("Failed to reload social account after linking targets");
+                }
                 return MapToDto(reloaded);
             } 
             catch (Exception ex) when (!(ex is ArgumentException || ex is InvalidOperationException))
@@ -265,13 +264,6 @@ namespace AISAM.Services.Service
             return $"{_frontendSettings.BaseUrl}/social-callback/{provider}";
         }
 
-        private string AppendUserIdQuery(string uri, Guid userId)
-        {
-            if (string.IsNullOrWhiteSpace(uri)) return uri;
-            var separator = uri.Contains("?") ? "&" : "?";
-            return $"{uri}{separator}userId={Uri.EscapeDataString(userId.ToString())}";
-        }
-
         private SocialPlatformEnum ParseProviderToEnum(string provider)
         {
             return provider.ToLower() switch
@@ -293,6 +285,7 @@ namespace AISAM.Services.Service
                 Provider = account.Platform.ToString().ToLower(),
                 ProviderUserId = account.AccountId ?? string.Empty,
                 AccessToken = account.UserAccessToken,
+                RefreshToken = account.RefreshToken,
                 IsActive = account.IsActive,
                 ExpiresAt = account.ExpiresAt,
                 CreatedAt = account.CreatedAt,

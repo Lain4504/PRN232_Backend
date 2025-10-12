@@ -43,6 +43,18 @@ if (!string.IsNullOrEmpty(facebookAppSecret))
     builder.Configuration["FacebookSettings:AppSecret"] = facebookAppSecret;
 }
 
+var tiktokClientKey = Environment.GetEnvironmentVariable("TIKTOK_CLIENT_KEY");
+if (!string.IsNullOrEmpty(tiktokClientKey))
+{
+    builder.Configuration["TikTokSettings:ClientKey"] = tiktokClientKey;
+}
+
+var tiktokClientSecret = Environment.GetEnvironmentVariable("TIKTOK_CLIENT_SECRET");
+if (!string.IsNullOrEmpty(tiktokClientSecret))
+{
+    builder.Configuration["TikTokSettings:ClientSecret"] = tiktokClientSecret;
+}
+
 var geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 if (!string.IsNullOrEmpty(geminiApiKey))
 {
@@ -74,6 +86,10 @@ builder.Services.AddFluentValidationClientsideAdapters();
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
+
+// Configure TikTok Settings
+builder.Services.Configure<TikTokSettings>(
+    builder.Configuration.GetSection("TikTokSettings"));
 
 // Configure Frontend Settings
 builder.Services.Configure<FrontendSettings>(
@@ -153,6 +169,7 @@ builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
+builder.Services.AddScoped<IProviderService, TikTokProvider>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
 

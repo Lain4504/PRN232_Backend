@@ -38,11 +38,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                Guid? userId = null;
-                if (UserClaimsHelper.TryGetUserId(User, out var parsed))
-                {
-                    userId = parsed;
-                }
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var result = await _socialService.GetAuthUrlAsync(provider, state, userId);
                 return Ok(new GenericResponse<AuthUrlResponse>
@@ -83,7 +79,7 @@ namespace AISAM.API.Controllers
             try
             {
                 // Validate request
-                if (request == null || request.UserId == Guid.Empty)
+                if (request.UserId == Guid.Empty)
                 {
                     return BadRequest(GenericResponse<object>.CreateError(
                         "Invalid request data", 

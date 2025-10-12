@@ -4,7 +4,6 @@ using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
-using System.Linq;
 using AISAM.Data.Model;
 
 namespace AISAM.Services.Service
@@ -26,7 +25,7 @@ namespace AISAM.Services.Service
 
         public Task<string> GetAuthUrlAsync(string state, string redirectUri)
         {
-            var permissions = string.Join(",", _settings.RequiredPermissions?.Distinct() ?? Enumerable.Empty<string>());
+            var permissions = string.Join(",", _settings.RequiredPermissions.Distinct());
             var authUrl = $"{_settings.OAuthUrl}/{_settings.GraphApiVersion}/dialog/oauth?" +
                          $"client_id={_settings.AppId}" +
                          $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
@@ -140,7 +139,7 @@ namespace AISAM.Services.Service
                 return pagesData.Data.Select(page => new AvailableTargetDto
                 {
                     ProviderTargetId = page.Id,
-                    Name = page.Name ?? "",
+                    Name = page.Name,
                     Type = "page",
                     Category = page.Category,
                     ProfilePictureUrl = page.Picture?.Data?.Url,
@@ -207,14 +206,14 @@ namespace AISAM.Services.Service
 
                     var formContent = new FormUrlEncodedContent(postData);
                     var response = await _httpClient.PostAsync(publishUrl, formContent);
-                    var body = await response.Content.ReadAsStringAsync();
-                    return (response.IsSuccessStatusCode, body);
+                    var readAsStringAsync = await response.Content.ReadAsStringAsync();
+                    return (response.IsSuccessStatusCode, readAsStringAsync);
                 }
 
                 // If multiple images, upload each as unpublished photo and attach
                 if (post.ImageUrls != null && post.ImageUrls.Count > 1)
                 {
-                    var accessTokenForMedia = integration.AccessToken ?? account.UserAccessToken;
+                    var accessTokenForMedia = integration.AccessToken;
                     var uploadedMediaIds = new List<string>();
                     foreach (var imageUrl in post.ImageUrls)
                     {
@@ -271,7 +270,7 @@ namespace AISAM.Services.Service
                     {
                         ["file_url"] = post.VideoUrl,
                         ["description"] = post.Message,
-                        ["access_token"] = integration.AccessToken ?? account.UserAccessToken
+                        ["access_token"] = integration.AccessToken
                     };
                     var videoResp = await _httpClient.PostAsync(videosUrl, new FormUrlEncodedContent(videoData));
                     var videoBody = await videoResp.Content.ReadAsStringAsync();
@@ -285,7 +284,7 @@ namespace AISAM.Services.Service
                 }
 
                 // 1) Try with existing integration token or account token for text/single-image
-                var initialToken = integration.AccessToken ?? account.UserAccessToken;
+                var initialToken = integration.AccessToken;
                 var (ok, body) = await TryPublishAsync(initialToken);
                 if (ok)
                 {
