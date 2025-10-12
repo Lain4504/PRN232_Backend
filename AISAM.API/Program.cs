@@ -70,7 +70,6 @@ builder.Services.AddControllers(options =>
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
-builder.Services.AddValidatorsFromAssemblyContaining<CreateTeamRequestValidator>();
 
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(

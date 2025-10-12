@@ -8,7 +8,6 @@ using AISAM.Services.IServices;
 using AISAM.Services.Helper;
 using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Response;
-
 namespace AISAM.Services.Service
 {
     public class TeamService : ITeamService
@@ -74,9 +73,7 @@ namespace AISAM.Services.Service
                         TeamId = createdTeam.Id,
                         UserId = userId,
                         Role = "Vendor",
-                        Permissions = new List<string> { "CREATE_TEAM", "UPDATE_TEAM", "DELETE_TEAM", 
-                        "VIEW_TEAM_MEMBERS", "VIEW_TEAM_MEMBER_DETAILS", "ADD_MEMBER", "REMOVE_MEMBER", 
-                        "UPDATE_MEMBER_ROLE" },
+                        Permissions = _rolePermissionConfig.GetPermissionsByRole("Vendor"),
                         JoinedAt = DateTime.UtcNow,
                         IsActive = true
                     };
