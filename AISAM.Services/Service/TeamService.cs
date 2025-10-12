@@ -397,6 +397,86 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<GenericResponse<bool>> UpdateTeamStatusAsync(Guid id, UpdateTeamStatusRequest request, Guid userId)
+        {
+            try
+            {
+                var currentUserPermissions = await GetPermissionsByUserId(userId);
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
+                    throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
+
+                // Lấy thông tin team hiện tại
+                var existingTeam = await _teamRepository.GetByIdAsync(id);
+                if (existingTeam == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy team để cập nhật.");
+                }
+
+                // Kiểm tra team đã bị xóa mềm chưa
+                if (existingTeam.IsDeleted)
+                {
+                    return GenericResponse<bool>.CreateError("Không thể cập nhật trạng thái của team đã bị xóa.");
+                }
+
+                // Cập nhật status
+                existingTeam.Status = request.Status;
+                await _teamRepository.UpdateAsync(existingTeam);
+
+                return GenericResponse<bool>.CreateSuccess(true, "Cập nhật trạng thái team thành công");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi cập nhật trạng thái team: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<bool>> RestoreTeamAsync(Guid id, Guid userId)
+        {
+            try
+            {
+                var currentUserPermissions = await GetPermissionsByUserId(userId);
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
+                    throw new UnauthorizedAccessException("Bạn không có quyền khôi phục team.");
+
+                // Lấy thông tin team hiện tại (bao gồm cả đã bị xóa mềm)
+                var existingTeam = await _teamRepository.GetByIdAsync(id);
+                if (existingTeam == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy team để khôi phục.");
+                }
+
+                // Kiểm tra team đã bị xóa mềm chưa
+                if (!existingTeam.IsDeleted)
+                {
+                    return GenericResponse<bool>.CreateError("Team chưa bị xóa, không cần khôi phục.");
+                }
+
+                // Khôi phục team và các thành phần liên quan
+                existingTeam.IsDeleted = false;
+                await _teamRepository.UpdateAsync(existingTeam);
+
+                // Khôi phục tất cả team members
+                var restoredMembersCount = await _teamMemberRepository.RestoreByTeamIdAsync(id);
+                if (restoredMembersCount > 0)
+                {
+                    Console.WriteLine($"Restored {restoredMembersCount} team members for team {id}");
+                }
+
+                // Khôi phục tất cả team brand associations
+                var restoredBrandsCount = await _teamBrandRepository.RestoreByTeamIdAsync(id);
+                if (restoredBrandsCount > 0)
+                {
+                    Console.WriteLine($"Restored {restoredBrandsCount} team brand associations for team {id}");
+                }
+
+                return GenericResponse<bool>.CreateSuccess(true, "Khôi phục team thành công");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi khôi phục team: {ex.Message}");
+            }
+        }
+
         private async Task<List<string>> GetPermissionsByUserId(Guid userId)
         {
             var member = await _teamMemberRepository.GetByUserIdAsync(userId);

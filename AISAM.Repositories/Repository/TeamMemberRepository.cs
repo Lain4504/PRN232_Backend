@@ -135,6 +135,25 @@ namespace AISAM.Repositories.Repositories
             return teamMembers.Count;
         }
 
+        public async Task<int> RestoreByTeamIdAsync(Guid teamId)
+        {
+            var teamMembers = await _context.TeamMembers
+                .Where(tm => tm.TeamId == teamId && !tm.IsActive)
+                .ToListAsync();
+
+            if (!teamMembers.Any())
+                return 0;
+
+            // Restore all team members by setting IsActive = true
+            foreach (var member in teamMembers)
+            {
+                member.IsActive = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return teamMembers.Count;
+        }
+
         public async Task<bool> TeamExistsAsync(Guid teamId) =>
             await _context.Teams.AnyAsync(x => x.Id == teamId);
 
