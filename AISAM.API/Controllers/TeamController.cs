@@ -176,5 +176,49 @@ namespace AISAM.API.Controllers
 
             return BadRequest(result);
         }
+
+        /// <summary>
+        /// Cập nhật trạng thái team
+        /// </summary>
+        [HttpPatch("{id}/status")]
+        public async Task<ActionResult<GenericResponse<bool>>> UpdateTeamStatus(Guid id, [FromBody] UpdateTeamStatusRequest request)
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.UpdateTeamStatusAsync(id, request, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Khôi phục team đã bị xóa mềm
+        /// </summary>
+        [HttpPost("{id}/restore")]
+        public async Task<ActionResult<GenericResponse<bool>>> RestoreTeam(Guid id)
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.RestoreTeamAsync(id, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
     }
 }

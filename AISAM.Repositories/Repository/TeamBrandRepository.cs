@@ -108,6 +108,25 @@ namespace AISAM.Repositories.Repository
             return teamBrands.Count;
         }
 
+        public async Task<int> RestoreByTeamIdAsync(Guid teamId)
+        {
+            var teamBrands = await _context.TeamBrands
+                .Where(tb => tb.TeamId == teamId && !tb.IsActive)
+                .ToListAsync();
+
+            if (!teamBrands.Any())
+                return 0;
+
+            // Restore all team brand associations by setting IsActive = true
+            foreach (var teamBrand in teamBrands)
+            {
+                teamBrand.IsActive = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return teamBrands.Count;
+        }
+
         public async Task UpdateAsync(TeamBrand teamBrand)
         {
             _context.TeamBrands.Update(teamBrand);
