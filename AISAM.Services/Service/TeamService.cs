@@ -243,22 +243,29 @@ namespace AISAM.Services.Service
                     return GenericResponse<bool>.CreateError("Không tìm thấy team để xóa.");
                 }
 
-                // Xóa tất cả team members trước
-                var deletedMembersCount = await _teamMemberRepository.DeleteByTeamIdAsync(id);
+                // Kiểm tra team đã bị xóa mềm chưa
+                if (existingTeam.IsDeleted)
+                {
+                    return GenericResponse<bool>.CreateError("Team đã được xóa trước đó.");
+                }
+
+                // Soft delete tất cả team members trước
+                var deletedMembersCount = await _teamMemberRepository.SoftDeleteByTeamIdAsync(id);
                 if (deletedMembersCount > 0)
                 {
-                    Console.WriteLine($"Deleted {deletedMembersCount} team members for team {id}");
+                    Console.WriteLine($"Soft deleted {deletedMembersCount} team members for team {id}");
                 }
 
-                // Xóa tất cả team brand associations trước
-                var deletedBrandsCount = await _teamBrandRepository.DeleteByTeamIdAsync(id);
+                // Soft delete tất cả team brand associations trước
+                var deletedBrandsCount = await _teamBrandRepository.SoftDeleteByTeamIdAsync(id);
                 if (deletedBrandsCount > 0)
                 {
-                    Console.WriteLine($"Deleted {deletedBrandsCount} team brand associations for team {id}");
+                    Console.WriteLine($"Soft deleted {deletedBrandsCount} team brand associations for team {id}");
                 }
 
-                // Xóa team từ repository
-                await _teamRepository.DeleteAsync(id);
+                // Soft delete team từ repository
+                existingTeam.IsDeleted = true;
+                await _teamRepository.UpdateAsync(existingTeam);
 
                 return GenericResponse<bool>.CreateSuccess(true, "Xóa team thành công");
             }

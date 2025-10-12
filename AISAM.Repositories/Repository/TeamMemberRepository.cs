@@ -73,11 +73,11 @@ namespace AISAM.Repositories.Repositories
 
         // Lấy TeamMember theo Id (primary key)
         public async Task<TeamMember?> GetByIdAsync(Guid id) =>
-            await _context.TeamMembers.FindAsync(id);
+            await _context.TeamMembers.FirstOrDefaultAsync(tm => tm.Id == id && tm.IsActive);
 
         // Lấy TeamMember theo UserId
         public async Task<TeamMember?> GetByUserIdAsync(Guid userId) =>
-            await _context.TeamMembers.FirstOrDefaultAsync(tm => tm.UserId == userId);
+            await _context.TeamMembers.FirstOrDefaultAsync(tm => tm.UserId == userId && tm.IsActive);
 
         public async Task<TeamMember> AddAsync(TeamMember entity)
         {
@@ -112,6 +112,25 @@ namespace AISAM.Repositories.Repositories
 
             // Remove all team members
             _context.TeamMembers.RemoveRange(teamMembers);
+            await _context.SaveChangesAsync();
+            return teamMembers.Count;
+        }
+
+        public async Task<int> SoftDeleteByTeamIdAsync(Guid teamId)
+        {
+            var teamMembers = await _context.TeamMembers
+                .Where(tm => tm.TeamId == teamId && tm.IsActive)
+                .ToListAsync();
+
+            if (!teamMembers.Any())
+                return 0;
+
+            // Soft delete all team members by setting IsActive = false
+            foreach (var member in teamMembers)
+            {
+                member.IsActive = false;
+            }
+
             await _context.SaveChangesAsync();
             return teamMembers.Count;
         }
