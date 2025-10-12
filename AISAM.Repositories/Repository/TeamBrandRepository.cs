@@ -83,7 +83,7 @@ namespace AISAM.Repositories.Repository
             return validBrandIds.Count;
         }
 
-        public async Task<int> DeleteByTeamIdAsync(Guid teamId)
+        public async Task<int> SoftDeleteByTeamIdAsync(Guid teamId)
         {
             var teamBrands = await _context.TeamBrands
                 .Where(tb => tb.TeamId == teamId && tb.IsActive)
@@ -92,7 +92,7 @@ namespace AISAM.Repositories.Repository
             if (!teamBrands.Any())
                 return 0;
 
-            // Set IsActive to false for all team brand associations
+            // Soft delete all team brand associations by setting IsActive = false
             foreach (var teamBrand in teamBrands)
             {
                 teamBrand.IsActive = false;
