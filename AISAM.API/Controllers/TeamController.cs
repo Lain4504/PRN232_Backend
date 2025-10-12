@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using AISAM.Common.Dtos.Response;
 using AISAM.Common.Dtos.Request;
 using System.Security.Claims;
+using AISAM.API.Utils;
 
 namespace AISAM.API.Controllers
 {
@@ -33,7 +34,7 @@ namespace AISAM.API.Controllers
                 return BadRequest(GenericResponse<TeamResponse>.CreateError("Dữ liệu không hợp lệ"));
             }
 
-            var userId = GetCurrentUserId();
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
@@ -55,7 +56,7 @@ namespace AISAM.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<GenericResponse<TeamResponse>>> GetTeamById(Guid id)
         {
-            var userId = GetCurrentUserId();
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
@@ -77,7 +78,7 @@ namespace AISAM.API.Controllers
         [HttpGet("vendor/{vendorId}")]
         public async Task<ActionResult<GenericResponse<IEnumerable<TeamResponse>>>> GetTeamsByVendor(Guid vendorId)
         {
-            var userId = GetCurrentUserId();
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không thể xác thực người dùng"));
@@ -104,7 +105,7 @@ namespace AISAM.API.Controllers
                 return BadRequest(GenericResponse<TeamResponse>.CreateError("Dữ liệu không hợp lệ"));
             }
 
-            var userId = GetCurrentUserId();
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);       
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
@@ -126,7 +127,7 @@ namespace AISAM.API.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<GenericResponse<bool>>> DeleteTeam(Guid id)
         {
-            var userId = GetCurrentUserId();
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
@@ -148,7 +149,7 @@ namespace AISAM.API.Controllers
         [HttpGet("{teamId}/members")]
         public async Task<ActionResult<GenericResponse<IEnumerable<TeamMemberResponseDto>>>> GetTeamMembers(Guid teamId)
         {
-            var userId = GetCurrentUserId();
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<IEnumerable<TeamMemberResponseDto>>.CreateError("Không thể xác thực người dùng"));
@@ -164,10 +165,5 @@ namespace AISAM.API.Controllers
             return BadRequest(result);
         }
 
-        private Guid GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-        }
     }
 }
