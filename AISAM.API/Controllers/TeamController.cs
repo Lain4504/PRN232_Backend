@@ -95,7 +95,7 @@ namespace AISAM.API.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<GenericResponse<TeamResponse>>> UpdateTeam(Guid id, [FromBody] CreateTeamRequest request)
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);       
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
@@ -155,5 +155,26 @@ namespace AISAM.API.Controllers
             return BadRequest(result);
         }
 
+        /// <summary>
+        /// Assign hoặc unassign brand cho team
+        /// </summary>
+        [HttpPost("{id}/brands")]
+        public async Task<ActionResult<GenericResponse<bool>>> AssignBrandToTeam(Guid id, [FromBody] AssignBrandToTeamRequest request)
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.AssignBrandToTeamAsync(id, request, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
     }
 }
