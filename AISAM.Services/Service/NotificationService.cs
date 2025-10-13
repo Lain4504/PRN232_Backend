@@ -180,7 +180,7 @@ namespace AISAM.Services.Service
                 return false;
 
             // Check if user has access to this notification
-            if (!isAdmin && notification.UserId != userId)
+            if (notification.UserId != userId)
             {
                 throw new UnauthorizedAccessException("Bạn chỉ có thể xóa thông báo của chính mình");
             }
@@ -188,45 +188,14 @@ namespace AISAM.Services.Service
             return await _notificationRepository.DeleteAsync(id);
         }
 
-        public async Task<int> DeleteReadByUserIdAsync(Guid userId)
-        {
-            return await _notificationRepository.DeleteReadByUserIdAsync(userId);
-        }
-
         public async Task<bool> MarkAsReadAsync(Guid id)
         {
             return await _notificationRepository.MarkAsReadAsync(id);
         }
 
-        public async Task<bool> MarkAsReadForUserAsync(Guid id, Guid userId, bool isAdmin = false)
+        public async Task<int> DeleteOldNotificationsAsync(int daysOld = 30)
         {
-            var notification = await _notificationRepository.GetByIdAsync(id);
-            if (notification == null)
-                return false;
-
-            // Check if user has access to this notification
-            if (!isAdmin && notification.UserId != userId)
-            {
-                throw new UnauthorizedAccessException("Bạn chỉ có thể đánh dấu đã đọc thông báo của chính mình");
-            }
-
-            return await _notificationRepository.MarkAsReadAsync(id);
-        }
-
-        public async Task<bool> MarkAllAsReadAsync(Guid userId)
-        {
-            return await _notificationRepository.MarkAllAsReadAsync(userId);
-        }
-
-        public async Task<bool> MarkAllAsReadForUserAsync(Guid userId, Guid currentUserId, bool isAdmin = false)
-        {
-            // Users can only mark their own notifications as read, unless they're admin
-            if (!isAdmin && currentUserId != userId)
-            {
-                throw new UnauthorizedAccessException("Bạn chỉ có thể đánh dấu đã đọc thông báo của chính mình");
-            }
-
-            return await _notificationRepository.MarkAllAsReadAsync(userId);
+            return await _notificationRepository.DeleteOldNotificationsAsync(daysOld);
         }
 
         public async Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request)
@@ -237,11 +206,6 @@ namespace AISAM.Services.Service
             if (request.PageSize > 100) request.PageSize = 100; // Limit max page size
 
             return await _notificationRepository.GetPagedNotificationsAsync(userId, request);
-        }
-
-        public async Task<int> GetUnreadCountAsync(Guid userId)
-        {
-            return await _notificationRepository.GetUnreadCountAsync(userId);
         }
 
         private static NotificationResponseDto MapToResponseDto(Notification notification)

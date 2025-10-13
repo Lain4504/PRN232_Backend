@@ -76,8 +76,8 @@ namespace AISAM.API.Controllers
                 var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var isAdmin = UserClaimsHelper.IsAdmin(User);
 
-                // Users can only view their own notifications, unless they're admin
-                if (!isAdmin && currentUserId != userId)
+                // Users can only view their own notifications
+                if (currentUserId != userId)
                 {
                     return Forbid("Bạn chỉ có thể xem thông báo của chính mình");
                 }
@@ -110,8 +110,8 @@ namespace AISAM.API.Controllers
                 var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var isAdmin = UserClaimsHelper.IsAdmin(User);
 
-                // Users can only view their own notifications, unless they're admin
-                if (!isAdmin && currentUserId != userId)
+                // Users can only view their own notifications
+                if (currentUserId != userId)
                 {
                     return Forbid("Bạn chỉ có thể xem thông báo của chính mình");
                 }
@@ -172,31 +172,6 @@ namespace AISAM.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Get unread count for current user
-        /// </summary>
-        [HttpGet("unread-count")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<int>>> GetUnreadCount()
-        {
-            try
-            {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var count = await _notificationService.GetUnreadCountAsync(userId);
-                return Ok(GenericResponse<int>.CreateSuccess(count, "Lấy số lượng thông báo chưa đọc thành công"));
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Unauthorized(GenericResponse<int>.CreateError("Token không hợp lệ"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting unread count");
-                return StatusCode(500, GenericResponse<int>.CreateError(
-                    "Đã xảy ra lỗi khi lấy số lượng thông báo chưa đọc"
-                ));
-            }
-        }
 
         /// <summary>
         /// Create new notification (Admin only)
@@ -287,73 +262,7 @@ namespace AISAM.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Mark notification as read
-        /// </summary>
-        [HttpPatch("{id}/read")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<bool>>> MarkAsRead(Guid id)
-        {
-            try
-            {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
 
-                var result = await _notificationService.MarkAsReadForUserAsync(id, userId, isAdmin);
-                if (!result)
-                {
-                    return NotFound(GenericResponse<bool>.CreateError("Thông báo không tồn tại"));
-                }
-
-                return Ok(GenericResponse<bool>.CreateSuccess(true, "Đánh dấu đã đọc thành công"));
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, GenericResponse<bool>.CreateError(ex.Message));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error marking notification as read: {NotificationId}", id);
-                return StatusCode(500, GenericResponse<bool>.CreateError(
-                    "Đã xảy ra lỗi khi đánh dấu đã đọc"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Mark all notifications as read for current user
-        /// </summary>
-        [HttpPatch("mark-all-read")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<bool>>> MarkAllAsRead()
-        {
-            try
-            {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
-
-                var result = await _notificationService.MarkAllAsReadForUserAsync(userId, currentUserId, isAdmin);
-
-                if (!result)
-                {
-                    return Ok(GenericResponse<bool>.CreateSuccess(false, "Không có thông báo nào để đánh dấu"));
-                }
-
-                return Ok(GenericResponse<bool>.CreateSuccess(true, "Đánh dấu tất cả đã đọc thành công"));
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, GenericResponse<bool>.CreateError(ex.Message));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error marking all notifications as read");
-                return StatusCode(500, GenericResponse<bool>.CreateError(
-                    "Đã xảy ra lỗi khi đánh dấu tất cả đã đọc"
-                ));
-            }
-        }
 
         /// <summary>
         /// Delete notification
@@ -389,29 +298,30 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Delete all read notifications for current user
+        /// Manually trigger cleanup of old notifications (Admin only)
         /// </summary>
-        [HttpDelete("bulk-delete")]
+        [HttpDelete("cleanup")]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<int>>> DeleteReadNotifications()
+        public async Task<ActionResult<GenericResponse<int>>> CleanupOldNotifications()
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var deletedCount = await _notificationService.DeleteReadByUserIdAsync(userId);
+                // Check if user is admin
+                if (!UserClaimsHelper.IsAdmin(User))
+                {
+                    return Forbid("Only administrators can trigger notification cleanup");
+                }
+
+                var deletedCount = await _notificationService.DeleteOldNotificationsAsync(30);
 
                 return Ok(GenericResponse<int>.CreateSuccess(deletedCount,
-                    $"Đã xóa {deletedCount} thông báo đã đọc"));
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Unauthorized(GenericResponse<int>.CreateError("Token không hợp lệ"));
+                    $"Đã xóa {deletedCount} thông báo cũ hơn 30 ngày"));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting read notifications");
+                _logger.LogError(ex, "Error during manual notification cleanup");
                 return StatusCode(500, GenericResponse<int>.CreateError(
-                    "Đã xảy ra lỗi khi xóa thông báo đã đọc"
+                    "Đã xảy ra lỗi khi dọn dẹp thông báo cũ"
                 ));
             }
         }

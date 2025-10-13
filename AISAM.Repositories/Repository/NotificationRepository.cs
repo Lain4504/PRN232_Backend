@@ -2,8 +2,6 @@ using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Response;
-using AISAM.Repositories.IRepositories;
-using AISAM.Data.Model;
 using Microsoft.EntityFrameworkCore;
 
 namespace AISAM.Repositories.Repository
@@ -16,7 +14,6 @@ namespace AISAM.Repositories.Repository
         {
             _context = context;
         }
-        
         public async Task<Notification?> GetByIdAsync(Guid id)
         {
             return await _context.Notifications
@@ -24,7 +21,6 @@ namespace AISAM.Repositories.Repository
                 .AsNoTracking()
                 .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
         }
-
         public async Task<IEnumerable<Notification>> GetByUserIdAsync(Guid userId)
         {
             return await _context.Notifications
@@ -84,24 +80,6 @@ namespace AISAM.Repositories.Repository
             return true;
         }
 
-        public async Task<int> DeleteReadByUserIdAsync(Guid userId)
-        {
-            var notifications = await _context.Notifications
-                .Where(n => n.UserId == userId && n.IsRead && !n.IsDeleted)
-                .ToListAsync();
-
-            if (!notifications.Any())
-                return 0;
-
-            foreach (var notification in notifications)
-            {
-                notification.IsDeleted = true;
-            }
-
-            await _context.SaveChangesAsync();
-            return notifications.Count;
-        }
-
         public async Task<bool> MarkAsReadAsync(Guid id)
         {
             var notification = await _context.Notifications.FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
@@ -109,24 +87,6 @@ namespace AISAM.Repositories.Repository
                 return false;
 
             notification.IsRead = true;
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> MarkAllAsReadAsync(Guid userId)
-        {
-            var notifications = await _context.Notifications
-                .Where(n => n.UserId == userId && !n.IsRead && !n.IsDeleted)
-                .ToListAsync();
-
-            if (!notifications.Any())
-                return false;
-
-            foreach (var notification in notifications)
-            {
-                notification.IsRead = true;
-            }
-
             await _context.SaveChangesAsync();
             return true;
         }
@@ -180,10 +140,23 @@ namespace AISAM.Repositories.Repository
             };
         }
 
-        public async Task<int> GetUnreadCountAsync(Guid userId)
+        public async Task<int> DeleteOldNotificationsAsync(int daysOld = 30)
         {
-            return await _context.Notifications
-                .CountAsync(n => n.UserId == userId && !n.IsRead && !n.IsDeleted);
+            var cutoffDate = DateTime.UtcNow.AddDays(-daysOld);
+            var notifications = await _context.Notifications
+                .Where(n => n.CreatedAt < cutoffDate && !n.IsDeleted)
+                .ToListAsync();
+
+            if (!notifications.Any())
+                return 0;
+
+            foreach (var notification in notifications)
+            {
+                notification.IsDeleted = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return notifications.Count;
         }
     }
 }
