@@ -114,7 +114,6 @@ namespace AISAM.API.Controllers
                 var user = await _userService.GetByIdAsync(userId);
                 var isAdmin = user.Role == UserRoleEnum.Admin;
 
-
                 // Users can only view their own notifications
                 if (currentUserId != userId)
                 {
@@ -187,8 +186,10 @@ namespace AISAM.API.Controllers
         {
             try
             {
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
                 // Check if user is admin
-                if (!UserClaimsHelper.IsAdmin(User))
+                if (!isAdmin)
                 {
                     return Forbid("Only administrators can create notifications");
                 }
