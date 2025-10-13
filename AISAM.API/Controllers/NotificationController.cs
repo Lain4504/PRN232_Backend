@@ -186,6 +186,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var user = await _userService.GetByIdAsync(userId);
                 var isAdmin = user.Role == UserRoleEnum.Admin;
                 // Check if user is admin
@@ -216,8 +217,11 @@ namespace AISAM.API.Controllers
         {
             try
             {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
                 // Check if user is admin
-                if (!UserClaimsHelper.IsAdmin(User))
+                if (!isAdmin)
                 {
                     return Forbid("Only administrators can create system notifications");
                 }
@@ -247,7 +251,6 @@ namespace AISAM.API.Controllers
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var user = await _userService.GetByIdAsync(userId);
                 var isAdmin = user.Role == UserRoleEnum.Admin;
-
 
                 var notification = await _notificationService.UpdateForUserAsync(id, request, userId, isAdmin);
                 if (notification == null)
@@ -284,7 +287,6 @@ namespace AISAM.API.Controllers
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var user = await _userService.GetByIdAsync(userId);
                 var isAdmin = user.Role == UserRoleEnum.Admin;
-
                 var result = await _notificationService.DeleteForUserAsync(id, userId, isAdmin);
                 if (!result)
                 {
@@ -315,7 +317,6 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                // Check if user is admin
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var user = await _userService.GetByIdAsync(userId);
                 var isAdmin = user.Role == UserRoleEnum.Admin;
