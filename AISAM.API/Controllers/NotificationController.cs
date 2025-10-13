@@ -4,6 +4,7 @@ using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
 using AISAM.Common.Models;
+using AISAM.Data.Enumeration;
 using AISAM.Common;
 using AISAM.API.Utils;
 using AISAM.Common.Dtos;
@@ -17,11 +18,12 @@ namespace AISAM.API.Controllers
     {
         private readonly INotificationService _notificationService;
         private readonly ILogger<NotificationController> _logger;
-
-        public NotificationController(INotificationService notificationService, ILogger<NotificationController> logger)
+        private readonly IUserService _userService;
+        public NotificationController(INotificationService notificationService, ILogger<NotificationController> logger, IUserService userService)
         {
             _notificationService = notificationService;
             _logger = logger;
+            _userService = userService;
         }
 
         /// <summary>
@@ -34,7 +36,8 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
 
                 var notification = await _notificationService.GetByIdForUserAsync(id, userId, isAdmin);
                 if (notification == null)
@@ -74,7 +77,7 @@ namespace AISAM.API.Controllers
             try
             {
                 var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
+                var user = await _userService.GetByIdAsync(userId);
 
                 // Users can only view their own notifications
                 if (currentUserId != userId)
@@ -108,7 +111,9 @@ namespace AISAM.API.Controllers
             try
             {
                 var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
+
 
                 // Users can only view their own notifications
                 if (currentUserId != userId)
@@ -239,7 +244,9 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
+
 
                 var notification = await _notificationService.UpdateForUserAsync(id, request, userId, isAdmin);
                 if (notification == null)
@@ -274,7 +281,8 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var isAdmin = UserClaimsHelper.IsAdmin(User);
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
 
                 var result = await _notificationService.DeleteForUserAsync(id, userId, isAdmin);
                 if (!result)
@@ -307,10 +315,9 @@ namespace AISAM.API.Controllers
             try
             {
                 // Check if user is admin
-                if (!UserClaimsHelper.IsAdmin(User))
-                {
-                    return Forbid("Only administrators can trigger notification cleanup");
-                }
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var user = await _userService.GetByIdAsync(userId);
+                var isAdmin = user.Role == UserRoleEnum.Admin;
 
                 var deletedCount = await _notificationService.DeleteOldNotificationsAsync(30);
 
