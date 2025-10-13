@@ -17,12 +17,8 @@ namespace AISAM.Services.IServices
         Task<NotificationResponseDto?> UpdateForUserAsync(Guid id, UpdateNotificationRequest request, Guid userId, bool isAdmin = false);
         Task<bool> DeleteAsync(Guid id);
         Task<bool> DeleteForUserAsync(Guid id, Guid userId, bool isAdmin = false);
-        Task<int> DeleteReadByUserIdAsync(Guid userId);
         Task<bool> MarkAsReadAsync(Guid id);
-        Task<bool> MarkAsReadForUserAsync(Guid id, Guid userId, bool isAdmin = false);
-        Task<bool> MarkAllAsReadAsync(Guid userId);
-        Task<bool> MarkAllAsReadForUserAsync(Guid userId, Guid currentUserId, bool isAdmin = false);
         Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request);
-        Task<int> GetUnreadCountAsync(Guid userId);
+        Task<int> DeleteOldNotificationsAsync(int daysOld = 30);
     }
 }
