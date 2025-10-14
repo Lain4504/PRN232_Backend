@@ -133,7 +133,6 @@ builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IContentCalendarRepository, ContentCalendarRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
@@ -147,7 +146,6 @@ builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddHostedService<NotificationCleanupService>();
 builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
@@ -205,8 +203,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
-
-builder.Services.AddAuthorization();
 
 builder.Services.AddAuthorization();
 // Disable automatic 400 for model validation to allow custom GenericResponse

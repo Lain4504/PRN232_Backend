@@ -36,10 +36,8 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
 
-                var notification = await _notificationService.GetByIdForUserAsync(id, userId, isAdmin);
+                var notification = await _notificationService.GetByIdForUserAsync(id, userId, false);
                 if (notification == null)
                 {
                     return NotFound(GenericResponse<NotificationResponseDto>.CreateError("Thông báo không tồn tại"));
@@ -111,8 +109,6 @@ namespace AISAM.API.Controllers
             try
             {
                 var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
 
                 // Users can only view their own notifications
                 if (currentUserId != userId)
@@ -187,13 +183,6 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
-                // Check if user is admin
-                if (!isAdmin)
-                {
-                    return Forbid("Only administrators can create notifications");
-                }
 
                 var notification = await _notificationService.CreateAsync(request);
                 return CreatedAtAction(nameof(GetById), new { id = notification.Id },
@@ -218,13 +207,6 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
-                // Check if user is admin
-                if (!isAdmin)
-                {
-                    return Forbid("Only administrators can create system notifications");
-                }
 
                 var notifications = await _notificationService.CreateSystemNotificationAsync(request);
                 return Ok(GenericResponse<IEnumerable<NotificationResponseDto>>.CreateSuccess(
@@ -249,10 +231,8 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
 
-                var notification = await _notificationService.UpdateForUserAsync(id, request, userId, isAdmin);
+                var notification = await _notificationService.UpdateForUserAsync(id, request, userId, false);
                 if (notification == null)
                 {
                     return NotFound(GenericResponse<NotificationResponseDto>.CreateError("Thông báo không tồn tại"));
@@ -285,9 +265,7 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
-                var result = await _notificationService.DeleteForUserAsync(id, userId, isAdmin);
+                var result = await _notificationService.DeleteForUserAsync(id, userId, false);
                 if (!result)
                 {
                     return NotFound(GenericResponse<bool>.CreateError("Thông báo không tồn tại"));
@@ -318,8 +296,6 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-                var isAdmin = user.Role == UserRoleEnum.Admin;
 
                 var deletedCount = await _notificationService.DeleteOldNotificationsAsync(30);
 
