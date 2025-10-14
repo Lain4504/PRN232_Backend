@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using AISAM.Data.Enumeration;
 
 namespace AISAM.Data.Model
 {
@@ -25,15 +26,29 @@ namespace AISAM.Data.Model
         [Column("timezone")]
         public string Timezone { get; set; } = "UTC";
 
-        [MaxLength(20)]
         [Column("repeat_type")]
-        public string RepeatType { get; set; } = "none";
+        public RepeatTypeEnum RepeatType { get; set; } = RepeatTypeEnum.None;
+
+        [Column("repeat_interval")]
+        public int RepeatInterval { get; set; } = 1; // Every N days/weeks/months
+
+        [Column("repeat_until")]
+        public DateTime? RepeatUntil { get; set; } // Optional end date for recurring
+
+        [Column("next_scheduled_date")]
+        public DateTime? NextScheduledDate { get; set; } // For recurring schedules
+
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
 
         [Column("is_deleted")]
         public bool IsDeleted { get; set; } = false;
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("updated_at")]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
         [ForeignKey("ContentId")]
