@@ -12,7 +12,6 @@ namespace AISAM.Services.Service
     {
         private readonly ILogger<NotificationCleanupService> _logger;
         private readonly IServiceProvider _serviceProvider;
-        private Timer? _timer;
 
         public NotificationCleanupService(
             ILogger<NotificationCleanupService> logger,
@@ -22,66 +21,65 @@ namespace AISAM.Services.Service
             _serviceProvider = serviceProvider;
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("NotificationCleanupService is starting.");
 
-            // Schedule the cleanup to run every day at 00:00 (midnight)
-            ScheduleNextCleanup();
-
-            return Task.CompletedTask;
-        }
-
-        private void ScheduleNextCleanup()
-        {
+            // Calculate delay until next midnight
             var now = DateTime.UtcNow;
             var nextRun = now.Date.AddDays(1); // Tomorrow at 00:00
+            var initialDelay = nextRun - now;
 
-            var delay = nextRun - now;
+            _logger.LogInformation($"Next notification cleanup scheduled for {nextRun} (in {initialDelay.TotalHours:F1} hours)");
 
-            _logger.LogInformation($"Next notification cleanup scheduled for {nextRun} (in {delay.TotalHours:F1} hours)");
+            // Wait for the initial delay
+            await Task.Delay(initialDelay, stoppingToken);
 
-            _timer = new Timer(async _ => await PerformCleanupAsync(),
-                null,
-                delay,
-                TimeSpan.FromDays(1)); // Repeat every 24 hours
-        }
-
-        private async Task PerformCleanupAsync()
-        {
-            try
+            // Main loop - run cleanup every 24 hours
+            while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Starting notification cleanup process...");
-
-                using (var scope = _serviceProvider.CreateScope())
+                try
                 {
-                    var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-                    // Delete notifications older than 30 days
-                    var deletedCount = await notificationService.DeleteOldNotificationsAsync(30);
-
-                    _logger.LogInformation($"Notification cleanup completed. Deleted {deletedCount} old notifications.");
+                    await PerformCleanupAsync(stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected when cancellation is requested
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred during notification cleanup");
                 }
 
-                // Schedule the next cleanup
-                ScheduleNextCleanup();
+                // Wait 24 hours before next cleanup (unless cancelled)
+                try
+                {
+                    await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected when cancellation is requested
+                    break;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred during notification cleanup");
 
-                // Still schedule the next cleanup even if this one failed
-                ScheduleNextCleanup();
-            }
+            _logger.LogInformation("NotificationCleanupService is stopping.");
         }
 
-        public override async Task StopAsync(CancellationToken stoppingToken)
+        private async Task PerformCleanupAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("NotificationCleanupService is stopping.");
+            _logger.LogInformation("Starting notification cleanup process...");
 
-            _timer?.Change(Timeout.Infinite, 0);
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            await base.StopAsync(stoppingToken);
+                // Delete notifications older than 30 days
+                var deletedCount = await notificationService.DeleteOldNotificationsAsync(30);
+
+                _logger.LogInformation($"Notification cleanup completed. Deleted {deletedCount} old notifications.");
+            }
         }
     }
 }
