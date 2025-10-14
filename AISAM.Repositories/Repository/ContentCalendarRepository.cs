@@ -1,4 +1,5 @@
 using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +26,13 @@ namespace AISAM.Repositories.Repository
             return schedule;
         }
 
+        public async Task UpdateAsync(ContentCalendar schedule)
+        {
+            schedule.UpdatedAt = DateTime.UtcNow;
+            _context.ContentCalendars.Update(schedule);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task DeleteAsync(Guid id)
         {
             var schedule = await _context.ContentCalendars.FindAsync(id);
@@ -38,10 +46,65 @@ namespace AISAM.Repositories.Repository
         public async Task<IEnumerable<ContentCalendar>> GetDueSchedulesAsync(DateTime utcNow, int limit = 50)
         {
             return await _context.ContentCalendars
-                .Where(c => !c.IsDeleted && c.ScheduledDate <= utcNow.Date)
+                .Where(c => !c.IsDeleted && c.IsActive &&
+                           ((c.ScheduledDate <= utcNow.Date && c.ScheduledTime == null) ||
+                            (c.ScheduledDate == utcNow.Date && c.ScheduledTime.HasValue && c.ScheduledTime.Value <= utcNow.TimeOfDay)))
                 .OrderBy(c => c.ScheduledDate)
+                .ThenBy(c => c.ScheduledTime)
                 .Take(limit)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<ContentCalendar>> GetRecurringSchedulesAsync(DateTime utcNow, int limit = 50)
+        {
+            return await _context.ContentCalendars
+                .Where(c => !c.IsDeleted && c.IsActive &&
+                           c.RepeatType != RepeatTypeEnum.None &&
+                           c.NextScheduledDate.HasValue &&
+                           c.NextScheduledDate <= utcNow)
+                .OrderBy(c => c.NextScheduledDate)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<ContentCalendar>> GetSchedulesByContentIdAsync(Guid contentId)
+        {
+            return await _context.ContentCalendars
+                .Where(c => c.ContentId == contentId && !c.IsDeleted)
+                .OrderBy(c => c.ScheduledDate)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<ContentCalendar>> GetActiveSchedulesAsync(DateTime fromDate, DateTime toDate)
+        {
+            return await _context.ContentCalendars
+                .Where(c => !c.IsDeleted && c.IsActive &&
+                           c.ScheduledDate >= fromDate.Date && c.ScheduledDate <= toDate.Date)
+                .OrderBy(c => c.ScheduledDate)
+                .ThenBy(c => c.ScheduledTime)
+                .ToListAsync();
+        }
+
+        public async Task UpdateNextScheduledDateAsync(Guid id, DateTime nextDate)
+        {
+            var schedule = await _context.ContentCalendars.FindAsync(id);
+            if (schedule != null)
+            {
+                schedule.NextScheduledDate = nextDate;
+                schedule.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task DeactivateScheduleAsync(Guid id)
+        {
+            var schedule = await _context.ContentCalendars.FindAsync(id);
+            if (schedule != null)
+            {
+                schedule.IsActive = false;
+                schedule.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
         }
     }
 }
