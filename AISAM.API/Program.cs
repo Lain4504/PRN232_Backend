@@ -11,7 +11,6 @@ using Microsoft.OpenApi.Models;
 using AISAM.API.Filters;
 using AISAM.Repositories.Repositories;
 using AISAM.Services.Helper;
-using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
@@ -47,6 +46,13 @@ var geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 if (!string.IsNullOrEmpty(geminiApiKey))
 {
     builder.Configuration["Gemini:ApiKey"] = geminiApiKey;
+}
+
+// Configure TikTok Base URL (prefer env, fallback to config, default to Sandbox)
+var tiktokBaseUrl = Environment.GetEnvironmentVariable("TIKTOK_BASE_URL");
+if (!string.IsNullOrWhiteSpace(tiktokBaseUrl))
+{
+    builder.Configuration["TikTok:BaseUrl"] = tiktokBaseUrl;
 }
 
 var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
@@ -137,6 +143,15 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
+// Ads repositories
+builder.Services.AddScoped<IAdCampaignsRepository, AdCampaignsRepository>();
+builder.Services.AddScoped<IAdSetsRepository, AdSetsRepository>();
+builder.Services.AddScoped<IAdCreativesRepository, AdCreativesRepository>();
+builder.Services.AddScoped<IAdsRepository, AdsRepository>();
+builder.Services.AddScoped<IPerformanceReportsRepository, PerformanceReportsRepository>();
+builder.Services.AddScoped<INotificationsRepository, NotificationsRepository>();
+builder.Services.AddScoped<ISubscriptionsRepository, SubscriptionsRepository>();
+builder.Services.AddScoped<ISocialIntegrationsRepository, SocialIntegrationsRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -150,9 +165,9 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
-
+builder.Services.AddScoped<IAdService, AdService>();
+builder.Services.AddScoped<TikTokAdsClient>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
-
 builder.Services.AddScoped<ITeamService, TeamService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
