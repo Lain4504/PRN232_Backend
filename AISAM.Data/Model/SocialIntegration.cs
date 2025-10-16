@@ -41,6 +41,10 @@ namespace AISAM.Data.Model
         [Column("external_id")]
         public string? ExternalId { get; set; } // Page ID (Facebook) hoặc account ID (TikTok/Twitter)
 
+        [MaxLength(255)]
+        [Column("ad_account_id")]
+        public string? AdAccountId { get; set; } // Facebook Ad Account ID for Marketing API
+
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
