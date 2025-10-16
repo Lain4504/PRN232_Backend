@@ -2,7 +2,6 @@ using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Response;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
-using AISAM.Common.Models;
 using AISAM.Data.Model;
 
 namespace AISAM.Services.Service
@@ -16,60 +15,35 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
         }
 
-        public Task<User?> GetByIdAsync(Guid id)
+        public async Task<User?> GetUserByIdAsync(Guid id)
         {
-            return _userRepository.GetByIdAsync(id);
-        }
-
-        public Task<User?> GetUserByIdAsync(Guid id)
-        {
-            return _userRepository.GetByIdAsync(id);
-        }
-
-        public async Task<User> CreateUserAsync(User user)
-        {
-            // Check if email already exists
-            var existingUser = await _userRepository.GetByEmailAsync(user.Email);
-            if (existingUser != null)
-            {
-                throw new InvalidOperationException("Email already exists");
-            }
-
-            // Credentials are managed by Supabase Auth; no password hashing here
-            
-            return await _userRepository.CreateAsync(user);
-        }
-
-        public async Task<User> CreateUserAsync(string email)
-        {
-            var user = new User
-            {
-                Email = email,
-            };
-
-            return await _userRepository.CreateAsync(user);
-        }
-
-        public async Task<User> GetOrCreateUserAsync(Guid supabaseUserId, string email)
-        {
-            // Try to get existing user by Supabase ID
-            var user = await _userRepository.GetByIdAsync(supabaseUserId);
-            
+            var user = await _userRepository.GetByIdAsync(id);
             if (user == null)
             {
-                // Create new user with Supabase ID
-                user = new User
-                {
-                    Id = supabaseUserId,
-                    Email = email,
-                    Role = Data.Enumeration.UserRoleEnum.User,
-                    CreatedAt = DateTime.UtcNow
-                };
-                
-                user = await _userRepository.CreateAsync(user);
+                return null;
             }
-            
+
             return user;
+        }
+
+        public async Task<User> CreateUserAsync(Guid supabaseUserId, string email)
+        {
+            // Strict create: if the user already exists, throw to surface duplicate calls
+            var existingUser = await _userRepository.GetByIdAsync(supabaseUserId);
+            if (existingUser != null)
+            {
+                throw new InvalidOperationException("User already exists");
+            }
+
+            var newUser = new User
+            {
+                Id = supabaseUserId,
+                Email = email,
+                Role = Data.Enumeration.UserRoleEnum.User,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            return await _userRepository.CreateAsync(newUser);
         }
 
         public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request)

@@ -28,10 +28,13 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var email = UserClaimsHelper.GetEmail(User) ?? "unknown@example.com";
 
-                // Get or create user (sync with Supabase)
-                var user = await _userService.GetOrCreateUserAsync(userId, email);
+                var user = await _userService.GetUserByIdAsync(userId);
+
+                if (user == null)
+                {
+                    return NotFound(GenericResponse<UserResponseDto>.CreateError("Không tìm thấy người dùng"));
+                }
 
                 var response = new UserResponseDto
                 {
