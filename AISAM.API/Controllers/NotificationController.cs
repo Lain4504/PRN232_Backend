@@ -26,9 +26,6 @@ namespace AISAM.API.Controllers
             _userService = userService;
         }
 
-        /// <summary>
-        /// Get notification by ID (auto mark as read when accessed)
-        /// </summary>
         [HttpGet("{id}")]
         [Authorize]
         public async Task<ActionResult<GenericResponse<NotificationResponseDto>>> GetById(Guid id)
@@ -36,18 +33,15 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-
-                var notification = await _notificationService.GetByIdForUserAsync(id, userId, false);
+                var notification = await _notificationService.GetByIdAsync(id);
                 if (notification == null)
                 {
                     return NotFound(GenericResponse<NotificationResponseDto>.CreateError("Thông báo không tồn tại"));
                 }
 
-                // Auto mark as read when user accesses the notification (simulates clicking)
-                if (!notification.IsRead)
+                if (notification.UserId != userId)
                 {
-                    await _notificationService.MarkAsReadAsync(id);
-                    notification.IsRead = true; // Update the returned object
+                    return Forbid("Bạn chỉ có thể xem thông báo của chính mình");
                 }
 
                 return Ok(GenericResponse<NotificationResponseDto>.CreateSuccess(notification, "Lấy thông báo thành công"));
@@ -65,79 +59,10 @@ namespace AISAM.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Get notifications by user ID
-        /// </summary>
-        [HttpGet("user/{userId}")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<IEnumerable<NotificationResponseDto>>>> GetByUserId(Guid userId)
-        {
-            try
-            {
-                var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var user = await _userService.GetByIdAsync(userId);
-
-                // Users can only view their own notifications
-                if (currentUserId != userId)
-                {
-                    return Forbid("Bạn chỉ có thể xem thông báo của chính mình");
-                }
-
-                var notifications = await _notificationService.GetByUserIdAsync(userId);
-                return Ok(GenericResponse<IEnumerable<NotificationResponseDto>>.CreateSuccess(notifications, "Lấy danh sách thông báo thành công"));
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Unauthorized(GenericResponse<IEnumerable<NotificationResponseDto>>.CreateError("Token không hợp lệ"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting notifications for user: {UserId}", userId);
-                return StatusCode(500, GenericResponse<IEnumerable<NotificationResponseDto>>.CreateError(
-                    "Đã xảy ra lỗi khi lấy danh sách thông báo"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Get unread notifications by user ID
-        /// </summary>
-        [HttpGet("user/{userId}/unread")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<IEnumerable<NotificationResponseDto>>>> GetUnreadByUserId(Guid userId)
-        {
-            try
-            {
-                var currentUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-
-                // Users can only view their own notifications
-                if (currentUserId != userId)
-                {
-                    return Forbid("Bạn chỉ có thể xem thông báo của chính mình");
-                }
-
-                var notifications = await _notificationService.GetUnreadByUserIdAsync(userId);
-                return Ok(GenericResponse<IEnumerable<NotificationResponseDto>>.CreateSuccess(notifications, "Lấy danh sách thông báo chưa đọc thành công"));
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Unauthorized(GenericResponse<IEnumerable<NotificationResponseDto>>.CreateError("Token không hợp lệ"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting unread notifications for user: {UserId}", userId);
-                return StatusCode(500, GenericResponse<IEnumerable<NotificationResponseDto>>.CreateError(
-                    "Đã xảy ra lỗi khi lấy danh sách thông báo chưa đọc"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Get paginated notifications for current user
-        /// </summary>
         [HttpGet]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<PagedResult<NotificationListDto>>>> GetPagedNotifications(
+        public async Task<ActionResult> GetNotifications(
+            [FromQuery] bool unread = false,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? searchTerm = null,
@@ -147,6 +72,7 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+
                 var request = new PaginationRequest
                 {
                     Page = page,
@@ -156,8 +82,10 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _notificationService.GetPagedNotificationsAsync(userId, request);
-                return Ok(GenericResponse<PagedResult<NotificationListDto>>.CreateSuccess(result, "Lấy danh sách thông báo thành công"));
+                var result = await _notificationService.GetPagedNotificationsAsync(userId, request, unread);
+                var message = unread ? "Lấy danh sách thông báo chưa đọc thành công" : "Lấy danh sách thông báo thành công";
+                
+                return Ok(GenericResponse<PagedResult<NotificationListDto>>.CreateSuccess(result, message));
             }
             catch (UnauthorizedAccessException)
             {
@@ -165,150 +93,70 @@ namespace AISAM.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting paginated notifications");
+                _logger.LogError(ex, "Error getting notifications");
                 return StatusCode(500, GenericResponse<PagedResult<NotificationListDto>>.CreateError(
                     "Đã xảy ra lỗi khi lấy danh sách thông báo"
                 ));
             }
         }
 
+        public class BulkMarkReadRequest { public IEnumerable<Guid> Ids { get; set; } = Array.Empty<Guid>(); }
 
-        /// <summary>
-        /// Create new notification (Admin only)
-        /// </summary>
-        [HttpPost]
+        [HttpPost("{id}/read")]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<NotificationResponseDto>>> Create(CreateNotificationRequest request)
+        public async Task<ActionResult<GenericResponse<bool>>> MarkAsRead(Guid id)
         {
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-
-                var notification = await _notificationService.CreateAsync(request);
-                return CreatedAtAction(nameof(GetById), new { id = notification.Id },
-                    GenericResponse<NotificationResponseDto>.CreateSuccess(notification, "Tạo thông báo thành công"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating notification");
-                return StatusCode(500, GenericResponse<NotificationResponseDto>.CreateError(
-                    "Đã xảy ra lỗi khi tạo thông báo"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Create system notification (Admin only)
-        /// </summary>
-        [HttpPost("system")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<IEnumerable<NotificationResponseDto>>>> CreateSystemNotification(CreateSystemNotificationRequest request)
-        {
-            try
-            {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-
-                var notifications = await _notificationService.CreateSystemNotificationAsync(request);
-                return Ok(GenericResponse<IEnumerable<NotificationResponseDto>>.CreateSuccess(
-                    notifications, $"Tạo thành công {notifications.Count()} thông báo hệ thống"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating system notification");
-                return StatusCode(500, GenericResponse<IEnumerable<NotificationResponseDto>>.CreateError(
-                    "Đã xảy ra lỗi khi tạo thông báo hệ thống"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Update notification
-        /// </summary>
-        [HttpPut("{id}")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<NotificationResponseDto>>> Update(Guid id, UpdateNotificationRequest request)
-        {
-            try
-            {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-
-                var notification = await _notificationService.UpdateForUserAsync(id, request, userId, false);
+                var notification = await _notificationService.GetByIdAsync(id);
                 if (notification == null)
                 {
-                    return NotFound(GenericResponse<NotificationResponseDto>.CreateError("Thông báo không tồn tại"));
+                    return NotFound(GenericResponse<bool>.CreateError("Thông báo không tồn tại"));
+                }
+                if (notification.UserId != userId)
+                {
+                    return Forbid("Bạn chỉ có thể đánh dấu thông báo của chính mình");
                 }
 
-                return Ok(GenericResponse<NotificationResponseDto>.CreateSuccess(notification, "Cập nhật thông báo thành công"));
+                var ok = await _notificationService.MarkAsReadAsync(id);
+                return Ok(GenericResponse<bool>.CreateSuccess(ok, ok ? "Đánh dấu đã đọc thành công" : "Không thể đánh dấu đã đọc"));
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
-                return StatusCode(403, GenericResponse<NotificationResponseDto>.CreateError(ex.Message));
+                return Unauthorized(GenericResponse<bool>.CreateError("Token không hợp lệ"));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating notification: {NotificationId}", id);
-                return StatusCode(500, GenericResponse<NotificationResponseDto>.CreateError(
+                _logger.LogError(ex, "Error marking notification as read: {NotificationId}", id);
+                return StatusCode(500, GenericResponse<bool>.CreateError(
                     "Đã xảy ra lỗi khi cập nhật thông báo"
                 ));
             }
         }
 
-
-
-        /// <summary>
-        /// Delete notification
-        /// </summary>
-        [HttpDelete("{id}")]
+        [HttpPost("read/bulk")]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<bool>>> Delete(Guid id)
+        public async Task<ActionResult<GenericResponse<int>>> BulkMarkAsRead([FromBody] BulkMarkReadRequest request)
         {
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _notificationService.DeleteForUserAsync(id, userId, false);
-                if (!result)
-                {
-                    return NotFound(GenericResponse<bool>.CreateError("Thông báo không tồn tại"));
-                }
-
-                return Ok(GenericResponse<bool>.CreateSuccess(true, "Xóa thông báo thành công"));
+                var count = await _notificationService.MarkAsReadBulkAsync(request.Ids, userId);
+                return Ok(GenericResponse<int>.CreateSuccess(count, $"Đã đánh dấu đã đọc {count} thông báo"));
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
-                return StatusCode(403, GenericResponse<bool>.CreateError(ex.Message));
+                return Unauthorized(GenericResponse<int>.CreateError("Token không hợp lệ"));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting notification: {NotificationId}", id);
-                return StatusCode(500, GenericResponse<bool>.CreateError(
-                    "Đã xảy ra lỗi khi xóa thông báo"
-                ));
-            }
-        }
-
-        /// <summary>
-        /// Manually trigger cleanup of old notifications (Admin only)
-        /// </summary>
-        [HttpDelete("cleanup")]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<int>>> CleanupOldNotifications()
-        {
-            try
-            {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-
-                var deletedCount = await _notificationService.DeleteOldNotificationsAsync(30);
-
-                return Ok(GenericResponse<int>.CreateSuccess(deletedCount,
-                    $"Đã xóa {deletedCount} thông báo cũ hơn 30 ngày"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during manual notification cleanup");
+                _logger.LogError(ex, "Error bulk marking notifications as read");
                 return StatusCode(500, GenericResponse<int>.CreateError(
-                    "Đã xảy ra lỗi khi dọn dẹp thông báo cũ"
+                    "Đã xảy ra lỗi khi cập nhật thông báo"
                 ));
             }
         }
+
     }
 }

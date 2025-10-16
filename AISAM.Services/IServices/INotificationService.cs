@@ -8,17 +8,12 @@ namespace AISAM.Services.IServices
     public interface INotificationService
     {
         Task<NotificationResponseDto?> GetByIdAsync(Guid id);
-        Task<NotificationResponseDto?> GetByIdForUserAsync(Guid id, Guid userId, bool isAdmin = false);
-        Task<IEnumerable<NotificationResponseDto>> GetByUserIdAsync(Guid userId);
-        Task<IEnumerable<NotificationResponseDto>> GetUnreadByUserIdAsync(Guid userId);
-        Task<NotificationResponseDto> CreateAsync(CreateNotificationRequest request);
-        Task<IEnumerable<NotificationResponseDto>> CreateSystemNotificationAsync(CreateSystemNotificationRequest request);
-        Task<NotificationResponseDto?> UpdateAsync(Guid id, UpdateNotificationRequest request);
-        Task<NotificationResponseDto?> UpdateForUserAsync(Guid id, UpdateNotificationRequest request, Guid userId, bool isAdmin = false);
-        Task<bool> DeleteAsync(Guid id);
-        Task<bool> DeleteForUserAsync(Guid id, Guid userId, bool isAdmin = false);
+        Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request, bool unreadOnly = false);
+        Task<int> GetUnreadCountAsync(Guid userId);
         Task<bool> MarkAsReadAsync(Guid id);
-        Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request);
+        Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid userId);
+        Task<NotificationResponseDto> CreateAsync(CreateNotificationRequest request);
+        Task<bool> DeleteAsync(Guid id, Guid userId);
         Task<int> DeleteOldNotificationsAsync(int daysOld = 30);
     }
 }
