@@ -25,6 +25,12 @@ namespace AISAM.Data.Model
         [Column("quota_storage_gb")]
         public int QuotaStorageGb { get; set; } = 5;
 
+        [Column("quota_ad_budget_monthly", TypeName = "decimal(10,2)")]
+        public decimal QuotaAdBudgetMonthly { get; set; } = 100.00m;
+
+        [Column("quota_ad_campaigns")]
+        public int QuotaAdCampaigns { get; set; } = 5;
+
         [Required]
         [Column("start_date", TypeName = "date")]
         public DateTime StartDate { get; set; }

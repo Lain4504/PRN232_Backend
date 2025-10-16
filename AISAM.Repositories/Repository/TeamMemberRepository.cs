@@ -79,6 +79,26 @@ namespace AISAM.Repositories.Repositories
         public async Task<TeamMember?> GetByUserIdAsync(Guid userId) =>
             await _context.TeamMembers.FirstOrDefaultAsync(tm => tm.UserId == userId && tm.IsActive);
 
+        public async Task<TeamMember?> GetByUserIdAndBrandAsync(Guid userId, Guid brandId)
+        {
+            return await _context.TeamMembers
+                .Include(tm => tm.Team)
+                    .ThenInclude(t => t.TeamBrands)
+                .FirstOrDefaultAsync(tm => tm.UserId == userId && 
+                                         tm.IsActive &&
+                                         tm.Team.TeamBrands.Any(tb => tb.BrandId == brandId));
+        }
+
+        public async Task<List<TeamMember>> GetByUserIdWithBrandsAsync(Guid userId)
+        {
+            return await _context.TeamMembers
+                .Include(tm => tm.Team)
+                    .ThenInclude(t => t.TeamBrands)
+                        .ThenInclude(tb => tb.Brand)
+                .Where(tm => tm.UserId == userId && tm.IsActive)
+                .ToListAsync();
+        }
+
         public async Task<TeamMember> AddAsync(TeamMember entity)
         {
             _context.TeamMembers.Add(entity);

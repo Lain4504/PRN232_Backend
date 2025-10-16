@@ -10,9 +10,11 @@ namespace AISAM.Data.Model
         [Column("id")]
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        [Required]
         [Column("post_id")]
-        public Guid PostId { get; set; }
+        public Guid? PostId { get; set; }
+
+        [Column("ad_id")]
+        public Guid? AdId { get; set; }
 
         [Column("impressions")]
         public long Impressions { get; set; } = 0;
@@ -41,6 +43,9 @@ namespace AISAM.Data.Model
 
         // Navigation properties
         [ForeignKey("PostId")]
-        public virtual Post Post { get; set; } = null!;
+        public virtual Post? Post { get; set; }
+
+        [ForeignKey("AdId")]
+        public virtual Ad? Ad { get; set; }
     }
 }

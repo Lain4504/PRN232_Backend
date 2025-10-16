@@ -11,6 +11,8 @@ namespace AISAM.Repositories.IRepositories
         Task<PagedResult<TeamMember>> GetPagedAsync(PaginationRequest request);
         Task<TeamMember?> GetByIdAsync(Guid id);
         Task<TeamMember?> GetByUserIdAsync(Guid userId);
+        Task<TeamMember?> GetByUserIdAndBrandAsync(Guid userId, Guid brandId);
+        Task<List<TeamMember>> GetByUserIdWithBrandsAsync(Guid userId);
         Task<TeamMember> AddAsync(TeamMember entity);
         Task UpdateAsync(TeamMember entity);
         Task<bool> DeleteAsync(Guid id);
