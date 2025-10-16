@@ -21,27 +21,8 @@ namespace AISAM.Repositories.Repository
                 .AsNoTracking()
                 .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
         }
-        public async Task<IEnumerable<Notification>> GetByUserIdAsync(Guid userId)
-        {
-            return await _context.Notifications
-                .Include(n => n.User)
-                .AsNoTracking()
-                .Where(n => n.UserId == userId && !n.IsDeleted)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
-        }
-
-        public async Task<IEnumerable<Notification>> GetUnreadByUserIdAsync(Guid userId)
-        {
-            return await _context.Notifications
-                .Include(n => n.User)
-                .AsNoTracking()
-                .Where(n => n.UserId == userId && !n.IsRead && !n.IsDeleted)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
-        }
-
-        public async Task<Notification> CreateAsync(Notification notification)
+    // ...existing code...
+    public async Task<Notification> CreateAsync(Notification notification)
         {
             notification.CreatedAt = DateTime.UtcNow;
             notification.IsRead = false;
@@ -52,26 +33,10 @@ namespace AISAM.Repositories.Repository
             return notification;
         }
 
-        public async Task<IEnumerable<Notification>> GetByUserIdAsync(Guid userId, int page = 1, int pageSize = 20)
-        {
-            return await _context.Notifications
-                .Where(n => n.UserId == userId && !n.IsDeleted)
-                .OrderByDescending(n => n.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-        }
-        public async Task<Notification> UpdateAsync(Notification notification)
-        {
-            notification.CreatedAt = notification.CreatedAt; // Preserve original creation time
-            _context.Notifications.Update(notification);
-            await _context.SaveChangesAsync();
-            return notification;
-        }
-
+       
         public async Task<bool> DeleteAsync(Guid id)
         {
-            var notification = await _context.Notifications.FirstOrDefaultAsync(n => n.Id == id);
+            var notification = await _context.Notifications.FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
             if (notification == null)
                 return false;
 
@@ -91,11 +56,35 @@ namespace AISAM.Repositories.Repository
             return true;
         }
 
-        public async Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request)
+        public async Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid userId)
+        {
+            var idList = ids.Distinct().ToList();
+            if (idList.Count == 0) return 0;
+
+            var notifications = await _context.Notifications
+                .Where(n => idList.Contains(n.Id) && n.UserId == userId && !n.IsDeleted && !n.IsRead)
+                .ToListAsync();
+
+            foreach (var n in notifications)
+            {
+                n.IsRead = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return notifications.Count;
+        }
+
+        public async Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request, bool unreadOnly = false)
         {
             var query = _context.Notifications
                 .Include(n => n.User)
                 .Where(n => n.UserId == userId && !n.IsDeleted);
+
+            // Apply unread filter at database level
+            if (unreadOnly)
+            {
+                query = query.Where(n => !n.IsRead);
+            }
 
             // Apply search filter
             if (!string.IsNullOrEmpty(request.SearchTerm))
@@ -139,6 +128,13 @@ namespace AISAM.Repositories.Repository
                 PageSize = request.PageSize
             };
         }
+
+        public async Task<int> GetUnreadCountAsync(Guid userId)
+        {
+            return await _context.Notifications
+                .CountAsync(n => n.UserId == userId && !n.IsRead && !n.IsDeleted);
+        }
+
 
         public async Task<int> DeleteOldNotificationsAsync(int daysOld = 30)
         {

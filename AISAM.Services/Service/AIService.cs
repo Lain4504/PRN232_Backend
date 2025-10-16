@@ -123,22 +123,6 @@ namespace AISAM.Services.Service
             _logger.LogInformation("AI generation {AiGenerationId} approved and copied to content {ContentId}",
                 aiGenerationId, content.Id);
 
-            // Send notification for AI suggestion approval
-            await _notificationService.CreateSystemNotificationAsync(new CreateSystemNotificationRequest
-            {
-                Type = NotificationTypeEnum.AiSuggestion,
-                TitleTemplate = "Gợi ý AI đã được duyệt",
-                MessageTemplate = "Gợi ý nội dung AI cho '{ContentTitle}' đã được duyệt và cập nhật vào nội dung.",
-                TargetId = content.Id,
-                TargetType = "Content",
-                ContentId = content.Id,
-                BrandId = content.BrandId,
-                TemplateVariables = new Dictionary<string, string>
-                {
-                    { "ContentTitle", content.Title ?? "Untitled Content" }
-                }
-            });
-
             return MapToContentDto(content, null);
         }
 
@@ -161,26 +145,6 @@ namespace AISAM.Services.Service
                 aiGeneration.Status = AiStatusEnum.Completed;
 
                 await _aiGenerationRepository.UpdateAsync(aiGeneration);
-
-                // Send notification for successful AI generation
-                var content = await _contentRepository.GetByIdAsync(contentId);
-                if (content != null)
-                {
-                    await _notificationService.CreateSystemNotificationAsync(new CreateSystemNotificationRequest
-                    {
-                        Type = NotificationTypeEnum.AiSuggestion,
-                        TitleTemplate = "Gợi ý nội dung AI đã sẵn sàng",
-                        MessageTemplate = "AI đã tạo gợi ý nội dung cho '{ContentTitle}'. Hãy xem và duyệt nếu phù hợp.",
-                        TargetId = aiGeneration.Id,
-                        TargetType = "AiGeneration",
-                        ContentId = contentId,
-                        BrandId = content.BrandId,
-                        TemplateVariables = new Dictionary<string, string>
-                        {
-                            { "ContentTitle", content.Title ?? "Untitled Content" }
-                        }
-                    });
-                }
 
                 return new AiGenerationResponse
                 {

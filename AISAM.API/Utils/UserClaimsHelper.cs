@@ -46,36 +46,6 @@ namespace AISAM.API.Utils
             return !string.IsNullOrWhiteSpace(email);
         }
 
-        public static bool TryGetUserRole(ClaimsPrincipal? user, out string? role)
-        {
-            role = null;
-            if (user == null)
-            {
-                return false;
-            }
-
-            // Check for role in various claim types
-            role = user.FindFirst(ClaimTypes.Role)?.Value
-                   ?? user.FindFirst("role")?.Value
-                   ?? user.FindFirst("user_role")?.Value;
-
-            return !string.IsNullOrWhiteSpace(role);
-        }
-
-        public static string GetUserRoleOrThrow(ClaimsPrincipal? user)
-        {
-            if (TryGetUserRole(user, out var role))
-            {
-                return role;
-            }
-
-            throw new UnauthorizedAccessException("Invalid user context: missing or invalid role.");
-        }
-
-        public static bool IsAdmin(ClaimsPrincipal? user)
-        {
-            return TryGetUserRole(user, out var role) && role?.ToLower() == "admin";
-        }
     }
 }
 
