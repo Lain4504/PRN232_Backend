@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using AISAM.Common;
 using AISAM.Common.Dtos.Request;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +19,10 @@ namespace AISAM.API.Controllers
         {
             _logger = logger;
             _userService = userService;
-            _hookSecret = configuration["Supabase:HookSecret"] ?? Environment.GetEnvironmentVariable("SUPABASE_HOOK_SECRET") ?? string.Empty;
+            // Example value: "v1,whsec_<base64-secret>"
+            _hookSecret = Environment.GetEnvironmentVariable("SUPABASE_HOOK_SECRET")
+                           ?? configuration["Supabase:HookSecret"]
+                           ?? string.Empty;
         }
 
         [HttpPost("before-user-created")]
@@ -36,11 +38,14 @@ namespace AISAM.API.Controllers
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
             var rawBody = await reader.ReadToEndAsync();
 
-            // Verify HMAC signature (header name per Supabase: X-Supabase-Signature)
-            var signatureHeader = Request.Headers["X-Supabase-Signature"].FirstOrDefault();
-            if (string.IsNullOrEmpty(signatureHeader) || !VerifySignature(rawBody, signatureHeader, _hookSecret))
+            // Standard Webhooks headers
+            var webhookId = Request.Headers["webhook-id"].FirstOrDefault();
+            var webhookTimestamp = Request.Headers["webhook-timestamp"].FirstOrDefault();
+            var webhookSignature = Request.Headers["webhook-signature"].FirstOrDefault();
+
+            if (!VerifyStandardWebhook(rawBody, webhookId, webhookTimestamp, webhookSignature, _hookSecret, out var reason))
             {
-                _logger.LogWarning("Invalid Supabase hook signature");
+                _logger.LogWarning("Invalid Supabase hook signature: {Reason}", reason ?? "unknown");
                 return Unauthorized(new { error = new { http_code = 401, message = "Invalid signature" } });
             }
 
@@ -70,7 +75,12 @@ namespace AISAM.API.Controllers
 
             try
             {
-                await _userService.GetOrCreateUserAsync(supabaseUserGuid, email);
+                await _userService.CreateUserAsync(supabaseUserGuid, email);
+            }
+            catch (InvalidOperationException dupEx)
+            {
+                _logger.LogWarning(dupEx, "User already exists for id {UserId}", supabaseUserGuid);
+                return Conflict(new { error = new { http_code = 409, message = "User already exists" } });
             }
             catch (Exception ex)
             {
@@ -82,13 +92,78 @@ namespace AISAM.API.Controllers
             return Content(rawBody, "application/json", Encoding.UTF8);
         }
 
-        private static bool VerifySignature(string payload, string receivedSignature, string secret)
+        private static bool VerifyStandardWebhook(
+            string payload,
+            string? webhookId,
+            string? webhookTimestamp,
+            string? webhookSignature,
+            string hookSecret,
+            out string? reason)
         {
-            // signature is expected as hex of HMACSHA256
-            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
-            var expected = Convert.ToHexString(hash).ToLowerInvariant();
-            return CryptographicEquals(expected, receivedSignature.Trim().ToLowerInvariant());
+            reason = null;
+            if (string.IsNullOrWhiteSpace(webhookId) || string.IsNullOrWhiteSpace(webhookTimestamp) || string.IsNullOrWhiteSpace(webhookSignature))
+            {
+                reason = "missing headers";
+                return false;
+            }
+
+            // reject stale timestamps (tolerance 5 minutes)
+            if (!long.TryParse(webhookTimestamp, out var tsSeconds))
+            {
+                reason = "invalid timestamp";
+                return false;
+            }
+            var timestamp = DateTimeOffset.FromUnixTimeSeconds(tsSeconds);
+            if (DateTimeOffset.UtcNow - timestamp > TimeSpan.FromMinutes(5))
+            {
+                reason = "timestamp too old";
+                return false;
+            }
+
+            // Extract signature value (accept formats: "v1,<sig>", "v1=<sig>", or raw base64)
+            var sig = webhookSignature.Trim();
+            if (sig.StartsWith("v1,", StringComparison.OrdinalIgnoreCase))
+            {
+                sig = sig.Substring(3);
+            }
+            else if (sig.StartsWith("v1=", StringComparison.OrdinalIgnoreCase))
+            {
+                sig = sig.Substring(3);
+            }
+
+            // Prepare signed input: id.timestamp.payload (Standard Webhooks convention)
+            var signedInput = string.Concat(webhookId, ".", webhookTimestamp, ".", payload);
+
+            // Single secret only
+            var secret = hookSecret;
+            if (secret.StartsWith("v1,whsec_", StringComparison.OrdinalIgnoreCase))
+            {
+                secret = secret.Substring("v1,whsec_".Length);
+            }
+
+            // Base64 decode secret to bytes
+            byte[] keyBytes;
+            try
+            {
+                keyBytes = Convert.FromBase64String(secret);
+            }
+            catch
+            {
+                reason = "invalid base64 secret";
+                return false;
+            }
+
+            using var hmac = new HMACSHA256(keyBytes);
+            var computed = hmac.ComputeHash(Encoding.UTF8.GetBytes(signedInput));
+            var computedBase64 = Convert.ToBase64String(computed);
+
+            if (CryptographicEquals(computedBase64, sig))
+            {
+                return true;
+            }
+
+            reason = "signature mismatch";
+            return false;
         }
 
         private static bool CryptographicEquals(string a, string b)
