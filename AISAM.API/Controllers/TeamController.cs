@@ -4,9 +4,6 @@ using AISAM.Common;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using AISAM.Common.Dtos.Response;
-using AISAM.Common.Dtos.Request;
-using System.Security.Claims;
 using AISAM.API.Utils;
 
 namespace AISAM.API.Controllers
