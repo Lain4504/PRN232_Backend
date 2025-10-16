@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
 using AISAM.Services.IServices;
-using AISAM.Common.Models;
-using System.Security.Claims;
 using AISAM.Common.Dtos.Response;
 using AISAM.API.Utils;
 using AISAM.Common.Dtos;
@@ -39,6 +37,7 @@ namespace AISAM.API.Controllers
                 {
                     Id = user.Id,
                     Email = user.Email,
+                    Role = user.Role.ToString(),
                     CreatedAt = user.CreatedAt
                 };
 

@@ -6,8 +6,6 @@ using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Services.Helper;
-using AISAM.Common.Dtos;
-using AISAM.Common.Dtos.Response;
 namespace AISAM.Services.Service
 {
     public class TeamService : ITeamService
