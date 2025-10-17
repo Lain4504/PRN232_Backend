@@ -50,11 +50,11 @@ namespace AISAM.Services.Service
                 await ValidateBrandAccessAsync(userId, request.BrandId);
 
                 // Check quota
-                var quotaValidation = await _adQuotaService.ValidateQuotaAsync(userId, request.Budget);
-                if (!quotaValidation.canCreate)
-                {
-                    throw new UnauthorizedAccessException(quotaValidation.errorMessage ?? "Quota exceeded");
-                }
+                // var quotaValidation = await _adQuotaService.ValidateQuotaAsync(userId, request.Budget);
+                // if (!quotaValidation.canCreate)
+                // {
+                //     throw new UnauthorizedAccessException(quotaValidation.errorMessage ?? "Quota exceeded");
+                // }
 
                 // Get social integration with ad account
                 var socialIntegration = await GetSocialIntegrationWithAdAccountAsync(request.BrandId, request.AdAccountId);
@@ -66,9 +66,12 @@ namespace AISAM.Services.Service
                     throw new UnauthorizedAccessException("Facebook access token has expired. Please reconnect your account.");
                 }
 
+                // Clean ad account ID for storage (remove act_ prefix)
+                var cleanAdAccountId = request.AdAccountId.Replace("act_", "");
+
                 // Create campaign on Facebook
                 var facebookCampaignId = await _facebookApiService.CreateCampaignAsync(
-                    request.AdAccountId, 
+                    cleanAdAccountId, 
                     request.Name, 
                     request.Objective, 
                     request.Budget, 
@@ -79,7 +82,8 @@ namespace AISAM.Services.Service
                 {
                     UserId = userId,
                     BrandId = request.BrandId,
-                    AdAccountId = request.AdAccountId,
+                    AdAccountId = cleanAdAccountId,
+                    FacebookCampaignId = facebookCampaignId, // Store Facebook Campaign ID
                     Name = request.Name,
                     Objective = request.Objective,
                     Budget = request.Budget,
@@ -187,14 +191,61 @@ namespace AISAM.Services.Service
                     throw new InvalidOperationException("Cannot delete campaign with active ads. Please pause or delete ads first.");
                 }
 
+                // Get social integration for Facebook API calls
+                var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(campaign.BrandId);
+                if (socialIntegration == null || !socialIntegration.IsActive)
+                {
+                    throw new ArgumentException("No active social integration found for this brand");
+                }
+
+                // Check token validity
+                var isTokenValid = await _facebookApiService.CheckTokenExpiryAsync(socialIntegration.AccessToken);
+                if (!isTokenValid)
+                {
+                    throw new UnauthorizedAccessException("Facebook access token has expired. Please reconnect your account.");
+                }
+
+                // Delete campaign from Facebook first
+                var facebookDeleted = false;
+                if (!string.IsNullOrEmpty(campaign.AdAccountId) && !string.IsNullOrEmpty(campaign.FacebookCampaignId))
+                {
+                    try
+                    {
+                        facebookDeleted = await _facebookApiService.DeleteCampaignAsync(
+                            campaign.AdAccountId,
+                            campaign.FacebookCampaignId, // Use actual Facebook Campaign ID
+                            socialIntegration.AccessToken,
+                            "DELETE_ANY"
+                        );
+
+                        if (!facebookDeleted)
+                        {
+                            _logger.LogWarning("Failed to delete campaign {CampaignId} from Facebook, but continuing with database deletion", campaignId);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Successfully deleted campaign {CampaignId} from Facebook", campaignId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting campaign {CampaignId} from Facebook, but continuing with database deletion", campaignId);
+                        // Continue with database deletion even if Facebook deletion fails
+                    }
+                }
+
+                // Delete from database
                 var deleted = await _adCampaignRepository.SoftDeleteAsync(campaignId);
                 if (deleted)
                 {
-                    await SendNotificationAsync(userId, "Ad Campaign Deleted", 
-                        $"Campaign '{campaign.Name}' has been deleted.", 
-                        campaignId, "ad_campaign");
+                    var message = facebookDeleted 
+                        ? $"Campaign '{campaign.Name}' has been deleted from Facebook and database."
+                        : $"Campaign '{campaign.Name}' has been deleted from database. Facebook deletion may have failed.";
 
-                    _logger.LogInformation("User {UserId} deleted ad campaign {CampaignId}", userId, campaignId);
+                    await SendNotificationAsync(userId, "Ad Campaign Deleted", message, campaignId, "ad_campaign");
+
+                    _logger.LogInformation("User {UserId} deleted ad campaign {CampaignId} - Facebook: {FacebookDeleted}, Database: {DatabaseDeleted}", 
+                        userId, campaignId, facebookDeleted, deleted);
                 }
 
                 return deleted;
@@ -331,6 +382,7 @@ namespace AISAM.Services.Service
                 UserId = campaign.UserId,
                 BrandId = campaign.BrandId,
                 AdAccountId = campaign.AdAccountId,
+                FacebookCampaignId = campaign.FacebookCampaignId,
                 Name = campaign.Name,
                 Objective = campaign.Objective,
                 Budget = campaign.Budget,

@@ -50,5 +50,15 @@ namespace AISAM.Services.IServices
         /// Unlink a specific target/page (social integration) from the user's social account
         /// </summary>
         Task<bool> UnlinkTargetAsync(Guid profileId, Guid socialIntegrationId);
+        
+        /// <summary>
+        /// Get Facebook ad accounts for a social account
+        /// </summary>
+        Task<IEnumerable<AdAccountDto>> GetAdAccountsAsync(Guid socialAccountId);
+
+        /// <summary>
+        /// Link ad account to social integration
+        /// </summary>
+        Task<bool> LinkAdAccountToIntegrationAsync(Guid socialIntegrationId, string adAccountId);
     }
 }
