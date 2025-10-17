@@ -1,4 +1,5 @@
 using AISAM.Services.IServices;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -6,15 +7,15 @@ namespace AISAM.Services.Service
 {
     public class ScheduledPostingBackgroundService : BackgroundService
     {
-        private readonly IScheduledPostingService _scheduledPostingService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ScheduledPostingBackgroundService> _logger;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(5); // Check every 5 minutes
 
         public ScheduledPostingBackgroundService(
-            IScheduledPostingService scheduledPostingService,
+            IServiceProvider serviceProvider,
             ILogger<ScheduledPostingBackgroundService> logger)
         {
-            _scheduledPostingService = scheduledPostingService;
+            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
@@ -28,11 +29,17 @@ namespace AISAM.Services.Service
                 {
                     _logger.LogInformation("Checking for due schedules...");
 
-                    // Process one-time schedules
-                    await _scheduledPostingService.ProcessDueSchedulesAsync();
+                    // Create a scope to resolve scoped services
+                    using (var scope = _serviceProvider.CreateScope())
+                    {
+                        var scheduledPostingService = scope.ServiceProvider.GetRequiredService<IScheduledPostingService>();
 
-                    // Process recurring schedules
-                    await _scheduledPostingService.ProcessRecurringSchedulesAsync();
+                        // Process one-time schedules
+                        await scheduledPostingService.ProcessDueSchedulesAsync();
+
+                        // Process recurring schedules
+                        await scheduledPostingService.ProcessRecurringSchedulesAsync();
+                    }
 
                     _logger.LogInformation("Schedule check completed.");
                 }

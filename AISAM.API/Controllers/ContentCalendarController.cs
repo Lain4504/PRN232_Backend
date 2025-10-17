@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AISAM.API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/content-calendar")]
     public class ContentCalendarController : ControllerBase
     {
         private readonly IScheduledPostingService _scheduledPostingService;
