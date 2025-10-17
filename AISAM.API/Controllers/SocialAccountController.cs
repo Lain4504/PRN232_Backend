@@ -1,5 +1,6 @@
 ﻿using AISAM.API.Utils;
 using AISAM.Common;
+using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
@@ -378,6 +379,51 @@ public class SocialAccountsController : ControllerBase
         {
             _logger.LogError(ex, "Error getting accounts with targets for user");
             return StatusCode(500, GenericResponse<List<SocialAccountWithTargetsDto>>.CreateError(
+                "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
+                System.Net.HttpStatusCode.InternalServerError, 
+                "INTERNAL_SERVER_ERROR"));
+        }
+    }
+    
+    /// <summary>
+    /// Get Facebook ad accounts for a social account
+    /// </summary>
+    [HttpGet("{socialAccountId}/ad-accounts")]
+    [Authorize]
+    public async Task<ActionResult<GenericResponse<List<AdAccountDto>>>> GetAdAccounts(Guid socialAccountId)
+    {
+        try
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+
+            // Verify the social account belongs to the user
+            var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
+            if (socialAccount == null || socialAccount.UserId != userId)
+            {
+                return NotFound(GenericResponse<List<AdAccountDto>>.CreateError(
+                    "Không tìm thấy tài khoản mạng xã hội", 
+                    System.Net.HttpStatusCode.NotFound, 
+                    "SOCIAL_ACCOUNT_NOT_FOUND"));
+            }
+
+            var adAccounts = await _socialService.GetAdAccountsAsync(socialAccountId);
+
+            return Ok(GenericResponse<List<AdAccountDto>>.CreateSuccess(
+                adAccounts.ToList(),
+                "Lấy danh sách ad accounts thành công"
+            ));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(GenericResponse<List<AdAccountDto>>.CreateError(
+                ex.Message, 
+                System.Net.HttpStatusCode.BadRequest, 
+                "INVALID_REQUEST"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting ad accounts for social account {SocialAccountId}", socialAccountId);
+            return StatusCode(500, GenericResponse<List<AdAccountDto>>.CreateError(
                 "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
                 System.Net.HttpStatusCode.InternalServerError, 
                 "INTERNAL_SERVER_ERROR"));
