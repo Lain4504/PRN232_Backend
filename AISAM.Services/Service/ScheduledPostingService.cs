@@ -77,18 +77,48 @@ namespace AISAM.Services.Service
         {
             _logger.LogInformation($"Processing schedule {schedule.Id} for content {schedule.ContentId}");
 
-            // Publish the content
-            var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, Guid.Empty, Guid.Empty); // TODO: Get actual integration and user IDs
+            try
+            {
+                // Parse integration IDs from JSON
+                List<Guid> integrationIds = new();
+                if (!string.IsNullOrEmpty(schedule.IntegrationIds))
+                {
+                    integrationIds = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(schedule.IntegrationIds) ?? new();
+                }
 
-            if (publishResult != null)
-            {
-                // Deactivate one-time schedule
-                await _calendarRepository.DeactivateScheduleAsync(schedule.Id);
-                _logger.LogInformation($"Successfully processed schedule {schedule.Id}");
+                if (!integrationIds.Any())
+                {
+                    _logger.LogWarning($"No integrations selected for schedule {schedule.Id}");
+                    await _calendarRepository.DeactivateScheduleAsync(schedule.Id);
+                    return;
+                }
+
+                // Publish to each selected integration
+                bool allSuccessful = true;
+                foreach (var integrationId in integrationIds)
+                {
+                    var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, integrationId, schedule.UserId);
+                    if (publishResult == null)
+                    {
+                        _logger.LogWarning($"Failed to publish content {schedule.ContentId} to integration {integrationId}");
+                        allSuccessful = false;
+                    }
+                }
+
+                if (allSuccessful)
+                {
+                    // Deactivate one-time schedule
+                    await _calendarRepository.DeactivateScheduleAsync(schedule.Id);
+                    _logger.LogInformation($"Successfully processed schedule {schedule.Id}");
+                }
+                else
+                {
+                    _logger.LogWarning($"Some integrations failed for schedule {schedule.Id}, keeping schedule active for retry");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogWarning($"Failed to publish content for schedule {schedule.Id}");
+                _logger.LogError(ex, $"Error processing schedule {schedule.Id}: {ex.Message}");
             }
         }
 
@@ -96,35 +126,67 @@ namespace AISAM.Services.Service
         {
             _logger.LogInformation($"Processing recurring schedule {schedule.Id} for content {schedule.ContentId}");
 
-            // Publish the content
-            var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, Guid.Empty, Guid.Empty); // TODO: Get actual integration and user IDs
-
-            if (publishResult != null)
+            try
             {
-                // Calculate next scheduled date
-                var nextDate = await CalculateNextScheduledDateAsync(schedule.ScheduledDate, schedule.RepeatType, schedule.RepeatInterval);
-
-                if (nextDate.HasValue && (!schedule.RepeatUntil.HasValue || nextDate.Value <= schedule.RepeatUntil.Value))
+                // Parse integration IDs from JSON
+                List<Guid> integrationIds = new();
+                if (!string.IsNullOrEmpty(schedule.IntegrationIds))
                 {
-                    // Update next scheduled date
-                    await _calendarRepository.UpdateNextScheduledDateAsync(schedule.Id, nextDate.Value);
-                    _logger.LogInformation($"Updated recurring schedule {schedule.Id} to next date {nextDate.Value}");
+                    integrationIds = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(schedule.IntegrationIds) ?? new();
+                }
+
+                if (!integrationIds.Any())
+                {
+                    _logger.LogWarning($"No integrations selected for recurring schedule {schedule.Id}");
+                    await _calendarRepository.DeactivateScheduleAsync(schedule.Id);
+                    return;
+                }
+
+                // Publish to each selected integration
+                bool allSuccessful = true;
+                foreach (var integrationId in integrationIds)
+                {
+                    var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, integrationId, schedule.UserId);
+                    if (publishResult == null)
+                    {
+                        _logger.LogWarning($"Failed to publish content {schedule.ContentId} to integration {integrationId} for recurring schedule");
+                        allSuccessful = false;
+                    }
+                }
+
+                if (allSuccessful)
+                {
+                    // Calculate next scheduled date
+                    var nextDate = await CalculateNextScheduledDateAsync(schedule.ScheduledDate, schedule.RepeatType, schedule.RepeatInterval);
+
+                    if (nextDate.HasValue && (!schedule.RepeatUntil.HasValue || nextDate.Value <= schedule.RepeatUntil.Value))
+                    {
+                        // Update next scheduled date
+                        await _calendarRepository.UpdateNextScheduledDateAsync(schedule.Id, nextDate.Value);
+                        _logger.LogInformation($"Updated recurring schedule {schedule.Id} to next date {nextDate.Value}");
+                    }
+                    else
+                    {
+                        // Deactivate if no more occurrences or reached end date
+                        await _calendarRepository.DeactivateScheduleAsync(schedule.Id);
+                        _logger.LogInformation($"Deactivated recurring schedule {schedule.Id} - no more occurrences");
+                    }
                 }
                 else
                 {
-                    // Deactivate if no more occurrences or reached end date
-                    await _calendarRepository.DeactivateScheduleAsync(schedule.Id);
-                    _logger.LogInformation($"Deactivated recurring schedule {schedule.Id} - no more occurrences");
+                    _logger.LogWarning($"Some integrations failed for recurring schedule {schedule.Id}, keeping schedule active for retry");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogWarning($"Failed to publish content for recurring schedule {schedule.Id}");
+                _logger.LogError(ex, $"Error processing recurring schedule {schedule.Id}: {ex.Message}");
             }
         }
 
-        public async Task<ContentResponseDto> ScheduleContentAsync(Guid contentId, DateTime scheduledDate, TimeSpan? scheduledTime = null, string timezone = "UTC")
+        public async Task<ContentResponseDto> ScheduleContentAsync(Guid contentId, DateTime scheduledDate, TimeSpan? scheduledTime = null, string timezone = "UTC", List<Guid>? integrationIds = null)
         {
+            var userId = Guid.Empty; // TODO: Get from current user context
+
             var schedule = new ContentCalendar
             {
                 ContentId = contentId,
@@ -132,17 +194,21 @@ namespace AISAM.Services.Service
                 ScheduledTime = scheduledTime,
                 Timezone = timezone,
                 RepeatType = RepeatTypeEnum.None,
+                IntegrationIds = integrationIds != null && integrationIds.Any() ? System.Text.Json.JsonSerializer.Serialize(integrationIds) : null,
+                UserId = userId,
                 IsActive = true
             };
 
             await _calendarRepository.CreateAsync(schedule);
 
             // Return content with schedule info
-            return await _contentService.GetContentByIdAsync(contentId, Guid.Empty); // TODO: Get actual user ID
+            return await _contentService.GetContentByIdAsync(contentId, userId);
         }
 
-        public async Task<ContentResponseDto> ScheduleRecurringContentAsync(Guid contentId, DateTime startDate, TimeSpan? scheduledTime, string timezone, RepeatTypeEnum repeatType, int repeatInterval = 1, DateTime? repeatUntil = null)
+        public async Task<ContentResponseDto> ScheduleRecurringContentAsync(Guid contentId, DateTime startDate, TimeSpan? scheduledTime, string timezone, RepeatTypeEnum repeatType, int repeatInterval = 1, DateTime? repeatUntil = null, List<Guid>? integrationIds = null)
         {
+            var userId = Guid.Empty; // TODO: Get from current user context
+
             var schedule = new ContentCalendar
             {
                 ContentId = contentId,
@@ -153,13 +219,15 @@ namespace AISAM.Services.Service
                 RepeatInterval = repeatInterval,
                 RepeatUntil = repeatUntil,
                 NextScheduledDate = startDate.Date,
+                IntegrationIds = integrationIds != null && integrationIds.Any() ? System.Text.Json.JsonSerializer.Serialize(integrationIds) : null,
+                UserId = userId,
                 IsActive = true
             };
 
             await _calendarRepository.CreateAsync(schedule);
 
             // Return content with schedule info
-            return await _contentService.GetContentByIdAsync(contentId, Guid.Empty); // TODO: Get actual user ID
+            return await _contentService.GetContentByIdAsync(contentId, userId);
         }
 
         public async Task<bool> CancelScheduleAsync(Guid scheduleId)

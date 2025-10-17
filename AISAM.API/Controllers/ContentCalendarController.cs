@@ -2,6 +2,7 @@ using AISAM.API.Utils;
 using AISAM.Common;
 using AISAM.Common.Dtos.Response;
 using AISAM.Data.Enumeration;
+using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,13 +14,16 @@ namespace AISAM.API.Controllers
     {
         private readonly IScheduledPostingService _scheduledPostingService;
         private readonly IContentService _contentService;
+        private readonly ISocialIntegrationRepository _socialIntegrationRepository;
 
         public ContentCalendarController(
             IScheduledPostingService scheduledPostingService,
-            IContentService contentService)
+            IContentService contentService,
+            ISocialIntegrationRepository socialIntegrationRepository)
         {
             _scheduledPostingService = scheduledPostingService;
             _contentService = contentService;
+            _socialIntegrationRepository = socialIntegrationRepository;
         }
 
         /// <summary>
@@ -40,11 +44,25 @@ namespace AISAM.API.Controllers
                     return NotFound(GenericResponse<object>.CreateError("Content not found", System.Net.HttpStatusCode.NotFound, "NOT_FOUND"));
                 }
 
+                // Validate integration IDs
+                if (request.IntegrationIds != null && request.IntegrationIds.Any())
+                {
+                    var userIntegrations = await _socialIntegrationRepository.GetByUserIdAsync(userId);
+                    var validIntegrationIds = userIntegrations.Select(i => i.Id).ToList();
+
+                    var invalidIds = request.IntegrationIds.Where(id => !validIntegrationIds.Contains(id)).ToList();
+                    if (invalidIds.Any())
+                    {
+                        return BadRequest(GenericResponse<object>.CreateError($"Invalid integration IDs: {string.Join(", ", invalidIds)}", System.Net.HttpStatusCode.BadRequest, "INVALID_INTEGRATIONS"));
+                    }
+                }
+
                 var result = await _scheduledPostingService.ScheduleContentAsync(
                     contentId,
                     request.ScheduledDate,
                     request.ScheduledTime,
-                    request.Timezone);
+                    request.Timezone,
+                    request.IntegrationIds);
 
                 return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "Content scheduled successfully"));
             }
@@ -72,6 +90,19 @@ namespace AISAM.API.Controllers
                     return NotFound(GenericResponse<object>.CreateError("Content not found", System.Net.HttpStatusCode.NotFound, "NOT_FOUND"));
                 }
 
+                // Validate integration IDs
+                if (request.IntegrationIds != null && request.IntegrationIds.Any())
+                {
+                    var userIntegrations = await _socialIntegrationRepository.GetByUserIdAsync(userId);
+                    var validIntegrationIds = userIntegrations.Select(i => i.Id).ToList();
+
+                    var invalidIds = request.IntegrationIds.Where(id => !validIntegrationIds.Contains(id)).ToList();
+                    if (invalidIds.Any())
+                    {
+                        return BadRequest(GenericResponse<object>.CreateError($"Invalid integration IDs: {string.Join(", ", invalidIds)}", System.Net.HttpStatusCode.BadRequest, "INVALID_INTEGRATIONS"));
+                    }
+                }
+
                 var result = await _scheduledPostingService.ScheduleRecurringContentAsync(
                     contentId,
                     request.StartDate,
@@ -79,7 +110,8 @@ namespace AISAM.API.Controllers
                     request.Timezone,
                     request.RepeatType,
                     request.RepeatInterval,
-                    request.RepeatUntil);
+                    request.RepeatUntil,
+                    request.IntegrationIds);
 
                 return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "Recurring content scheduled successfully"));
             }
@@ -163,6 +195,7 @@ namespace AISAM.API.Controllers
         public DateTime ScheduledDate { get; set; }
         public TimeSpan? ScheduledTime { get; set; }
         public string Timezone { get; set; } = "UTC";
+        public List<Guid> IntegrationIds { get; set; } = new();
     }
 
     public class ScheduleRecurringContentRequest
@@ -173,6 +206,7 @@ namespace AISAM.API.Controllers
         public RepeatTypeEnum RepeatType { get; set; }
         public int RepeatInterval { get; set; } = 1;
         public DateTime? RepeatUntil { get; set; }
+        public List<Guid> IntegrationIds { get; set; } = new();
     }
 
     public class UpdateScheduleRequest

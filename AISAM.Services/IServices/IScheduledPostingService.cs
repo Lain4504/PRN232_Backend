@@ -8,8 +8,8 @@ namespace AISAM.Services.IServices
     {
         Task ProcessDueSchedulesAsync();
         Task ProcessRecurringSchedulesAsync();
-        Task<ContentResponseDto> ScheduleContentAsync(Guid contentId, DateTime scheduledDate, TimeSpan? scheduledTime = null, string timezone = "UTC");
-        Task<ContentResponseDto> ScheduleRecurringContentAsync(Guid contentId, DateTime startDate, TimeSpan? scheduledTime, string timezone, RepeatTypeEnum repeatType, int repeatInterval = 1, DateTime? repeatUntil = null);
+        Task<ContentResponseDto> ScheduleContentAsync(Guid contentId, DateTime scheduledDate, TimeSpan? scheduledTime = null, string timezone = "UTC", List<Guid>? integrationIds = null);
+        Task<ContentResponseDto> ScheduleRecurringContentAsync(Guid contentId, DateTime startDate, TimeSpan? scheduledTime, string timezone, RepeatTypeEnum repeatType, int repeatInterval = 1, DateTime? repeatUntil = null, List<Guid>? integrationIds = null);
         Task<bool> CancelScheduleAsync(Guid scheduleId);
         Task<bool> UpdateScheduleAsync(Guid scheduleId, DateTime newScheduledDate, TimeSpan? newScheduledTime = null);
         Task<IEnumerable<ContentCalendar>> GetUpcomingSchedulesAsync(int limit = 50);

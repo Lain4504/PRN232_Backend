@@ -38,6 +38,12 @@ namespace AISAM.Data.Model
         [Column("next_scheduled_date")]
         public DateTime? NextScheduledDate { get; set; } // For recurring schedules
 
+        [Column("integration_ids")]
+        public string? IntegrationIds { get; set; } // JSON array of selected integration IDs
+
+        [Column("user_id")]
+        public Guid UserId { get; set; } // User who created the schedule
+
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
