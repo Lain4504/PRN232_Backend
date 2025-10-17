@@ -23,6 +23,10 @@ namespace AISAM.Data.Model
         [Column("ad_account_id")]
         public string AdAccountId { get; set; } = string.Empty;
 
+        [MaxLength(255)]
+        [Column("facebook_campaign_id")]
+        public string? FacebookCampaignId { get; set; } // Facebook Campaign ID from Marketing API
+
         [Required]
         [MaxLength(255)]
         [Column("name")]

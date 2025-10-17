@@ -57,6 +57,19 @@ if (!string.IsNullOrEmpty(frontendBaseUrl))
     builder.Configuration["FrontendSettings:BaseUrl"] = frontendBaseUrl;
 }
 
+// Facebook sandbox configuration override
+var facebookUseSandbox = Environment.GetEnvironmentVariable("FACEBOOK_USE_SANDBOX");
+if (!string.IsNullOrEmpty(facebookUseSandbox))
+{
+    builder.Configuration["FacebookSettings:UseSandbox"] = facebookUseSandbox;
+}
+
+var facebookSandboxAccessToken = Environment.GetEnvironmentVariable("FACEBOOK_SANDBOX_ACCESS_TOKEN");
+if (!string.IsNullOrEmpty(facebookSandboxAccessToken))
+{
+    builder.Configuration["FacebookSettings:Sandbox:AccessToken"] = facebookSandboxAccessToken;
+}
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {

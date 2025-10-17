@@ -259,6 +259,39 @@ namespace AISAM.Services.Service
             }
         }
         
+        public async Task<IEnumerable<AdAccountDto>> GetAdAccountsAsync(Guid socialAccountId)
+        {
+            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
+            if (account == null)
+            {
+                throw new ArgumentException("Social account not found");
+            }
+
+            if (!_providers.TryGetValue(account.Platform.ToString().ToLower(), out var providerService))
+            {
+                throw new ArgumentException($"Provider '{account.Platform}' is not supported");
+            }
+
+            if (providerService is not FacebookProvider facebookProvider)
+            {
+                throw new ArgumentException("Ad accounts are only available for Facebook");
+            }
+
+            return await facebookProvider.GetAdAccountsAsync(account.UserAccessToken);
+        }
+
+        public async Task<bool> LinkAdAccountToIntegrationAsync(Guid socialIntegrationId, string adAccountId)
+        {
+            var integration = await _socialIntegrationRepository.GetByIdAsync(socialIntegrationId);
+            if (integration == null) return false;
+    
+            integration.AdAccountId = adAccountId;
+            integration.UpdatedAt = DateTime.UtcNow;
+    
+            await _socialIntegrationRepository.UpdateAsync(integration);
+            return true;
+        }
+        
         private string GetRedirectUri(string provider)
         {
             // Redirect to frontend callback URL from configuration
