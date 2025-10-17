@@ -45,6 +45,7 @@ namespace AISAM.API.Utils
             email = GetEmail(user);
             return !string.IsNullOrWhiteSpace(email);
         }
+
     }
 }
 

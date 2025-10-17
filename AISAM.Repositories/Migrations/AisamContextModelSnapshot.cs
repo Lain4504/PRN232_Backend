@@ -1236,7 +1236,8 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsDeleted")
@@ -1249,6 +1250,16 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("status");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.Property<Guid>("VendorId")
                         .HasColumnType("uuid")
                         .HasColumnName("vendor_id");
@@ -1257,9 +1268,45 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("Name");
 
+                    b.HasIndex("Status");
+
                     b.HasIndex("VendorId");
 
                     b.ToTable("teams");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.TeamBrand", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid>("BrandId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("brand_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BrandId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("team_brands");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.TeamMember", b =>
@@ -1659,6 +1706,25 @@ namespace AISAM.Repositories.Migrations
                     b.Navigation("Vendor");
                 });
 
+            modelBuilder.Entity("AISAM.Data.Model.TeamBrand", b =>
+                {
+                    b.HasOne("AISAM.Data.Model.Brand", "Brand")
+                        .WithMany("TeamBrands")
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AISAM.Data.Model.Team", "Team")
+                        .WithMany("TeamBrands")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Brand");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("AISAM.Data.Model.TeamMember", b =>
                 {
                     b.HasOne("AISAM.Data.Model.Team", "Team")
@@ -1702,6 +1768,8 @@ namespace AISAM.Repositories.Migrations
                     b.Navigation("Products");
 
                     b.Navigation("SocialIntegrations");
+
+                    b.Navigation("TeamBrands");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Content", b =>
@@ -1744,6 +1812,8 @@ namespace AISAM.Repositories.Migrations
 
             modelBuilder.Entity("AISAM.Data.Model.Team", b =>
                 {
+                    b.Navigation("TeamBrands");
+
                     b.Navigation("TeamMembers");
                 });
 

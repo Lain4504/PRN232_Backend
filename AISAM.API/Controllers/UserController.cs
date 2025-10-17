@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using AISAM.Common;
 using AISAM.Services.IServices;
-using AISAM.Common.Models;
-using System.Security.Claims;
 using AISAM.Common.Dtos.Response;
 using AISAM.API.Utils;
 using AISAM.Common.Dtos;
@@ -30,15 +28,19 @@ namespace AISAM.API.Controllers
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var email = UserClaimsHelper.GetEmail(User) ?? "unknown@example.com";
 
-                // Get or create user (sync with Supabase)
-                var user = await _userService.GetOrCreateUserAsync(userId, email);
+                var user = await _userService.GetUserByIdAsync(userId);
+
+                if (user == null)
+                {
+                    return NotFound(GenericResponse<UserResponseDto>.CreateError("Không tìm thấy người dùng"));
+                }
 
                 var response = new UserResponseDto
                 {
                     Id = user.Id,
                     Email = user.Email,
+                    Role = user.Role.ToString(),
                     CreatedAt = user.CreatedAt
                 };
 

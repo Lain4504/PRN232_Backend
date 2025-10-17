@@ -2,6 +2,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
+using AISAM.Common.Dtos.Request; 
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
@@ -15,14 +16,15 @@ namespace AISAM.Services.Service
 {
     public class AIService : IAIService
     {
-        private readonly GeminiSettings _settings;
         private readonly ILogger<AIService> _logger;
+         private readonly GeminiSettings _settings;
+         private readonly IUserRepository _userRepository;
+        private readonly Dictionary<string, IProviderService> _providers;
         private readonly HttpClient _httpClient;
         private readonly IContentRepository _contentRepository;
         private readonly IAiGenerationRepository _aiGenerationRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
-        private readonly IUserRepository _userRepository;
-        private readonly Dictionary<string, IProviderService> _providers;
+        private readonly INotificationService _notificationService;
 
         public AIService(
             IOptions<GeminiSettings> settings,
@@ -32,6 +34,7 @@ namespace AISAM.Services.Service
             IAiGenerationRepository aiGenerationRepository,
             ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
+            INotificationService notificationService,
             IEnumerable<IProviderService> providers)
         {
             _settings = settings.Value;
@@ -41,6 +44,7 @@ namespace AISAM.Services.Service
             _aiGenerationRepository = aiGenerationRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
+            _notificationService = notificationService;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
 
             if (string.IsNullOrEmpty(_settings.ApiKey))

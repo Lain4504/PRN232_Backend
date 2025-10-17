@@ -7,11 +7,8 @@ namespace AISAM.Services.IServices
 {
     public interface IUserService
     {
-        Task<User?> GetByIdAsync(Guid id);
         Task<User?> GetUserByIdAsync(Guid id);
-        Task<User> CreateUserAsync(User user);
-        Task<User> CreateUserAsync(string email);
-        Task<User> GetOrCreateUserAsync(Guid supabaseUserId, string email);
+        Task<User> CreateUserAsync(Guid supabaseUserId, string email);
         Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request);
     }
 }

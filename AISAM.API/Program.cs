@@ -133,7 +133,6 @@ builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IContentCalendarRepository, ContentCalendarRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
@@ -142,22 +141,21 @@ builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
-builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
+builder.Services.AddHostedService<NotificationCleanupService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
-
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
-
 builder.Services.AddScoped<ITeamService, TeamService>();
-
 // Add scheduled posting services
 builder.Services.AddScoped<IScheduledPostingService, ScheduledPostingService>();
 builder.Services.AddHostedService<ScheduledPostingBackgroundService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
@@ -207,8 +205,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
-
-builder.Services.AddAuthorization();
 
 builder.Services.AddAuthorization();
 // Disable automatic 400 for model validation to allow custom GenericResponse
