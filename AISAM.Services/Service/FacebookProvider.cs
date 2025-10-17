@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Linq;
+using AISAM.Common.Dtos.Response;
 using AISAM.Data.Model;
 
 namespace AISAM.Services.Service
@@ -378,6 +379,54 @@ namespace AISAM.Services.Service
             catch
             {
                 return false;
+            }
+        }
+        
+        public async Task<IEnumerable<AdAccountDto>> GetAdAccountsAsync(string accessToken)
+        {
+            try
+            {
+                var adAccountsUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/me/adaccounts?" +
+                                    $"fields=id,name,account_id,currency,timezone_name&access_token={accessToken}";
+        
+                _logger.LogInformation("Requesting Facebook ad accounts from: {Url}", adAccountsUrl);
+                
+                var response = await _httpClient.GetAsync(adAccountsUrl);
+                response.EnsureSuccessStatusCode();
+        
+                var json = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Facebook ad accounts response: {Response}", json);
+                
+                var adAccountsResponse = JsonSerializer.Deserialize<FacebookAdAccountsResponse>(json);
+                _logger.LogInformation("Deserialized response: Data count = {Count}", adAccountsResponse?.Data?.Count ?? 0);
+        
+                if (adAccountsResponse?.Data == null)
+                {
+                    _logger.LogWarning("AdAccountsResponse.Data is null");
+                    return new List<AdAccountDto>();
+                }
+        
+                var result = adAccountsResponse.Data.Select(account => 
+                {
+                    _logger.LogInformation("Processing account: {Id} - {Name}", account.Id, account.Name);
+                    return new AdAccountDto
+                    {
+                        Id = account.Id,
+                        Name = account.Name,
+                        AccountId = account.AccountId,
+                        Currency = account.Currency,
+                        Timezone = account.TimezoneName,
+                        Status = "ACTIVE" // Default status since Facebook doesn't provide it
+                    };
+                }).ToList();
+                
+                _logger.LogInformation("Final result count: {Count}", result.Count);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting Facebook ad accounts");
+                throw;
             }
         }
 

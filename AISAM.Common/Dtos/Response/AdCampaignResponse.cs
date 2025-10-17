@@ -8,6 +8,7 @@ namespace AISAM.Common.Dtos.Response
         public Guid UserId { get; set; }
         public Guid BrandId { get; set; }
         public string AdAccountId { get; set; } = string.Empty;
+        public string? FacebookCampaignId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Objective { get; set; }
         public decimal? Budget { get; set; }

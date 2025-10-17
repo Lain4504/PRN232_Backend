@@ -7,9 +7,9 @@ namespace AISAM.API.Validators
     {
         private static readonly string[] ValidObjectives = 
         {
-            "REACH", "IMPRESSIONS", "BRAND_AWARENESS", "TRAFFIC", "ENGAGEMENT",
-            "APP_INSTALLS", "VIDEO_VIEWS", "LEAD_GENERATION", "CONVERSIONS",
-            "CATALOG_SALES", "STORE_TRAFFIC", "EVENT_RESPONSES", "MESSAGES"
+            "VIDEO_VIEWS", "TRAFFIC", "CONVERSIONS", "LEAD_GENERATION",
+            "BRAND_AWARENESS", "REACH", "ENGAGEMENT", "APP_INSTALLS",
+            "CATALOG_SALES", "STORE_TRAFFIC", "MESSAGES", "EVENT_RESPONSES"
         };
 
         public CreateAdCampaignRequestValidator()

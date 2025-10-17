@@ -1,8 +1,11 @@
 using System.Text;
 using System.Text.Json;
 using AISAM.Common.Dtos.Response;
+using AISAM.Common.Models;
+using AISAM.Services.Helper;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AISAM.Services.Service
 {
@@ -10,26 +13,62 @@ namespace AISAM.Services.Service
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<FacebookMarketingApiService> _logger;
-        private const string BaseUrl = "https://graph.facebook.com/v20.0";
+        private readonly FacebookSettings _facebookSettings;
 
-        public FacebookMarketingApiService(HttpClient httpClient, ILogger<FacebookMarketingApiService> logger)
+        public FacebookMarketingApiService(
+            HttpClient httpClient, 
+            ILogger<FacebookMarketingApiService> logger,
+            IOptions<FacebookSettings> facebookSettings)
         {
             _httpClient = httpClient;
             _logger = logger;
+            _facebookSettings = facebookSettings.Value;
         }
 
         public async Task<string> CreateCampaignAsync(string adAccountId, string name, string objective, decimal budget, string accessToken)
         {
             try
             {
-                var url = $"{BaseUrl}/act_{adAccountId}/campaigns";
+                // Normalize ad account ID
+                var normalizedAccountId = NormalizeAdAccountId(adAccountId);
+                
+                // Use sandbox config if enabled
+                if (_facebookSettings.UseSandbox && _facebookSettings.Sandbox != null)
+                {
+                    accessToken = _facebookSettings.Sandbox.AccessToken;
+                    normalizedAccountId = NormalizeAdAccountId(_facebookSettings.Sandbox.AdAccountId);
+                    _logger.LogInformation("Using sandbox configuration for campaign creation - Currency: {Currency}, Timezone: {Timezone}", 
+                        _facebookSettings.Sandbox.Currency, _facebookSettings.Sandbox.Timezone);
+                }
+                
+                // Map objective to Facebook API value
+                var mappedObjective = FacebookObjectiveMapper.MapToFacebookObjective(objective);
+                _logger.LogInformation("Mapped objective '{Objective}' to '{MappedObjective}'", objective, mappedObjective);
+                
+                // Convert budget to appropriate currency unit
+                // For VND: 1 VND = 1 unit (no conversion needed)
+                // For USD: 1 USD = 100 cents
+                var budgetInCurrencyUnit = _facebookSettings.UseSandbox ? (int)budget : (int)(budget * 100);
+                
+                if (_facebookSettings.UseSandbox)
+                {
+                    _logger.LogInformation("Using VND currency for sandbox mode - budget: {Budget} VND", budget);
+                }
+                else
+                {
+                    _logger.LogInformation("Using USD currency for production mode - budget: {Budget} USD = {BudgetInCents} cents", budget, budgetInCurrencyUnit);
+                }
+                
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{normalizedAccountId}/campaigns";
                 
                 var payload = new
                 {
                     name = name,
-                    objective = objective,
+                    objective = mappedObjective,
                     status = "PAUSED",
-                    daily_budget = (int)(budget * 100), // Convert to cents
+                    buying_type = "AUCTION",
+                    daily_budget = budgetInCurrencyUnit, // VND for sandbox, cents for production
+                    special_ad_categories = new string[] { }, // Empty array, not ["NONE"]
                     access_token = accessToken
                 };
 
@@ -64,16 +103,21 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"{BaseUrl}/act_{adAccountId}/adsets";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/act_{adAccountId}/adsets";
                 
                 var targetingObj = JsonSerializer.Deserialize<object>(targeting);
+                
+                // Convert budget to appropriate currency unit
+                // For VND: 1 VND = 1 unit (no conversion needed)
+                // For USD: 1 USD = 100 cents
+                var budgetInCurrencyUnit = _facebookSettings.UseSandbox ? (int)dailyBudget : (int)(dailyBudget * 100);
                 
                 var payload = new
                 {
                     name = name,
                     campaign_id = campaignId,
                     targeting = targetingObj,
-                    daily_budget = (int)(dailyBudget * 100), // Convert to cents
+                    daily_budget = budgetInCurrencyUnit, // VND for sandbox, cents for production
                     status = "PAUSED",
                     access_token = accessToken
                 };
@@ -109,7 +153,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"{BaseUrl}/act_{adAccountId}/adcreatives";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/act_{adAccountId}/adcreatives";
                 
                 var objectStorySpec = new
                 {
@@ -160,7 +204,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"{BaseUrl}/act_{adAccountId}/ads";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/act_{adAccountId}/ads";
                 
                 var payload = new
                 {
@@ -202,7 +246,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"{BaseUrl}/{adId}";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{adId}";
                 
                 var payload = new
                 {
@@ -233,7 +277,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"{BaseUrl}/{adId}?access_token={accessToken}";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{adId}?access_token={accessToken}";
                 var response = await _httpClient.DeleteAsync(url);
                 
                 if (!response.IsSuccessStatusCode)
@@ -252,11 +296,64 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<bool> DeleteCampaignAsync(string adAccountId, string campaignId, string accessToken, string deleteStrategy = "DELETE_ANY", DateTime? beforeDate = null, int? objectCount = null)
+        {
+            try
+            {
+                // Use sandbox config if enabled
+                if (_facebookSettings.UseSandbox && _facebookSettings.Sandbox != null)
+                {
+                    accessToken = _facebookSettings.Sandbox.AccessToken;
+                    _logger.LogInformation("Using sandbox configuration for campaign deletion");
+                }
+
+                // Delete specific campaign by ID (correct Facebook API approach)
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{campaignId}?access_token={accessToken}";
+                
+                _logger.LogInformation("Deleting campaign {CampaignId} using direct campaign endpoint", campaignId);
+
+                var response = await _httpClient.DeleteAsync(url);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Failed to delete campaign: {Error}", errorContent);
+                    return false;
+                }
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Campaign deletion response: {Response}", responseContent);
+
+                // Parse response to check if deletion was successful
+                try
+                {
+                    var jsonResponse = JsonDocument.Parse(responseContent);
+                    if (jsonResponse.RootElement.TryGetProperty("success", out var successProperty))
+                    {
+                        return successProperty.GetBoolean();
+                    }
+                    
+                    // For direct campaign deletion, success is indicated by 200 status code
+                    return true;
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Could not parse deletion response, assuming success");
+                    return true; // Assume success if we can't parse response but got 200 status
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting campaign {CampaignId}", campaignId);
+                return false;
+            }
+        }
+
         public async Task<AdPerformanceResponse?> GetAdInsightsAsync(string adId, string accessToken)
         {
             try
             {
-                var url = $"{BaseUrl}/{adId}/insights?fields=impressions,clicks,ctr,spend,actions&access_token={accessToken}";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{adId}/insights?fields=impressions,clicks,ctr,spend,actions&access_token={accessToken}";
                 var response = await _httpClient.GetAsync(url);
                 
                 if (!response.IsSuccessStatusCode)
@@ -315,7 +412,7 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"{BaseUrl}/me?access_token={accessToken}";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/me?access_token={accessToken}";
                 var response = await _httpClient.GetAsync(url);
                 return response.IsSuccessStatusCode;
             }
@@ -355,6 +452,19 @@ namespace AISAM.Services.Service
             }
 
             return Task.FromResult(JsonSerializer.Serialize(targeting));
+        }
+
+        /// <summary>
+        /// Normalizes ad account ID by adding 'act_' prefix if missing
+        /// </summary>
+        /// <param name="adAccountId">Ad account ID with or without prefix</param>
+        /// <returns>Normalized ad account ID with act_ prefix</returns>
+        private static string NormalizeAdAccountId(string adAccountId)
+        {
+            if (string.IsNullOrEmpty(adAccountId)) 
+                return adAccountId;
+            
+            return adAccountId.StartsWith("act_") ? adAccountId : $"act_{adAccountId}";
         }
     }
 }
