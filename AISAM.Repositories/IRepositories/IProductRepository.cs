@@ -1,4 +1,4 @@
-﻿using AISAM.Common.Dtos;
+using AISAM.Common.Dtos;
 using AISAM.Common.Models;
 using AISAM.Data.Model;
 
@@ -9,6 +9,8 @@ namespace AISAM.Repositories.IRepositories
         Task<Product?> GetByIdAsync(Guid id);
         Task<Product?> GetByIdIncludingDeletedAsync(Guid id);
         Task<PagedResult<Product>> GetPagedAsync(PaginationRequest request);
+        Task<IEnumerable<Product>> GetProductsByBrandIdAsync(Guid brandId);
+        Task<IEnumerable<Product>> GetProductsByBrandIdIncludingDeletedAsync(Guid brandId);
         Task<Product> AddAsync(Product product);
         Task UpdateAsync(Product product);
         Task<bool> BrandExistsAsync(Guid? brandId);
