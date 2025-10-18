@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AISAM.Repositories.Migrations
 {
     [DbContext(typeof(AisamContext))]
-    [Migration("20251018110346_update-ad-caimpain")]
-    partial class updateadcaimpain
+    [Migration("20251022010752_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -121,6 +121,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("objective");
 
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("date")
                         .HasColumnName("start_date");
@@ -129,17 +133,13 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id");
 
                     b.HasIndex("BrandId");
 
                     b.HasIndex("Name");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ProfileId");
 
                     b.ToTable("ad_campaigns");
                 });
@@ -211,6 +211,11 @@ namespace AISAM.Repositories.Migrations
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("date")
                         .HasColumnName("end_date");
+
+                    b.Property<string>("FacebookAdSetId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("facebook_ad_set_id");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -311,9 +316,9 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("approved_at");
 
-                    b.Property<Guid>("ApproverId")
+                    b.Property<Guid>("ApproverProfileId")
                         .HasColumnType("uuid")
-                        .HasColumnName("approver_id");
+                        .HasColumnName("approver_profile_id");
 
                     b.Property<Guid>("ContentId")
                         .HasColumnType("uuid")
@@ -337,7 +342,7 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApproverId");
+                    b.HasIndex("ApproverProfileId");
 
                     b.HasIndex("ContentId");
 
@@ -485,12 +490,9 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
-                    b.Property<Guid?>("ProfileId")
+                    b.Property<Guid>("ProfileId")
                         .HasColumnType("uuid")
                         .HasColumnName("profile_id");
-
-                    b.Property<Guid?>("ProfileId1")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("Slogan")
                         .HasMaxLength(255)
@@ -505,10 +507,6 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.Property<string>("Usp")
                         .HasColumnType("text")
                         .HasColumnName("usp");
@@ -519,11 +517,56 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("ProfileId");
 
-                    b.HasIndex("ProfileId1");
-
-                    b.HasIndex("UserId");
-
                     b.ToTable("brands");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.ChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AiGenerationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ai_generation_id");
+
+                    b.Property<Guid?>("ContentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("content_id");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<int>("SenderType")
+                        .HasColumnType("integer")
+                        .HasColumnName("sender_type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AiGenerationId");
+
+                    b.HasIndex("ContentId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("chat_messages");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Content", b =>
@@ -589,6 +632,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
                     b.Property<string>("VideoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -622,15 +669,37 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("IntegrationIds")
+                        .HasColumnType("text")
+                        .HasColumnName("integration_ids");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
 
-                    b.Property<string>("RepeatType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                    b.Property<DateTime?>("NextScheduledDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_scheduled_date");
+
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
+                    b.Property<int>("RepeatInterval")
+                        .HasColumnType("integer")
+                        .HasColumnName("repeat_interval");
+
+                    b.Property<int>("RepeatType")
+                        .HasColumnType("integer")
                         .HasColumnName("repeat_type");
+
+                    b.Property<DateTime?>("RepeatUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("repeat_until");
 
                     b.Property<DateTime>("ScheduledDate")
                         .HasColumnType("timestamp with time zone")
@@ -646,9 +715,15 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("timezone");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ContentId");
+
+                    b.HasIndex("ProfileId");
 
                     b.HasIndex("ScheduledDate");
 
@@ -714,6 +789,65 @@ namespace AISAM.Repositories.Migrations
                     b.ToTable("content_templates");
                 });
 
+            modelBuilder.Entity("AISAM.Data.Model.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AdType")
+                        .HasColumnType("integer")
+                        .HasColumnName("ad_type");
+
+                    b.Property<Guid?>("BrandId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("brand_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BrandId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProfileId");
+
+                    b.ToTable("conversations");
+                });
+
             modelBuilder.Entity("AISAM.Data.Model.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -738,6 +872,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("text")
                         .HasColumnName("message");
 
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
                     b.Property<Guid?>("TargetId")
                         .HasColumnType("uuid")
                         .HasColumnName("target_id");
@@ -757,19 +895,15 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("type");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("IsRead");
 
-                    b.HasIndex("Type");
+                    b.HasIndex("ProfileId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("Type");
 
                     b.ToTable("notifications");
                 });
@@ -1033,9 +1167,19 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
                     b.Property<int>("ProfileType")
                         .HasColumnType("integer")
                         .HasColumnName("profile_type");
+
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscription_id");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1046,6 +1190,8 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId");
 
                     b.HasIndex("UserId");
 
@@ -1084,6 +1230,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("platform");
 
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
                     b.Property<string>("RefreshToken")
                         .HasColumnType("text")
                         .HasColumnName("refresh_token");
@@ -1097,10 +1247,6 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("text")
                         .HasColumnName("user_access_token");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
@@ -1109,7 +1255,7 @@ namespace AISAM.Repositories.Migrations
 
                     b.HasIndex("Platform");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ProfileId");
 
                     b.ToTable("social_accounts");
                 });
@@ -1160,6 +1306,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("platform");
 
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
                     b.Property<string>("RefreshToken")
                         .HasColumnType("text")
                         .HasColumnName("refresh_token");
@@ -1172,17 +1322,13 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id");
 
                     b.HasIndex("BrandId");
 
-                    b.HasIndex("SocialAccountId");
+                    b.HasIndex("ProfileId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("SocialAccountId");
 
                     b.ToTable("social_integrations");
                 });
@@ -1214,6 +1360,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("plan");
 
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
                     b.Property<decimal>("QuotaAdBudgetMonthly")
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("quota_ad_budget_monthly");
@@ -1238,15 +1388,11 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id");
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ProfileId");
 
                     b.ToTable("subscriptions");
                 });
@@ -1277,6 +1423,10 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("profile_id");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -1287,17 +1437,13 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid>("VendorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("vendor_id");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Name");
 
-                    b.HasIndex("Status");
+                    b.HasIndex("ProfileId");
 
-                    b.HasIndex("VendorId");
+                    b.HasIndex("Status");
 
                     b.ToTable("teams");
                 });
@@ -1438,15 +1584,15 @@ namespace AISAM.Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("AISAM.Data.Model.User", "User")
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
                         .WithMany("AdCampaigns")
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("ProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Brand");
 
-                    b.Navigation("User");
+                    b.Navigation("Profile");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.AdCreative", b =>
@@ -1488,9 +1634,9 @@ namespace AISAM.Repositories.Migrations
 
             modelBuilder.Entity("AISAM.Data.Model.Approval", b =>
                 {
-                    b.HasOne("AISAM.Data.Model.User", "Approver")
+                    b.HasOne("AISAM.Data.Model.Profile", "ApproverProfile")
                         .WithMany("Approvals")
-                        .HasForeignKey("ApproverId")
+                        .HasForeignKey("ApproverProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1500,7 +1646,7 @@ namespace AISAM.Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Approver");
+                    b.Navigation("ApproverProfile");
 
                     b.Navigation("Content");
                 });
@@ -1529,23 +1675,37 @@ namespace AISAM.Repositories.Migrations
             modelBuilder.Entity("AISAM.Data.Model.Brand", b =>
                 {
                     b.HasOne("AISAM.Data.Model.Profile", "Profile")
-                        .WithMany()
+                        .WithMany("Brands")
                         .HasForeignKey("ProfileId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("AISAM.Data.Model.Profile", null)
-                        .WithMany("Brands")
-                        .HasForeignKey("ProfileId1");
-
-                    b.HasOne("AISAM.Data.Model.User", "User")
-                        .WithMany("Brands")
-                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Profile");
+                });
 
-                    b.Navigation("User");
+            modelBuilder.Entity("AISAM.Data.Model.ChatMessage", b =>
+                {
+                    b.HasOne("AISAM.Data.Model.AiGeneration", "AiGeneration")
+                        .WithMany()
+                        .HasForeignKey("AiGenerationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AISAM.Data.Model.Content", "Content")
+                        .WithMany()
+                        .HasForeignKey("ContentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AISAM.Data.Model.Conversation", "Conversation")
+                        .WithMany("ChatMessages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AiGeneration");
+
+                    b.Navigation("Content");
+
+                    b.Navigation("Conversation");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Content", b =>
@@ -1574,7 +1734,15 @@ namespace AISAM.Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
+                        .WithMany("ContentCalendars")
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Content");
+
+                    b.Navigation("Profile");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.ContentTemplate", b =>
@@ -1588,15 +1756,40 @@ namespace AISAM.Repositories.Migrations
                     b.Navigation("Brand");
                 });
 
-            modelBuilder.Entity("AISAM.Data.Model.Notification", b =>
+            modelBuilder.Entity("AISAM.Data.Model.Conversation", b =>
                 {
-                    b.HasOne("AISAM.Data.Model.User", "User")
-                        .WithMany("Notifications")
-                        .HasForeignKey("UserId")
+                    b.HasOne("AISAM.Data.Model.Brand", "Brand")
+                        .WithMany()
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AISAM.Data.Model.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
+                        .WithMany("Conversations")
+                        .HasForeignKey("ProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("Brand");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Profile");
+                });
+
+            modelBuilder.Entity("AISAM.Data.Model.Notification", b =>
+                {
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
+                        .WithMany("Notifications")
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Profile");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Payment", b =>
@@ -1669,24 +1862,31 @@ namespace AISAM.Repositories.Migrations
 
             modelBuilder.Entity("AISAM.Data.Model.Profile", b =>
                 {
+                    b.HasOne("AISAM.Data.Model.Subscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("AISAM.Data.Model.User", "User")
                         .WithMany("Profiles")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Subscription");
+
                     b.Navigation("User");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.SocialAccount", b =>
                 {
-                    b.HasOne("AISAM.Data.Model.User", "User")
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
                         .WithMany("SocialAccounts")
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("ProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("Profile");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.SocialIntegration", b =>
@@ -1697,45 +1897,45 @@ namespace AISAM.Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
+                        .WithMany("SocialIntegrations")
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("AISAM.Data.Model.SocialAccount", "SocialAccount")
                         .WithMany("SocialIntegrations")
                         .HasForeignKey("SocialAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("AISAM.Data.Model.User", "User")
-                        .WithMany("SocialIntegrations")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Brand");
 
-                    b.Navigation("SocialAccount");
+                    b.Navigation("Profile");
 
-                    b.Navigation("User");
+                    b.Navigation("SocialAccount");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Subscription", b =>
                 {
-                    b.HasOne("AISAM.Data.Model.User", "User")
-                        .WithMany("Subscriptions")
-                        .HasForeignKey("UserId")
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
+                        .WithMany()
+                        .HasForeignKey("ProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("Profile");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.Team", b =>
                 {
-                    b.HasOne("AISAM.Data.Model.User", "Vendor")
+                    b.HasOne("AISAM.Data.Model.Profile", "Profile")
                         .WithMany("Teams")
-                        .HasForeignKey("VendorId")
+                        .HasForeignKey("ProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Vendor");
+                    b.Navigation("Profile");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.TeamBrand", b =>
@@ -1817,6 +2017,11 @@ namespace AISAM.Repositories.Migrations
                     b.Navigation("Posts");
                 });
 
+            modelBuilder.Entity("AISAM.Data.Model.Conversation", b =>
+                {
+                    b.Navigation("ChatMessages");
+                });
+
             modelBuilder.Entity("AISAM.Data.Model.Post", b =>
                 {
                     b.Navigation("PerformanceReports");
@@ -1829,7 +2034,23 @@ namespace AISAM.Repositories.Migrations
 
             modelBuilder.Entity("AISAM.Data.Model.Profile", b =>
                 {
+                    b.Navigation("AdCampaigns");
+
+                    b.Navigation("Approvals");
+
                     b.Navigation("Brands");
+
+                    b.Navigation("ContentCalendars");
+
+                    b.Navigation("Conversations");
+
+                    b.Navigation("Notifications");
+
+                    b.Navigation("SocialAccounts");
+
+                    b.Navigation("SocialIntegrations");
+
+                    b.Navigation("Teams");
                 });
 
             modelBuilder.Entity("AISAM.Data.Model.SocialAccount", b =>
@@ -1851,25 +2072,9 @@ namespace AISAM.Repositories.Migrations
 
             modelBuilder.Entity("AISAM.Data.Model.User", b =>
                 {
-                    b.Navigation("AdCampaigns");
-
-                    b.Navigation("Approvals");
-
-                    b.Navigation("Brands");
-
-                    b.Navigation("Notifications");
-
                     b.Navigation("Profiles");
 
-                    b.Navigation("SocialAccounts");
-
-                    b.Navigation("SocialIntegrations");
-
-                    b.Navigation("Subscriptions");
-
                     b.Navigation("TeamMembers");
-
-                    b.Navigation("Teams");
                 });
 #pragma warning restore 612, 618
         }

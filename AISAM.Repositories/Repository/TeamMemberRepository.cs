@@ -179,5 +179,14 @@ namespace AISAM.Repositories.Repositories
 
         public async Task<bool> UserExistsAsync(Guid userId) =>
             await _context.Users.AnyAsync(x => x.Id == userId);
+
+        public async Task<bool> IsUserMemberOfProfileTeamsAsync(Guid userId, Guid profileId)
+        {
+            return await _context.TeamMembers
+                .AnyAsync(tm => tm.UserId == userId && 
+                               tm.IsActive && 
+                               tm.Team.ProfileId == profileId && 
+                               !tm.Team.IsDeleted);
+        }
     }
 }

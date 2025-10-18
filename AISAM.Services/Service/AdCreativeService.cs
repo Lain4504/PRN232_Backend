@@ -175,7 +175,7 @@ namespace AISAM.Services.Service
         private async Task ValidateContentAccessAsync(Guid userId, Content content)
         {
             // Check if user owns the brand
-            if (content.Brand.UserId == userId)
+            if (content.Brand.ProfileId == userId)
             {
                 return;
             }
@@ -240,7 +240,7 @@ namespace AISAM.Services.Service
             {
                 var notification = new Notification
                 {
-                    UserId = userId,
+                    ProfileId = userId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,

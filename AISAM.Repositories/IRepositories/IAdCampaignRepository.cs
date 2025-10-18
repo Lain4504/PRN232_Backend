@@ -7,11 +7,13 @@ namespace AISAM.Repositories.IRepositories
     {
         Task<AdCampaign?> GetByIdAsync(Guid id);
         Task<AdCampaign?> GetByIdWithDetailsAsync(Guid id);
+        Task<PagedResult<AdCampaign>> GetByProfileIdAsync(Guid profileId, int page = 1, int pageSize = 20);
         Task<PagedResult<AdCampaign>> GetByUserIdAsync(Guid userId, int page = 1, int pageSize = 20);
         Task<PagedResult<AdCampaign>> GetByBrandIdAsync(Guid brandId, int page = 1, int pageSize = 20);
         Task<AdCampaign> CreateAsync(AdCampaign adCampaign);
         Task UpdateAsync(AdCampaign adCampaign);
         Task<bool> SoftDeleteAsync(Guid id);
+        Task<int> CountActiveByProfileIdAsync(Guid profileId);
         Task<int> CountActiveByUserIdAsync(Guid userId);
         Task<int> CountActiveByBrandIdAsync(Guid brandId);
     }

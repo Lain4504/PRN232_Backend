@@ -70,19 +70,30 @@ namespace AISAM.Services.Service
                     throw new ArgumentException("Invalid targeting JSON format");
                 }
 
+                // Validate Facebook Campaign ID exists
+                if (string.IsNullOrEmpty(campaign.FacebookCampaignId))
+                {
+                    throw new ArgumentException("Campaign does not have a Facebook Campaign ID. Please ensure the campaign was created successfully on Facebook.");
+                }
+
                 // Create ad set on Facebook
                 var facebookAdSetId = await _facebookApiService.CreateAdSetAsync(
                     socialIntegration.AdAccountId,
-                    campaign.AdAccountId, // Facebook campaign ID
+                    campaign.FacebookCampaignId, // Use actual Facebook Campaign ID
                     request.Name,
                     request.Targeting,
                     request.DailyBudget,
-                    socialIntegration.AccessToken);
+                    socialIntegration.AccessToken,
+                    request.StartDate,
+                    request.EndDate,
+                    "REACH", // Default optimization goal
+                    "IMPRESSIONS"); // Default billing event
 
                 // Save to database
                 var adSet = new AdSet
                 {
                     CampaignId = request.CampaignId,
+                    FacebookAdSetId = facebookAdSetId, // Store Facebook Ad Set ID
                     Name = request.Name,
                     Targeting = request.Targeting,
                     DailyBudget = request.DailyBudget,
@@ -154,7 +165,7 @@ namespace AISAM.Services.Service
         private async Task ValidateCampaignAccessAsync(Guid userId, AdCampaign campaign)
         {
             // Check if user owns the brand
-            if (campaign.Brand.UserId == userId)
+            if (campaign.Brand.ProfileId == userId)
             {
                 return;
             }
@@ -201,7 +212,7 @@ namespace AISAM.Services.Service
             {
                 var notification = new Notification
                 {
-                    UserId = userId,
+                    ProfileId = userId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,
@@ -223,6 +234,7 @@ namespace AISAM.Services.Service
             {
                 Id = adSet.Id,
                 CampaignId = adSet.CampaignId,
+                FacebookAdSetId = adSet.FacebookAdSetId,
                 Name = adSet.Name,
                 Targeting = adSet.Targeting,
                 DailyBudget = adSet.DailyBudget,

@@ -135,7 +135,7 @@ namespace AISAM.Repositories.Repository
             return await query.SumAsync(pr => pr.EstimatedRevenue);
         }
 
-        public async Task<decimal> GetTotalSpendByUserIdAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<decimal> GetTotalSpendByProfileIdAsync(Guid profileId, DateTime? startDate = null, DateTime? endDate = null)
         {
             var query = _context.PerformanceReports
                 .Include(pr => pr.Ad)
@@ -143,7 +143,28 @@ namespace AISAM.Repositories.Repository
                         .ThenInclude(ads => ads.Campaign)
                             .ThenInclude(c => c.Brand)
                 .Where(pr => pr.Ad != null && 
-                           pr.Ad.AdSet.Campaign.Brand.UserId == userId && 
+                           pr.Ad.AdSet.Campaign.Brand.ProfileId == profileId && 
+                           !pr.IsDeleted);
+
+            if (startDate.HasValue)
+                query = query.Where(pr => pr.ReportDate >= startDate.Value);
+
+            if (endDate.HasValue)
+                query = query.Where(pr => pr.ReportDate <= endDate.Value);
+
+            return await query.SumAsync(pr => pr.EstimatedRevenue);
+        }
+
+        public async Task<decimal> GetTotalSpendByUserIdAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null)
+        {
+            var query = _context.PerformanceReports
+                .Include(pr => pr.Ad)
+                    .ThenInclude(a => a.AdSet)
+                        .ThenInclude(ads => ads.Campaign)
+                            .ThenInclude(c => c.Brand)
+                                .ThenInclude(b => b.Profile)
+                .Where(pr => pr.Ad != null && 
+                           pr.Ad.AdSet.Campaign.Brand.Profile.UserId == userId && 
                            !pr.IsDeleted);
 
             if (startDate.HasValue)

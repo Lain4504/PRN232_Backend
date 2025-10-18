@@ -19,6 +19,7 @@ namespace AISAM.Services.Service
         private readonly IPostRepository _postRepository;
         private readonly IBrandRepository _brandRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ContentService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
@@ -30,6 +31,7 @@ namespace AISAM.Services.Service
             IPostRepository postRepository,
             IBrandRepository brandRepository,
             ITeamMemberRepository teamMemberRepository,
+            IProfileRepository profileRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<ContentService> logger,
             IEnumerable<IProviderService> providers)
@@ -40,22 +42,23 @@ namespace AISAM.Services.Service
             _postRepository = postRepository;
             _brandRepository = brandRepository;
             _teamMemberRepository = teamMemberRepository;
+            _profileRepository = profileRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
         }
 
-        public async Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request)
+        public async Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request, Guid userId)
         {
             // Validate user exists
-            var user = await _userRepository.GetByIdAsync(request.ProfileId);
+            var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
                 throw new ArgumentException("User not found");
             }
 
             // Check if user has permission to create content
-            var canCreate = await CanUserPerformActionAsync(request.ProfileId, "CREATE_CONTENT", request.BrandId);
+            var canCreate = await CanUserPerformActionAsync(userId, "CREATE_CONTENT", request.BrandId);
             if (!canCreate)
             {
                 throw new UnauthorizedAccessException("You are not allowed to create content");
@@ -84,7 +87,7 @@ namespace AISAM.Services.Service
             // If publish immediately, publish to specified integration
             if (request.PublishImmediately && request.IntegrationId.HasValue)
             {
-                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, request.ProfileId);
+                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, userId);
                 if (publishResult.Success)
                 {
                     content.Status = ContentStatusEnum.Published;
@@ -364,18 +367,16 @@ namespace AISAM.Services.Service
                 var brand = await _brandRepository.GetByIdAsync(brandId.Value);
                 if (brand == null) return false;
 
-                // User is brand owner
-                if (brand.ProfileId == userId)
+                // Check if user is brand owner (through any of their profiles)
+                var profiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (profiles.Any(p => p.Id == brand.ProfileId))
                 {
                     return true;
                 }
 
-                // Check if user is team member of brand owner with required permission
-                var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+                // Check if user is team member with access to this brand through TeamBrand relationship
+                var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
                 if (teamMember == null) return false;
-
-                // Check if team member belongs to the brand owner's profile
-                if (teamMember.Team.ProfileId != brand.ProfileId) return false;
 
                 // Check if team member has required permission
                 return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);

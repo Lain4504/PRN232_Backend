@@ -196,6 +196,7 @@ builder.Services.AddScoped<FluentValidation.IValidator<CreateAdSetRequest>, Crea
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCreativeRequest>, CreateAdCreativeRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdRequest>, CreateAdRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<UpdateAdStatusRequest>, UpdateAdStatusRequestValidator>();
+builder.Services.AddScoped<PublishRequestValidator>();
 
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 

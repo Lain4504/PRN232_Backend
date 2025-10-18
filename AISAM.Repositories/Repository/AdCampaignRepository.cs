@@ -24,18 +24,42 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.AdCampaigns
                 .Include(ac => ac.Brand)
-                .Include(ac => ac.User)
+                .Include(ac => ac.Profile)
                 .Include(ac => ac.AdSets.Where(ads => !ads.IsDeleted))
                     .ThenInclude(ads => ads.Ads.Where(a => !a.IsDeleted))
                 .FirstOrDefaultAsync(ac => ac.Id == id && !ac.IsDeleted);
+        }
+
+        public async Task<PagedResult<AdCampaign>> GetByProfileIdAsync(Guid profileId, int page = 1, int pageSize = 20)
+        {
+            var query = _context.AdCampaigns
+                .Include(ac => ac.Brand)
+                .Include(ac => ac.AdSets.Where(ads => !ads.IsDeleted))
+                .Where(ac => ac.ProfileId == profileId && !ac.IsDeleted)
+                .OrderByDescending(ac => ac.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+            var data = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<AdCampaign>
+            {
+                Data = data,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<PagedResult<AdCampaign>> GetByUserIdAsync(Guid userId, int page = 1, int pageSize = 20)
         {
             var query = _context.AdCampaigns
                 .Include(ac => ac.Brand)
+                .Include(ac => ac.Profile)
                 .Include(ac => ac.AdSets.Where(ads => !ads.IsDeleted))
-                .Where(ac => ac.UserId == userId && !ac.IsDeleted)
+                .Where(ac => ac.Profile.UserId == userId && !ac.IsDeleted)
                 .OrderByDescending(ac => ac.CreatedAt);
 
             var totalCount = await query.CountAsync();
@@ -57,7 +81,7 @@ namespace AISAM.Repositories.Repository
         {
             var query = _context.AdCampaigns
                 .Include(ac => ac.Brand)
-                .Include(ac => ac.User)
+                .Include(ac => ac.Profile)
                 .Include(ac => ac.AdSets.Where(ads => !ads.IsDeleted))
                 .Where(ac => ac.BrandId == brandId && !ac.IsDeleted)
                 .OrderByDescending(ac => ac.CreatedAt);
@@ -102,10 +126,16 @@ namespace AISAM.Repositories.Repository
             return true;
         }
 
+        public async Task<int> CountActiveByProfileIdAsync(Guid profileId)
+        {
+            return await _context.AdCampaigns
+                .CountAsync(ac => ac.ProfileId == profileId && !ac.IsDeleted && ac.IsActive);
+        }
+
         public async Task<int> CountActiveByUserIdAsync(Guid userId)
         {
             return await _context.AdCampaigns
-                .CountAsync(ac => ac.UserId == userId && !ac.IsDeleted && ac.IsActive);
+                .CountAsync(ac => ac.Profile.UserId == userId && !ac.IsDeleted && ac.IsActive);
         }
 
         public async Task<int> CountActiveByBrandIdAsync(Guid brandId)

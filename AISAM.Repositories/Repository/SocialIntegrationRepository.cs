@@ -44,6 +44,17 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<SocialIntegration>> GetByUserIdAsync(Guid userId)
+        {
+            return await _context.SocialIntegrations
+                .Include(si => si.SocialAccount)
+                .Include(si => si.Profile)
+                .Include(si => si.Brand)
+                .Include(si => si.Posts)
+                .Where(si => si.Profile.UserId == userId)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<SocialIntegration>> GetByProfileIdAsync(Guid profileId)
         {
             return await _context.SocialIntegrations
@@ -59,7 +70,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.SocialIntegrations
                 .Include(si => si.SocialAccount)
-                .Include(si => si.User)
+                .Include(si => si.Profile)
                 .Include(si => si.Brand)
                 .FirstOrDefaultAsync(si => si.BrandId == brandId && si.IsActive && !si.IsDeleted);
         }

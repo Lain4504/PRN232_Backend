@@ -16,27 +16,40 @@ namespace AISAM.Repositories.Repository
         public async Task<Subscription?> GetByIdAsync(Guid id)
         {
             return await _context.Subscriptions
-                .Include(s => s.User)
+                .Include(s => s.Profile)
                 .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         }
 
-        public async Task<Subscription?> GetActiveByUserIdAsync(Guid userId)
+        public async Task<Subscription?> GetActiveByProfileIdAsync(Guid profileId)
         {
             var now = DateTime.UtcNow.Date;
             return await _context.Subscriptions
-                .Include(s => s.User)
-                .FirstOrDefaultAsync(s => s.UserId == userId && 
+                .Include(s => s.Profile)
+                .FirstOrDefaultAsync(s => s.ProfileId == profileId && 
                                         s.IsActive && 
                                         !s.IsDeleted &&
                                         s.StartDate <= now &&
                                         (s.EndDate == null || s.EndDate >= now));
         }
 
-        public async Task<List<Subscription>> GetByUserIdAsync(Guid userId)
+        public async Task<Subscription?> GetActiveByUserIdAsync(Guid userId)
+        {
+            var now = DateTime.UtcNow.Date;
+            return await _context.Subscriptions
+                .Include(s => s.Profile)
+                .Where(s => s.Profile.UserId == userId && 
+                           s.IsActive && 
+                           !s.IsDeleted &&
+                           s.StartDate <= now &&
+                           (s.EndDate == null || s.EndDate >= now))
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<Subscription>> GetByProfileIdAsync(Guid profileId)
         {
             return await _context.Subscriptions
-                .Include(s => s.User)
-                .Where(s => s.UserId == userId && !s.IsDeleted)
+                .Include(s => s.Profile)
+                .Where(s => s.ProfileId == profileId && !s.IsDeleted)
                 .OrderByDescending(s => s.CreatedAt)
                 .ToListAsync();
         }

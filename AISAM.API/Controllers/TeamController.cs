@@ -153,7 +153,7 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Assign hoặc unassign brand cho team
+        /// Assign brands cho team
         /// </summary>
         [HttpPost("{id}/brands")]
         public async Task<ActionResult<GenericResponse<bool>>> AssignBrandToTeam(Guid id, [FromBody] AssignBrandToTeamRequest request)
@@ -165,6 +165,28 @@ namespace AISAM.API.Controllers
             }
 
             var result = await _teamService.AssignBrandToTeamAsync(id, request, profileId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Unassign brand khỏi team
+        /// </summary>
+        [HttpDelete("{id}/brands")]
+        public async Task<ActionResult<GenericResponse<bool>>> UnassignBrandFromTeam(Guid id, [FromBody] UnassignBrandFromTeamRequest request)
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.UnassignBrandFromTeamAsync(id, request, userId);
 
             if (result.Success)
             {

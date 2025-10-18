@@ -11,7 +11,7 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Create content and optionally publish it to social media
         /// </summary>
-        Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request);
+        Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request, Guid userId);
         
         /// <summary>
         /// Publish existing content to social integration

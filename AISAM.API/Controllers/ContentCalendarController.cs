@@ -36,8 +36,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var content = await _contentService.GetContentByIdAsync(contentId, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var content = await _contentService.GetContentByIdAsync(contentId, userId);
 
                 if (content == null)
                 {
@@ -47,7 +47,7 @@ namespace AISAM.API.Controllers
                 // Validate integration IDs
                 if (request.IntegrationIds != null && request.IntegrationIds.Any())
                 {
-                    var userIntegrations = await _socialIntegrationRepository.GetByProfileIdAsync(profileId);
+                    var userIntegrations = await _socialIntegrationRepository.GetByProfileIdAsync(userId);
                     var validIntegrationIds = userIntegrations.Select(i => i.Id).ToList();
 
                     var invalidIds = request.IntegrationIds.Where(id => !validIntegrationIds.Contains(id)).ToList();
@@ -82,8 +82,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var content = await _contentService.GetContentByIdAsync(contentId, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var content = await _contentService.GetContentByIdAsync(contentId, userId);
 
                 if (content == null)
                 {
@@ -93,7 +93,7 @@ namespace AISAM.API.Controllers
                 // Validate integration IDs
                 if (request.IntegrationIds != null && request.IntegrationIds.Any())
                 {
-                    var userIntegrations = await _socialIntegrationRepository.GetByProfileIdAsync(profileId);
+                    var userIntegrations = await _socialIntegrationRepository.GetByProfileIdAsync(userId);
                     var validIntegrationIds = userIntegrations.Select(i => i.Id).ToList();
 
                     var invalidIds = request.IntegrationIds.Where(id => !validIntegrationIds.Contains(id)).ToList();
