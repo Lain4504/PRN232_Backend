@@ -1,4 +1,4 @@
-﻿using AISAM.Common.Dtos;
+using AISAM.Common.Dtos;
 using AISAM.Common.Models;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
@@ -91,6 +91,20 @@ namespace AISAM.Repositories.Repository
         {
             _context.Products.Update(product);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetProductsByBrandIdAsync(Guid brandId)
+        {
+            return await _context.Products
+                .Where(p => p.BrandId == brandId && !p.IsDeleted)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetProductsByBrandIdIncludingDeletedAsync(Guid brandId)
+        {
+            return await _context.Products
+                .Where(p => p.BrandId == brandId)
+                .ToListAsync();
         }
 
         public async Task<bool> BrandExistsAsync(Guid? brandId)

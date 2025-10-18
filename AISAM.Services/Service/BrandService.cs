@@ -15,13 +15,15 @@ namespace AISAM.Services.Service
         private readonly IBrandRepository _brandRepository;
         private readonly IProfileRepository _profileRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IProductRepository _productRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, RolePermissionConfig rolePermissionConfig)
+        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, IProductRepository productRepository, RolePermissionConfig rolePermissionConfig)
         {
             _brandRepository = brandRepository;
             _profileRepository = profileRepository;
             _teamMemberRepository = teamMemberRepository;
+            _productRepository = productRepository;
             _rolePermissionConfig = rolePermissionConfig;
         }
 
@@ -139,6 +141,7 @@ namespace AISAM.Services.Service
 
         /// <summary>
         /// Soft delete brand (chỉ đánh dấu IsDeleted = true, không xóa thực sự), kiểm tra quyền sở hữu
+        /// Cũng soft delete tất cả products thuộc brand này
         /// </summary>
         public async Task<bool> SoftDeleteAsync(Guid id, Guid userId)
         {
@@ -152,6 +155,15 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to delete this brand");
             }
 
+            // Soft delete tất cả products thuộc brand này
+            var products = await _productRepository.GetProductsByBrandIdAsync(id);
+            foreach (var product in products)
+            {
+                product.IsDeleted = true;
+                product.UpdatedAt = DateTime.UtcNow;
+                await _productRepository.UpdateAsync(product);
+            }
+
             brand.IsDeleted = true;
             brand.UpdatedAt = DateTime.UtcNow;
             await _brandRepository.UpdateAsync(brand);
@@ -160,6 +172,7 @@ namespace AISAM.Services.Service
 
         /// <summary>
         /// Khôi phục brand đã xóa mềm, kiểm tra quyền sở hữu
+        /// Cũng khôi phục tất cả products đã xóa mềm cùng với brand này
         /// </summary>
         public async Task<bool> RestoreAsync(Guid id, Guid userId)
         {
@@ -171,6 +184,15 @@ namespace AISAM.Services.Service
             if (!hasAccess)
             {
                 throw new UnauthorizedAccessException("You are not allowed to restore this brand");
+            }
+
+            // Khôi phục tất cả products đã xóa mềm cùng với brand này
+            var products = await _productRepository.GetProductsByBrandIdIncludingDeletedAsync(id);
+            foreach (var product in products.Where(p => p.IsDeleted))
+            {
+                product.IsDeleted = false;
+                product.UpdatedAt = DateTime.UtcNow;
+                await _productRepository.UpdateAsync(product);
             }
 
             brand.IsDeleted = false;
