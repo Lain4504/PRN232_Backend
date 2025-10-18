@@ -152,6 +152,9 @@ builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
+// Add scheduled posting services
+builder.Services.AddScoped<IScheduledPostingService, ScheduledPostingService>();
+builder.Services.AddHostedService<ScheduledPostingBackgroundService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
