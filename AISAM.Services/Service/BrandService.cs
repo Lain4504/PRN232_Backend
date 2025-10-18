@@ -15,14 +15,16 @@ namespace AISAM.Services.Service
         private readonly IBrandRepository _brandRepository;
         private readonly IProfileRepository _profileRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly ITeamRepository _teamRepository;
         private readonly IProductRepository _productRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, IProductRepository productRepository, RolePermissionConfig rolePermissionConfig)
+        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IProductRepository productRepository, RolePermissionConfig rolePermissionConfig)
         {
             _brandRepository = brandRepository;
             _profileRepository = profileRepository;
             _teamMemberRepository = teamMemberRepository;
+            _teamRepository = teamRepository;
             _productRepository = productRepository;
             _rolePermissionConfig = rolePermissionConfig;
         }
@@ -57,6 +59,22 @@ namespace AISAM.Services.Service
                 Page = brands.Page,
                 PageSize = brands.PageSize
             };
+        }
+
+        /// <summary>
+        /// Lấy danh sách brands của một team cụ thể
+        /// </summary>
+        public async Task<IEnumerable<BrandResponseDto>> GetBrandsByTeamIdAsync(Guid teamId, Guid userId)
+        {
+            // Check if user has access to this team
+            var hasAccess = await CanUserAccessTeamAsync(userId, teamId);
+            if (!hasAccess)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view brands for this team");
+            }
+
+            var brands = await _brandRepository.GetBrandsByTeamIdAsync(teamId);
+            return brands.Select(MapToResponse);
         }
 
         /// <summary>
@@ -241,6 +259,23 @@ namespace AISAM.Services.Service
 
             // Check if team member has required permission
             return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, requiredPermission);
+        }
+
+        /// <summary>
+        /// Check if user has access to a team
+        /// </summary>
+        private async Task<bool> CanUserAccessTeamAsync(Guid userId, Guid teamId)
+        {
+            // Check if user is the team vendor
+            var team = await _teamRepository.GetByIdAsync(teamId);
+            if (team == null || team.IsDeleted) return false;
+            if (team.VendorId == userId) return true;
+
+            // Check if user is a team member
+            var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            if (teamMember == null) return false;
+
+            return teamMember.TeamId == teamId && teamMember.IsActive;
         }
 
         /// <summary>

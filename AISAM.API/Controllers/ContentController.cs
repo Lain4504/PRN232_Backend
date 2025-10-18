@@ -34,8 +34,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-
-                var result = await _contentService.CreateContentAsync(request);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.CreateContentAsync(request, userId);
                 
                 var message = request.PublishImmediately
                     ? "Tạo và đăng bài thành công" 

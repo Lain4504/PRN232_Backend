@@ -128,6 +128,31 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Lấy danh sách brands của một team cụ thể
+        /// GET api/brands/team/{teamId}
+        /// </summary>
+        [HttpGet("team/{teamId}")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<IEnumerable<BrandResponseDto>>>> GetBrandsByTeamId(Guid teamId)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _brandService.GetBrandsByTeamIdAsync(teamId, userId);
+                return Ok(GenericResponse<IEnumerable<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand của team thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<BrandResponseDto>>.CreateError("Token không hợp lệ"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting brands for team {TeamId}", teamId);
+                return StatusCode(500, GenericResponse<IEnumerable<BrandResponseDto>>.CreateError("Đã xảy ra lỗi khi lấy danh sách brand của team"));
+            }
+        }
+
+        /// <summary>
         /// Tạo brand mới
         /// POST api/brands
         /// </summary>

@@ -452,6 +452,11 @@ namespace AISAM.Services.Service
             return await _approvalRepository.HasPendingApprovalAsync(contentId);
         }
 
+        public async Task<int> GetPendingCountAsync(Guid approverId)
+        {
+            return await _approvalRepository.GetPendingCountAsync(approverId);
+        }
+
         private static ApprovalResponseDto MapToResponseDto(Approval approval)
         {
             return new ApprovalResponseDto

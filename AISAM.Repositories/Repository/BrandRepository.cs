@@ -166,5 +166,19 @@ namespace AISAM.Repositories.Repository
                 PageSize = request.PageSize
             };
         }
+
+        public async Task<IEnumerable<Brand>> GetBrandsByTeamIdAsync(Guid teamId)
+        {
+            return await _context.Brands
+                .Include(b => b.User)
+                .Include(b => b.Profile)
+                .Where(b => !b.IsDeleted &&
+                    _context.TeamBrands.Any(tb =>
+                        tb.BrandId == b.Id &&
+                        tb.TeamId == teamId &&
+                        tb.IsActive))
+                .OrderBy(b => b.Name)
+                .ToListAsync();
+        }
     }
 }

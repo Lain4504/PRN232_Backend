@@ -395,6 +395,7 @@ namespace AISAM.Services.Service
                 {
                     Id = ads.Id,
                     CampaignId = ads.CampaignId,
+                    FacebookAdSetId = ads.FacebookAdSetId,
                     Name = ads.Name,
                     Targeting = ads.Targeting,
                     DailyBudget = ads.DailyBudget,

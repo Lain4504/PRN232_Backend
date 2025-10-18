@@ -4,7 +4,6 @@ namespace AISAM.Common.Dtos.Request
 {
     public class CreateContentRequest
     {
-        public Guid UserId { get; set; }
         public Guid BrandId { get; set; }
         public Guid? ProductId { get; set; }
         public AdTypeEnum AdType { get; set; }

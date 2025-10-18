@@ -10,7 +10,7 @@ namespace AISAM.Repositories.IRepositories
         Task<Notification?> GetByIdAsync(Guid id);
         Task<Notification> CreateAsync(Notification notification);
         Task<bool> MarkAsReadAsync(Guid id);
-        Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid userId);
+        Task<int> MarkAllAsReadAsync(Guid userId);
         Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request, bool unreadOnly = false);
         Task<int> GetUnreadCountAsync(Guid userId);
         Task<bool> DeleteAsync(Guid id);

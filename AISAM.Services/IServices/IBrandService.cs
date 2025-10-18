@@ -11,6 +11,8 @@ namespace AISAM.Services.IServices
 
         Task<PagedResult<BrandResponseDto>> GetPagedBrandsByTeamMembershipAsync(Guid userId, PaginationRequest request);
 
+        Task<IEnumerable<BrandResponseDto>> GetBrandsByTeamIdAsync(Guid teamId, Guid userId);
+
         Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid userId);
 
         Task<BrandResponseDto> CreateAsync(Guid userId, CreateBrandRequest dto);

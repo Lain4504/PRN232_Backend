@@ -56,13 +56,11 @@ namespace AISAM.Repositories.Repository
             return true;
         }
 
-        public async Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid userId)
-        {
-            var idList = ids.Distinct().ToList();
-            if (idList.Count == 0) return 0;
 
+        public async Task<int> MarkAllAsReadAsync(Guid userId)
+        {
             var notifications = await _context.Notifications
-                .Where(n => idList.Contains(n.Id) && n.UserId == userId && !n.IsDeleted && !n.IsRead)
+                .Where(n => n.UserId == userId && !n.IsDeleted && !n.IsRead)
                 .ToListAsync();
 
             foreach (var n in notifications)

@@ -100,8 +100,6 @@ namespace AISAM.API.Controllers
             }
         }
 
-        public class BulkMarkReadRequest { public IEnumerable<Guid> Ids { get; set; } = Array.Empty<Guid>(); }
-
         [HttpPost("{id}/read")]
         [Authorize]
         public async Task<ActionResult<GenericResponse<bool>>> MarkAsRead(Guid id)
@@ -135,14 +133,14 @@ namespace AISAM.API.Controllers
             }
         }
 
-        [HttpPost("read/bulk")]
+        [HttpPost("read/all")]
         [Authorize]
-        public async Task<ActionResult<GenericResponse<int>>> BulkMarkAsRead([FromBody] BulkMarkReadRequest request)
+        public async Task<ActionResult<GenericResponse<int>>> MarkAllAsRead()
         {
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var count = await _notificationService.MarkAsReadBulkAsync(request.Ids, userId);
+                var count = await _notificationService.MarkAllAsReadAsync(userId);
                 return Ok(GenericResponse<int>.CreateSuccess(count, $"Đã đánh dấu đã đọc {count} thông báo"));
             }
             catch (UnauthorizedAccessException)
@@ -151,9 +149,32 @@ namespace AISAM.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error bulk marking notifications as read");
+                _logger.LogError(ex, "Error marking all notifications as read");
                 return StatusCode(500, GenericResponse<int>.CreateError(
                     "Đã xảy ra lỗi khi cập nhật thông báo"
+                ));
+            }
+        }
+
+        [HttpGet("unread/count")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<int>>> GetUnreadCount()
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var count = await _notificationService.GetUnreadCountAsync(userId);
+                return Ok(GenericResponse<int>.CreateSuccess(count, $"Có {count} thông báo chưa đọc"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<int>.CreateError("Token không hợp lệ"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting unread notification count");
+                return StatusCode(500, GenericResponse<int>.CreateError(
+                    "Đã xảy ra lỗi khi lấy số lượng thông báo chưa đọc"
                 ));
             }
         }

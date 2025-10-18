@@ -17,6 +17,7 @@ namespace AISAM.Services.IServices
         Task<GenericResponse<bool>> UpdateTeamStatusAsync(Guid id, UpdateTeamStatusRequest request, Guid userId);
         Task<GenericResponse<bool>> RestoreTeamAsync(Guid id, Guid userId);
         Task<GenericResponse<bool>> AssignBrandToTeamAsync(Guid id, AssignBrandToTeamRequest request, Guid userId);
+        Task<GenericResponse<bool>> UnassignBrandFromTeamAsync(Guid teamId, UnassignBrandFromTeamRequest request, Guid userId);
         Task<GenericResponse<IEnumerable<TeamMemberResponseDto>>> GetTeamMembersAsync(Guid teamId, Guid userId);
     }
 }

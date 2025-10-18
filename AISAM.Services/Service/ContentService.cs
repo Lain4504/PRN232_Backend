@@ -45,17 +45,17 @@ namespace AISAM.Services.Service
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
         }
 
-        public async Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request)
+        public async Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request, Guid userId)
         {
             // Validate user exists
-            var user = await _userRepository.GetByIdAsync(request.UserId);
+            var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
                 throw new ArgumentException("User not found");
             }
 
             // Check if user has permission to create content
-            var canCreate = await CanUserPerformActionAsync(request.UserId, "CREATE_CONTENT", request.BrandId);
+            var canCreate = await CanUserPerformActionAsync(userId, "CREATE_CONTENT", request.BrandId);
             if (!canCreate)
             {
                 throw new UnauthorizedAccessException("You are not allowed to create content");
@@ -64,6 +64,7 @@ namespace AISAM.Services.Service
             // Create content entity
             var content = new Content
             {
+                UserId = userId,
                 BrandId = request.BrandId,
                 ProductId = request.ProductId,
                 AdType = request.AdType,
@@ -84,7 +85,7 @@ namespace AISAM.Services.Service
             // If publish immediately, publish to specified integration
             if (request.PublishImmediately && request.IntegrationId.HasValue)
             {
-                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, request.UserId);
+                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, userId);
                 if (publishResult.Success)
                 {
                     content.Status = ContentStatusEnum.Published;
