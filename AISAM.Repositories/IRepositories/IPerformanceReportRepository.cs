@@ -14,6 +14,7 @@ namespace AISAM.Repositories.IRepositories
         Task<PerformanceReport> CreateOrUpdateAsync(PerformanceReport performanceReport);
         Task<bool> SoftDeleteAsync(Guid id);
         Task<decimal> GetTotalSpendByAdAsync(Guid adId, DateTime? startDate = null, DateTime? endDate = null);
+        Task<decimal> GetTotalSpendByProfileIdAsync(Guid profileId, DateTime? startDate = null, DateTime? endDate = null);
         Task<decimal> GetTotalSpendByUserIdAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null);
     }
 }

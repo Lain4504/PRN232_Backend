@@ -95,7 +95,7 @@ namespace AISAM.Repositories.Repository
                 .Include(a => a.AdSet)
                     .ThenInclude(ads => ads.Campaign)
                         .ThenInclude(c => c.Brand)
-                            .ThenInclude(b => b.User)
+                            .ThenInclude(b => b.Profile)
                 .Where(a => !a.IsDeleted && (a.Status == "ACTIVE" || a.Status == "PAUSED"))
                 .ToListAsync();
         }

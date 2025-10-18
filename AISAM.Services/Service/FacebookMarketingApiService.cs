@@ -29,37 +29,17 @@ namespace AISAM.Services.Service
         {
             try
             {
-                // Normalize ad account ID
-                var normalizedAccountId = NormalizeAdAccountId(adAccountId);
-                
-                // Use sandbox config if enabled
-                if (_facebookSettings.UseSandbox && _facebookSettings.Sandbox != null)
-                {
-                    accessToken = _facebookSettings.Sandbox.AccessToken;
-                    normalizedAccountId = NormalizeAdAccountId(_facebookSettings.Sandbox.AdAccountId);
-                    _logger.LogInformation("Using sandbox configuration for campaign creation - Currency: {Currency}, Timezone: {Timezone}", 
-                        _facebookSettings.Sandbox.Currency, _facebookSettings.Sandbox.Timezone);
-                }
+                // Get sandbox config if enabled
+                var (finalAccessToken, finalAdAccountId) = GetSandboxConfig(accessToken, adAccountId);
                 
                 // Map objective to Facebook API value
                 var mappedObjective = FacebookObjectiveMapper.MapToFacebookObjective(objective);
                 _logger.LogInformation("Mapped objective '{Objective}' to '{MappedObjective}'", objective, mappedObjective);
                 
                 // Convert budget to appropriate currency unit
-                // For VND: 1 VND = 1 unit (no conversion needed)
-                // For USD: 1 USD = 100 cents
-                var budgetInCurrencyUnit = _facebookSettings.UseSandbox ? (int)budget : (int)(budget * 100);
+                var budgetInCurrencyUnit = ConvertBudgetToCurrencyUnit(budget);
                 
-                if (_facebookSettings.UseSandbox)
-                {
-                    _logger.LogInformation("Using VND currency for sandbox mode - budget: {Budget} VND", budget);
-                }
-                else
-                {
-                    _logger.LogInformation("Using USD currency for production mode - budget: {Budget} USD = {BudgetInCents} cents", budget, budgetInCurrencyUnit);
-                }
-                
-                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{normalizedAccountId}/campaigns";
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{finalAdAccountId}/campaigns";
                 
                 var payload = new
                 {
@@ -69,7 +49,7 @@ namespace AISAM.Services.Service
                     buying_type = "AUCTION",
                     daily_budget = budgetInCurrencyUnit, // VND for sandbox, cents for production
                     special_ad_categories = new string[] { }, // Empty array, not ["NONE"]
-                    access_token = accessToken
+                    access_token = finalAccessToken
                 };
 
                 var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -99,28 +79,69 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<string> CreateAdSetAsync(string adAccountId, string campaignId, string name, string targeting, decimal dailyBudget, string accessToken)
+        public async Task<string> CreateAdSetAsync(string adAccountId, string campaignId, string name, string targeting, decimal dailyBudget, string accessToken, DateTime? startTime = null, DateTime? endTime = null, string? optimizationGoal = null, string? billingEvent = null)
         {
             try
             {
-                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/act_{adAccountId}/adsets";
+                // Get sandbox config if enabled
+                var (finalAccessToken, finalAdAccountId) = GetSandboxConfig(accessToken, adAccountId);
+
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{finalAdAccountId}/adsets";
                 
-                var targetingObj = JsonSerializer.Deserialize<object>(targeting);
+                // Validate and parse targeting JSON
+                object targetingObj;
+                try
+                {
+                    targetingObj = JsonSerializer.Deserialize<object>(targeting) ?? new { };
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Invalid targeting JSON format: {Targeting}", targeting);
+                    throw new ArgumentException("Invalid targeting JSON format", ex);
+                }
                 
                 // Convert budget to appropriate currency unit
-                // For VND: 1 VND = 1 unit (no conversion needed)
-                // For USD: 1 USD = 100 cents
-                var budgetInCurrencyUnit = _facebookSettings.UseSandbox ? (int)dailyBudget : (int)(dailyBudget * 100);
-                
-                var payload = new
+                var budgetInCurrencyUnit = ConvertBudgetToCurrencyUnit(dailyBudget);
+
+                // Build payload according to Facebook Marketing API v23.0
+                var payload = new Dictionary<string, object>
                 {
-                    name = name,
-                    campaign_id = campaignId,
-                    targeting = targetingObj,
-                    daily_budget = budgetInCurrencyUnit, // VND for sandbox, cents for production
-                    status = "PAUSED",
-                    access_token = accessToken
+                    ["name"] = name,
+                    ["campaign_id"] = campaignId,
+                    ["targeting"] = targetingObj,
+                    ["daily_budget"] = budgetInCurrencyUnit, // VND for sandbox, cents for production
+                    ["status"] = "PAUSED",
+                    ["access_token"] = finalAccessToken
                 };
+
+                // Add optional parameters if provided
+                if (startTime.HasValue)
+                {
+                    payload["start_time"] = startTime.Value.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                }
+
+                if (endTime.HasValue)
+                {
+                    payload["end_time"] = endTime.Value.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                }
+
+                if (!string.IsNullOrEmpty(optimizationGoal))
+                {
+                    payload["optimization_goal"] = optimizationGoal;
+                }
+
+                if (!string.IsNullOrEmpty(billingEvent))
+                {
+                    payload["billing_event"] = billingEvent;
+                }
+
+                // Add default optimization goal for sandbox mode
+                if (_facebookSettings.UseSandbox && !payload.ContainsKey("optimization_goal"))
+                {
+                    payload["optimization_goal"] = "REACH"; // Default for sandbox
+                }
+
+                _logger.LogInformation("Creating ad set with payload: {Payload}", JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
 
                 var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
                 var response = await _httpClient.PostAsync(url, content);
@@ -133,11 +154,15 @@ namespace AISAM.Services.Service
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Ad set creation response: {Response}", responseContent);
+                
                 var jsonResponse = JsonDocument.Parse(responseContent);
                 
                 if (jsonResponse.RootElement.TryGetProperty("id", out var idProperty))
                 {
-                    return idProperty.GetString() ?? throw new Exception("Ad Set ID not found in response");
+                    var adSetId = idProperty.GetString();
+                    _logger.LogInformation("Successfully created ad set {AdSetId} for campaign {CampaignId}", adSetId, campaignId);
+                    return adSetId ?? throw new Exception("Ad Set ID not found in response");
                 }
 
                 throw new Exception("Invalid response from Facebook API");
@@ -349,6 +374,59 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<bool> DeleteAdSetAsync(string adSetId, string accessToken)
+        {
+            try
+            {
+                // Use sandbox config if enabled
+                if (_facebookSettings.UseSandbox && _facebookSettings.Sandbox != null)
+                {
+                    accessToken = _facebookSettings.Sandbox.AccessToken;
+                    _logger.LogInformation("Using sandbox configuration for ad set deletion");
+                }
+
+                // Delete specific ad set by ID (correct Facebook API approach)
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{adSetId}?access_token={accessToken}";
+                
+                _logger.LogInformation("Deleting ad set {AdSetId} using direct ad set endpoint", adSetId);
+
+                var response = await _httpClient.DeleteAsync(url);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Failed to delete ad set: {Error}", errorContent);
+                    return false;
+                }
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Ad set deletion response: {Response}", responseContent);
+
+                // Parse response to check if deletion was successful
+                try
+                {
+                    var jsonResponse = JsonDocument.Parse(responseContent);
+                    if (jsonResponse.RootElement.TryGetProperty("success", out var successProperty))
+                    {
+                        return successProperty.GetBoolean();
+                    }
+                    
+                    // For direct ad set deletion, success is indicated by 200 status code
+                    return true;
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Could not parse deletion response, assuming success");
+                    return true; // Assume success if we can't parse response but got 200 status
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting ad set {AdSetId}", adSetId);
+                return false;
+            }
+        }
+
         public async Task<AdPerformanceResponse?> GetAdInsightsAsync(string adId, string accessToken)
         {
             try
@@ -465,6 +543,48 @@ namespace AISAM.Services.Service
                 return adAccountId;
             
             return adAccountId.StartsWith("act_") ? adAccountId : $"act_{adAccountId}";
+        }
+
+        /// <summary>
+        /// Gets the appropriate access token and ad account ID based on sandbox mode
+        /// </summary>
+        /// <param name="originalAccessToken">Original access token</param>
+        /// <param name="originalAdAccountId">Original ad account ID</param>
+        /// <returns>Tuple of (accessToken, adAccountId)</returns>
+        private (string accessToken, string adAccountId) GetSandboxConfig(string originalAccessToken, string originalAdAccountId)
+        {
+            if (_facebookSettings.UseSandbox && _facebookSettings.Sandbox != null)
+            {
+                _logger.LogInformation("Using sandbox configuration - Currency: {Currency}, Timezone: {Timezone}", 
+                    _facebookSettings.Sandbox.Currency, _facebookSettings.Sandbox.Timezone);
+                
+                return (_facebookSettings.Sandbox.AccessToken, NormalizeAdAccountId(_facebookSettings.Sandbox.AdAccountId));
+            }
+            
+            return (originalAccessToken, NormalizeAdAccountId(originalAdAccountId));
+        }
+
+        /// <summary>
+        /// Converts budget to appropriate currency unit based on sandbox mode
+        /// </summary>
+        /// <param name="budget">Budget amount</param>
+        /// <returns>Budget in appropriate currency unit</returns>
+        private int ConvertBudgetToCurrencyUnit(decimal budget)
+        {
+            // For VND: 1 VND = 1 unit (no conversion needed)
+            // For USD: 1 USD = 100 cents
+            var budgetInCurrencyUnit = _facebookSettings.UseSandbox ? (int)budget : (int)(budget * 100);
+            
+            if (_facebookSettings.UseSandbox)
+            {
+                _logger.LogInformation("Using VND currency for sandbox mode - budget: {Budget} VND", budget);
+            }
+            else
+            {
+                _logger.LogInformation("Using USD currency for production mode - budget: {Budget} USD = {BudgetInCents} cents", budget, budgetInCurrencyUnit);
+            }
+            
+            return budgetInCurrencyUnit;
         }
     }
 }

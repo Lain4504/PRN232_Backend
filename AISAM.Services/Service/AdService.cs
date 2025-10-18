@@ -20,6 +20,8 @@ namespace AISAM.Services.Service
         private readonly IFacebookMarketingApiService _facebookApiService;
         private readonly INotificationRepository _notificationRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly ILogger<AdService> _logger;
 
         public AdService(
@@ -33,6 +35,8 @@ namespace AISAM.Services.Service
             IFacebookMarketingApiService facebookApiService,
             INotificationRepository notificationRepository,
             IUserRepository userRepository,
+            IProfileRepository profileRepository,
+            ITeamMemberRepository teamMemberRepository,
             ILogger<AdService> logger)
         {
             _adRepository = adRepository;
@@ -45,6 +49,8 @@ namespace AISAM.Services.Service
             _facebookApiService = facebookApiService;
             _notificationRepository = notificationRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
+            _teamMemberRepository = teamMemberRepository;
             _logger = logger;
         }
 
@@ -454,7 +460,7 @@ namespace AISAM.Services.Service
 
         private async Task ValidateCampaignAccessAsync(Guid userId, AdCampaign campaign)
         {
-            if (campaign.Brand.UserId == userId)
+            if (campaign.Brand.ProfileId == userId)
             {
                 return;
             }
@@ -470,7 +476,7 @@ namespace AISAM.Services.Service
 
         private async Task ValidateContentAccessAsync(Guid userId, Content content)
         {
-            if (content.Brand.UserId == userId)
+            if (content.Brand.ProfileId == userId)
             {
                 return;
             }
@@ -486,7 +492,16 @@ namespace AISAM.Services.Service
 
         private async Task ValidateBrandAccessAsync(Guid userId, Brand brand)
         {
-            if (brand.UserId == userId)
+            // Check if user is brand owner (through any of their profiles)
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
+            {
+                return;
+            }
+
+            // Check if user is team member with access to this brand through TeamBrand relationship
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brand.Id);
+            if (teamMember != null)
             {
                 return;
             }
@@ -526,7 +541,7 @@ namespace AISAM.Services.Service
             {
                 var notification = new Notification
                 {
-                    UserId = userId,
+                    ProfileId = userId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,

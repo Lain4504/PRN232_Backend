@@ -18,6 +18,7 @@ namespace AISAM.Services.Service
         private readonly INotificationRepository _notificationRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly ILogger<AdCampaignService> _logger;
 
         public AdCampaignService(
@@ -29,6 +30,7 @@ namespace AISAM.Services.Service
             INotificationRepository notificationRepository,
             ITeamMemberRepository teamMemberRepository,
             IUserRepository userRepository,
+            IProfileRepository profileRepository,
             ILogger<AdCampaignService> logger)
         {
             _adCampaignRepository = adCampaignRepository;
@@ -39,6 +41,7 @@ namespace AISAM.Services.Service
             _notificationRepository = notificationRepository;
             _teamMemberRepository = teamMemberRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
             _logger = logger;
         }
 
@@ -80,7 +83,7 @@ namespace AISAM.Services.Service
                 // Save to database
                 var adCampaign = new AdCampaign
                 {
-                    UserId = userId,
+                    ProfileId = userId, // This should be profileId, not userId
                     BrandId = request.BrandId,
                     AdAccountId = cleanAdAccountId,
                     FacebookCampaignId = facebookCampaignId, // Store Facebook Campaign ID
@@ -265,24 +268,22 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Brand not found");
             }
 
-            // Check if user owns the brand
-            if (brand.UserId == userId)
+            // Check if user is brand owner (through any of their profiles)
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
             {
                 return;
             }
 
-            // Check if user is vendor with team access
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Vendor)
+            // Check if user is team member with access to this brand through TeamBrand relationship
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
+            if (teamMember != null && teamMember.Permissions.Contains("can_create_ad"))
             {
-                var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
-                if (teamMember != null && teamMember.Permissions.Contains("can_create_ad"))
-                {
-                    return;
-                }
+                return;
             }
 
             // Check if user is admin
+            var user = await _userRepository.GetByIdAsync(userId);
             if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
             {
                 return;
@@ -358,7 +359,7 @@ namespace AISAM.Services.Service
             {
                 var notification = new Notification
                 {
-                    UserId = userId,
+                    ProfileId = userId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,
@@ -379,7 +380,7 @@ namespace AISAM.Services.Service
             return new AdCampaignResponse
             {
                 Id = campaign.Id,
-                UserId = campaign.UserId,
+                ProfileId = campaign.ProfileId,
                 BrandId = campaign.BrandId,
                 AdAccountId = campaign.AdAccountId,
                 FacebookCampaignId = campaign.FacebookCampaignId,
@@ -395,6 +396,7 @@ namespace AISAM.Services.Service
                 {
                     Id = ads.Id,
                     CampaignId = ads.CampaignId,
+                    FacebookAdSetId = ads.FacebookAdSetId,
                     Name = ads.Name,
                     Targeting = ads.Targeting,
                     DailyBudget = ads.DailyBudget,

@@ -21,6 +21,7 @@ namespace AISAM.Services.Service
         private readonly IBrandRepository _brandRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly IEnumerable<IProviderService> _providers;
         private readonly ILogger<PostService> _logger;
@@ -35,6 +36,7 @@ namespace AISAM.Services.Service
             IBrandRepository brandRepository,
             ITeamMemberRepository teamMemberRepository,
             IUserRepository userRepository,
+            IProfileRepository profileRepository,
             RolePermissionConfig rolePermissionConfig,
             IEnumerable<IProviderService> providers,
             ILogger<PostService> logger)
@@ -48,6 +50,7 @@ namespace AISAM.Services.Service
             _brandRepository = brandRepository;
             _teamMemberRepository = teamMemberRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _providers = providers;
             _logger = logger;
@@ -210,18 +213,16 @@ namespace AISAM.Services.Service
                 var brand = await _brandRepository.GetByIdAsync(brandId.Value);
                 if (brand == null) return false;
 
-                // User is brand owner
-                if (brand.ProfileId == userId)
+                // Check if user is brand owner (through any of their profiles)
+                var profiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (profiles.Any(p => p.Id == brand.ProfileId))
                 {
                     return true;
                 }
 
-                // Check if user is team member of brand owner with required permission
-                var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+                // Check if user is team member with access to this brand through TeamBrand relationship
+                var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
                 if (teamMember == null) return false;
-
-                // Check if team member belongs to the brand owner's profile
-                if (teamMember.Team.ProfileId != brand.ProfileId) return false;
 
                 // Check if team member has required permission
                 return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);

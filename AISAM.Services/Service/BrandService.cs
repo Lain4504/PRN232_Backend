@@ -15,14 +15,16 @@ namespace AISAM.Services.Service
         private readonly IBrandRepository _brandRepository;
         private readonly IProfileRepository _profileRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly ITeamRepository _teamRepository;
         private readonly IProductRepository _productRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, IProductRepository productRepository, RolePermissionConfig rolePermissionConfig)
+        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IProductRepository productRepository, RolePermissionConfig rolePermissionConfig)
         {
             _brandRepository = brandRepository;
             _profileRepository = profileRepository;
             _teamMemberRepository = teamMemberRepository;
+            _teamRepository = teamRepository;
             _productRepository = productRepository;
             _rolePermissionConfig = rolePermissionConfig;
         }
@@ -60,15 +62,31 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
+        /// Lấy danh sách brands của một team cụ thể
+        /// </summary>
+        public async Task<IEnumerable<BrandResponseDto>> GetBrandsByTeamIdAsync(Guid teamId, Guid userId)
+        {
+            // Check if user has access to this team
+            var hasAccess = await CanUserAccessTeamAsync(userId, teamId);
+            if (!hasAccess)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to view brands for this team");
+            }
+
+            var brands = await _brandRepository.GetBrandsByTeamIdAsync(teamId);
+            return brands.Select(MapToResponse);
+        }
+
+        /// <summary>
         /// Lấy thông tin chi tiết brand theo Id
         /// </summary>
-        public async Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid profileId)
+        public async Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid userId)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null || brand.IsDeleted) return null;
 
-            // Check if profile has access to this brand (owner or team member)
-            var hasAccess = await CanProfileAccessBrandAsync(profileId, id, "VIEW_TEAM_DETAILS");
+            // Check if user has access to this brand (owner or team member)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "VIEW_TEAM_DETAILS");
             if (!hasAccess)
             {
                 throw new UnauthorizedAccessException("You are not allowed to access this brand");
@@ -107,13 +125,13 @@ namespace AISAM.Services.Service
         /// <summary>
         /// Cập nhật thông tin brand theo Id, kiểm tra quyền sở hữu
         /// </summary>
-        public async Task<BrandResponseDto?> UpdateAsync(Guid id, Guid profileId, UpdateBrandRequest dto)
+        public async Task<BrandResponseDto?> UpdateAsync(Guid id, Guid userId, UpdateBrandRequest dto)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null || brand.IsDeleted) return null;
 
-            // Check if profile has permission to update this brand (owner or team member with UPDATE_TEAM)
-            var hasAccess = await CanProfileAccessBrandAsync(profileId, id, "UPDATE_TEAM");
+            // Check if user has permission to update this brand (owner or team member with UPDATE_TEAM)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "UPDATE_TEAM");
             if (!hasAccess)
             {
                 throw new UnauthorizedAccessException("You are not allowed to update this brand");
@@ -149,13 +167,13 @@ namespace AISAM.Services.Service
         /// Soft delete brand (chỉ đánh dấu IsDeleted = true, không xóa thực sự), kiểm tra quyền sở hữu
         /// Cũng soft delete tất cả products thuộc brand này
         /// </summary>
-        public async Task<bool> SoftDeleteAsync(Guid id, Guid profileId)
+        public async Task<bool> SoftDeleteAsync(Guid id, Guid userId)
         {
             var brand = await _brandRepository.GetByIdAsync(id);
             if (brand == null || brand.IsDeleted) return false;
 
-            // Check if profile has permission to delete this brand (owner or team member with DELETE_TEAM)
-            var hasAccess = await CanProfileAccessBrandAsync(profileId, id, "DELETE_TEAM");
+            // Check if user has permission to delete this brand (owner or team member with DELETE_TEAM)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "DELETE_TEAM");
             if (!hasAccess)
             {
                 throw new UnauthorizedAccessException("You are not allowed to delete this brand");
@@ -180,13 +198,13 @@ namespace AISAM.Services.Service
         /// Khôi phục brand đã xóa mềm, kiểm tra quyền sở hữu
         /// Cũng khôi phục tất cả products đã xóa mềm cùng với brand này
         /// </summary>
-        public async Task<bool> RestoreAsync(Guid id, Guid profileId)
+        public async Task<bool> RestoreAsync(Guid id, Guid userId)
         {
             var brand = await _brandRepository.GetByIdIncludingDeletedAsync(id);
             if (brand == null || !brand.IsDeleted) return false;
 
-            // Check if profile has permission to restore this brand (owner or team member with DELETE_TEAM)
-            var hasAccess = await CanProfileAccessBrandAsync(profileId, id, "DELETE_TEAM");
+            // Check if user has permission to restore this brand (owner or team member with DELETE_TEAM)
+            var hasAccess = await CanUserAccessBrandAsync(userId, id, "DELETE_TEAM");
             if (!hasAccess)
             {
                 throw new UnauthorizedAccessException("You are not allowed to restore this brand");
@@ -211,26 +229,41 @@ namespace AISAM.Services.Service
         /// <summary>
         /// Check if user can access brand with required permission
         /// </summary>
-        private async Task<bool> CanProfileAccessBrandAsync(Guid profileId, Guid brandId, string requiredPermission)
+        private async Task<bool> CanUserAccessBrandAsync(Guid userId, Guid brandId, string requiredPermission)
         {
             var brand = await _brandRepository.GetByIdAsync(brandId);
             if (brand == null) return false;
 
-            // Profile is brand owner
-            if (brand.ProfileId == profileId)
+            // Check if user is brand owner (through any of their profiles)
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
             {
                 return true;
             }
 
-            // Check if profile is team member of brand owner with required permission
-            var teamMember = await _teamMemberRepository.GetByUserIdAsync(profileId);
+            // Check if user is team member with access to this brand through TeamBrand relationship
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
             if (teamMember == null) return false;
-
-            // Check if team member belongs to the brand owner's profile
-            if (teamMember.Team.ProfileId != brand.ProfileId) return false;
 
             // Check if team member has required permission
             return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, requiredPermission);
+        }
+
+        /// <summary>
+        /// Check if user has access to a team
+        /// </summary>
+        private async Task<bool> CanUserAccessTeamAsync(Guid userId, Guid teamId)
+        {
+            // Check if user is the team vendor
+            var team = await _teamRepository.GetByIdAsync(teamId);
+            if (team == null || team.IsDeleted) return false;
+            if (team.ProfileId == userId) return true;
+
+            // Check if user is a team member
+            var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            if (teamMember == null) return false;
+
+            return teamMember.TeamId == teamId && teamMember.IsActive;
         }
 
         /// <summary>

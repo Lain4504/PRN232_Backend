@@ -34,8 +34,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-
-                var result = await _contentService.CreateContentAsync(request);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.CreateContentAsync(request, userId);
                 
                 var message = request.PublishImmediately
                     ? "Tạo và đăng bài thành công" 
@@ -99,8 +99,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var result = await _contentService.PublishContentAsync(contentId, integrationId, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.PublishContentAsync(contentId, integrationId, userId);
                 
                 var message = result.Success 
                     ? "Đăng bài thành công" 
@@ -173,8 +173,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var content = await _contentService.GetContentByIdAsync(contentId, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var content = await _contentService.GetContentByIdAsync(contentId, userId);
                 
                 if (content == null)
                 {

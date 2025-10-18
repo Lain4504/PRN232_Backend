@@ -12,6 +12,7 @@ namespace AISAM.Services.IServices
         Task<int> GetUnreadCountAsync(Guid profileId);
         Task<bool> MarkAsReadAsync(Guid id);
         Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid profileId);
+        Task<int> MarkAllAsReadAsync(Guid userId);
         Task<NotificationResponseDto> CreateAsync(CreateNotificationRequest request);
         Task<bool> DeleteAsync(Guid id, Guid profileId);
         Task<int> DeleteOldNotificationsAsync(int daysOld = 30);

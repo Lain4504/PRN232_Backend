@@ -398,7 +398,7 @@ public class SocialAccountsController : ControllerBase
 
             // Verify the social account belongs to the user
             var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
-            if (socialAccount == null || socialAccount.UserId != userId)
+            if (socialAccount == null || socialAccount.ProfileId != userId)
             {
                 return NotFound(GenericResponse<List<AdAccountDto>>.CreateError(
                     "Không tìm thấy tài khoản mạng xã hội", 
