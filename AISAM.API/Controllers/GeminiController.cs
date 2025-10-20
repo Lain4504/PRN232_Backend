@@ -7,14 +7,14 @@ namespace AISAM.API.Controllers
 {
     [ApiController]
     [Route("api/ai")]
-    public class AIController : ControllerBase
+    public class GeminiController : ControllerBase
     {
         private readonly AISAM.Services.IServices.IAIService _aiService;
-        private readonly ILogger<AIController> _logger;
+        private readonly ILogger<GeminiController> _logger;
 
-        public AIController(
+        public GeminiController(
             AISAM.Services.IServices.IAIService aiService,
-            ILogger<AIController> logger)
+            ILogger<GeminiController> logger)
         {
             _aiService = aiService;
             _logger = logger;
@@ -109,6 +109,29 @@ namespace AISAM.API.Controllers
             {
                 _logger.LogError(ex, "Error retrieving AI generations");
                 return StatusCode(500, GenericResponse<IEnumerable<AiGenerationDto>>.CreateError("Failed to retrieve AI generations"));
+            }
+        }
+
+        /// <summary>
+        /// Chat with AI to create content based on selected brand and product
+        /// </summary>
+        [HttpPost("chat")]
+        public async Task<ActionResult<GenericResponse<ChatResponse>>> ChatWithAI([FromBody] ChatRequest request)
+        {
+            try
+            {
+                var result = await _aiService.ChatWithAIAsync(request);
+                return Ok(GenericResponse<ChatResponse>.CreateSuccess(result, "AI chat response generated successfully"));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid request for AI chat");
+                return BadRequest(GenericResponse<ChatResponse>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in AI chat");
+                return StatusCode(500, GenericResponse<ChatResponse>.CreateError("Failed to process AI chat request"));
             }
         }
     }

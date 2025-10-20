@@ -136,6 +136,7 @@ builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -152,6 +153,7 @@ builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
+builder.Services.AddScoped<IConversationService, ConversationService>();
 // Add scheduled posting services
 builder.Services.AddScoped<IScheduledPostingService, ScheduledPostingService>();
 builder.Services.AddHostedService<ScheduledPostingBackgroundService>();

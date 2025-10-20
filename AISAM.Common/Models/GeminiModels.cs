@@ -5,7 +5,7 @@ namespace AISAM.Common.Models
     public class GeminiSettings
     {
         public string ApiKey { get; set; } = string.Empty;
-        public string Model { get; set; } = "gemini-1.5-flash";
+        public string Model { get; set; } = "gemini-2.5-flash";
         public int MaxTokens { get; set; } = 2048;
         public double Temperature { get; set; } = 0.7;
     }
@@ -58,5 +58,25 @@ namespace AISAM.Common.Models
     public class ImproveContentRequest
     {
         public string Content { get; set; } = string.Empty;
+    }
+
+    public class ChatRequest
+    {
+        public Guid UserId { get; set; }
+        public Guid? BrandId { get; set; } // Made optional
+        public Guid? ProductId { get; set; }
+        public AdTypeEnum AdType { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public Guid? ConversationId { get; set; } // For conversation history (future enhancement)
+    }
+
+    public class ChatResponse
+    {
+        public string Response { get; set; } = string.Empty;
+        public bool IsContentGenerated { get; set; } = false;
+        public Guid? ContentId { get; set; }
+        public Guid? AiGenerationId { get; set; }
+        public string? GeneratedContent { get; set; }
+        public Guid? ConversationId { get; set; }
     }
 }

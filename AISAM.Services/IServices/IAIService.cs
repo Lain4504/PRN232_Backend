@@ -24,5 +24,10 @@ namespace AISAM.Services.IServices
         /// Get all AI generations for a content
         /// </summary>
         Task<IEnumerable<AiGenerationDto>> GetContentAIGenerationsAsync(Guid contentId);
+
+        /// <summary>
+        /// Chat with AI to create content based on brand and product context
+        /// </summary>
+        Task<ChatResponse> ChatWithAIAsync(ChatRequest request);
     }
 }
