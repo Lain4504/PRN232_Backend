@@ -35,6 +35,8 @@ namespace AISAM.Repositories
         public DbSet<Payment> Payments { get; set; }
         public DbSet<ContentTemplate> ContentTemplates { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -398,6 +400,51 @@ namespace AISAM.Repositories
                       .WithMany()
                       .HasForeignKey(al => al.ActorId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Conversation entity configuration
+            modelBuilder.Entity<Conversation>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+                entity.Property(c => c.AdType).HasConversion<int>();
+                entity.HasIndex(c => c.UserId);
+                entity.HasIndex(c => c.BrandId);
+                entity.HasIndex(c => c.ProductId);
+                entity.HasIndex(c => c.IsActive);
+                entity.HasIndex(c => c.CreatedAt);
+                entity.HasOne(c => c.User)
+                      .WithMany(u => u.Conversations)
+                      .HasForeignKey(c => c.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(c => c.Brand)
+                      .WithMany()
+                      .HasForeignKey(c => c.BrandId)
+                      .OnDelete(DeleteBehavior.SetNull);
+                entity.HasOne(c => c.Product)
+                      .WithMany()
+                      .HasForeignKey(c => c.ProductId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ChatMessage entity configuration
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.HasKey(cm => cm.Id);
+                entity.Property(cm => cm.SenderType).HasConversion<int>();
+                entity.HasIndex(cm => cm.ConversationId);
+                entity.HasIndex(cm => cm.CreatedAt);
+                entity.HasOne(cm => cm.Conversation)
+                      .WithMany(c => c.ChatMessages)
+                      .HasForeignKey(cm => cm.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(cm => cm.AiGeneration)
+                      .WithMany()
+                      .HasForeignKey(cm => cm.AiGenerationId)
+                      .OnDelete(DeleteBehavior.SetNull);
+                entity.HasOne(cm => cm.Content)
+                      .WithMany()
+                      .HasForeignKey(cm => cm.ContentId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }
