@@ -2,7 +2,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
-using AISAM.Common.Dtos.Request; 
+using AISAM.Common.Dtos.Request;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
@@ -11,6 +11,9 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContentEntity = AISAM.Data.Model.Content;
+using AISAM.Repositories;
+using AISAM.Data.Model;
+using DataModel = AISAM.Data.Model;
 
 namespace AISAM.Services.Service
 {
@@ -25,6 +28,10 @@ namespace AISAM.Services.Service
         private readonly IAiGenerationRepository _aiGenerationRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly INotificationService _notificationService;
+        private readonly IBrandRepository _brandRepository;
+        private readonly IProductRepository _productRepository;
+        private readonly IConversationRepository _conversationRepository;
+        private readonly AisamContext _context;
 
         public AIService(
             IOptions<GeminiSettings> settings,
@@ -35,6 +42,10 @@ namespace AISAM.Services.Service
             ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
             INotificationService notificationService,
+            IBrandRepository brandRepository,
+            IProductRepository productRepository,
+            IConversationRepository conversationRepository,
+            AisamContext context,
             IEnumerable<IProviderService> providers)
         {
             _settings = settings.Value;
@@ -45,6 +56,10 @@ namespace AISAM.Services.Service
             _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
             _notificationService = notificationService;
+            _brandRepository = brandRepository;
+            _productRepository = productRepository;
+            _conversationRepository = conversationRepository;
+            _context = context;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
 
             if (string.IsNullOrEmpty(_settings.ApiKey))
@@ -196,7 +211,9 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent?key={_settings.ApiKey}";
+                // Use the model from settings, fallback to working model
+                var model = _settings.Model ?? "gemini-2.5-flash";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={_settings.ApiKey}";
 
                 var requestBody = new
                 {
@@ -212,7 +229,7 @@ namespace AISAM.Services.Service
                     },
                     generationConfig = new
                     {
-                        maxOutputTokens = Math.Min(1000, _settings.MaxTokens),
+                        maxOutputTokens = _settings.MaxTokens,
                         temperature = _settings.Temperature
                     }
                 };
@@ -230,7 +247,9 @@ namespace AISAM.Services.Service
 
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("Gemini API error: {StatusCode} - {Content}", response.StatusCode, errorContent);
-                throw new Exception($"Gemini API error: {response.StatusCode}");
+                _logger.LogWarning("Request URL: {Url}", url);
+                _logger.LogWarning("Request Body: {Body}", JsonSerializer.Serialize(requestBody));
+                throw new Exception($"Gemini API error: {response.StatusCode} - {errorContent}");
             }
             catch (Exception ex)
             {
@@ -270,6 +289,233 @@ namespace AISAM.Services.Service
         {
             [JsonPropertyName("totalTokenCount")]
             public int TotalTokenCount { get; set; }
+        }
+
+        public async Task<ChatResponse> ChatWithAIAsync(ChatRequest request)
+        {
+            try
+            {
+                // Validate user exists
+                var user = await _userRepository.GetByIdAsync(request.UserId);
+                if (user == null)
+                {
+                    throw new ArgumentException("User not found");
+                }
+
+                // Get or create conversation
+                var conversation = await GetOrCreateConversationAsync(request);
+
+                // Save user message
+                await SaveChatMessageAsync(conversation.Id, 0, request.Message);
+
+            // Get brand context (optional)
+            AISAM.Data.Model.Brand? brand = null;
+            if (request.BrandId.HasValue && request.BrandId.Value != Guid.Empty)
+            {
+                try
+                {
+                    brand = await _brandRepository.GetByIdAsync(request.BrandId.Value);
+                    if (brand == null || brand.IsDeleted)
+                    {
+                        _logger.LogWarning("Brand not found or deleted for ID {BrandId}, continuing without brand context", request.BrandId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error fetching brand for ID {BrandId}, continuing without brand context", request.BrandId.Value);
+                }
+            }
+
+            // Get product context if provided
+            AISAM.Data.Model.Product? product = null;
+            if (request.ProductId.HasValue)
+            {
+                product = await _productRepository.GetByIdAsync(request.ProductId.Value);
+                if (product == null)
+                {
+                    throw new ArgumentException("Product not found");
+                }
+            }
+
+            // Build enhanced prompt with brand and product context
+            var enhancedPrompt = BuildEnhancedPrompt(request.Message, brand, product, request.AdType);
+
+            // Check if user wants to generate content
+            var shouldGenerateContent = ShouldGenerateContent(request.Message.ToLower());
+
+            if (shouldGenerateContent)
+            {
+                // Validate that we have a brand for content creation
+                if (brand == null)
+                {
+                    // Save AI response message
+                    await SaveChatMessageAsync(conversation.Id, 1, "I'd love to create content for you, but I need to know which brand this content is for. Please select a brand first.");
+
+                    return new ChatResponse
+                    {
+                        Response = "I'd love to create content for you, but I need to know which brand this content is for. Please select a brand first.",
+                        IsContentGenerated = false,
+                        ConversationId = conversation.Id
+                    };
+                }
+
+                // Create draft content and generate AI content
+                var content = new ContentEntity
+                {
+                    BrandId = brand.Id, // Brand is guaranteed to be non-null here
+                    ProductId = request.ProductId,
+                    AdType = request.AdType,
+                    Title = $"AI Generated Content - {DateTime.UtcNow:yyyy-MM-dd HH:mm}",
+                    TextContent = "", // Will be filled by AI
+                    Status = ContentStatusEnum.Draft
+                };
+
+                await _contentRepository.CreateAsync(content);
+
+                var aiGeneration = await CreateAndProcessAiGenerationAsync(content.Id, enhancedPrompt);
+
+                // If AI generation succeeded, update content with generated text
+                if (aiGeneration.Status == AiStatusEnum.Completed && !string.IsNullOrEmpty(aiGeneration.GeneratedText))
+                {
+                    content.TextContent = aiGeneration.GeneratedText;
+                    await _contentRepository.UpdateAsync(content);
+                }
+
+                var responseMessage = "I've created content for you based on your brand and product. Here's what I generated:";
+
+                // Save AI response message
+                await SaveChatMessageAsync(conversation.Id, 1, responseMessage, aiGeneration.AiGenerationId, content.Id);
+
+                return new ChatResponse
+                {
+                    Response = responseMessage,
+                    IsContentGenerated = true,
+                    ContentId = content.Id,
+                    AiGenerationId = aiGeneration.AiGenerationId,
+                    GeneratedContent = aiGeneration.GeneratedText ?? "Content generation failed, but you can try again or approve a different version.",
+                    ConversationId = conversation.Id
+                };
+            }
+            else
+            {
+                // Just chat - generate response without creating content
+                var chatPrompt = $"You are a helpful AI assistant for social media content creation. {(brand != null ? $"The user has selected brand '{brand.Name}'" : "No brand selected")}{(product != null ? $" and product '{product.Name}'" : "")}. They want to create {request.AdType.ToString().ToLower()} content. Respond helpfully to their message: '{request.Message}'";
+
+                var aiResponse = await GenerateContentWithGemini(chatPrompt);
+
+                // Save AI response message
+                await SaveChatMessageAsync(conversation.Id, 1, aiResponse);
+
+                return new ChatResponse
+                {
+                    Response = aiResponse,
+                    IsContentGenerated = false,
+                    ConversationId = conversation.Id
+                };
+            }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in ChatWithAIAsync: {Message}", ex.Message);
+                _logger.LogError(ex, "Stack trace: {StackTrace}", ex.StackTrace);
+                throw new Exception("Failed to process AI chat request", ex);
+            }
+        }
+
+        private async Task<Data.Model.Conversation> GetOrCreateConversationAsync(ChatRequest request)
+        {
+            // Always create a new conversation for each chat request
+            // This ensures each chat session gets its own conversation
+            var conversation = new Data.Model.Conversation
+            {
+                UserId = request.UserId,
+                BrandId = request.BrandId,
+                ProductId = request.ProductId,
+                AdType = request.AdType,
+                Title = $"AI Chat - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            return await _conversationRepository.CreateAsync(conversation);
+        }
+
+        private async Task SaveChatMessageAsync(Guid conversationId, int senderType, string message,
+            Guid? aiGenerationId = null, Guid? contentId = null)
+        {
+            var chatMessage = new AISAM.Data.Model.ChatMessage
+            {
+                ConversationId = conversationId,
+                SenderType = (AISAM.Data.Model.ChatSenderType)senderType,
+                Message = message,
+                AiGenerationId = aiGenerationId,
+                ContentId = contentId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _context.ChatMessages.AddAsync(chatMessage);
+            await _context.SaveChangesAsync();
+        }
+
+        private string BuildEnhancedPrompt(string userMessage, AISAM.Data.Model.Brand? brand, AISAM.Data.Model.Product? product, AdTypeEnum adType)
+        {
+            var prompt = brand != null
+                ? $"Create {adType.ToString().ToLower()} content for brand '{brand.Name}'"
+                : $"Create {adType.ToString().ToLower()} content";
+
+            if (brand != null)
+            {
+                if (!string.IsNullOrEmpty(brand.Description))
+                {
+                    prompt += $"\nBrand Description: {brand.Description}";
+                }
+
+                if (!string.IsNullOrEmpty(brand.Slogan))
+                {
+                    prompt += $"\nBrand Slogan: {brand.Slogan}";
+                }
+
+                if (!string.IsNullOrEmpty(brand.Usp))
+                {
+                    prompt += $"\nUnique Selling Points: {brand.Usp}";
+                }
+
+                if (!string.IsNullOrEmpty(brand.TargetAudience))
+                {
+                    prompt += $"\nTarget Audience: {brand.TargetAudience}";
+                }
+            }
+
+            if (product != null)
+            {
+                prompt += $"\n\nProduct: {product.Name}";
+                if (!string.IsNullOrEmpty(product.Description))
+                {
+                    prompt += $"\nProduct Description: {product.Description}";
+                }
+                if (product.Price.HasValue)
+                {
+                    prompt += $"\nProduct Price: ${product.Price.Value}";
+                }
+            }
+
+            prompt += $"\n\nUser Request: {userMessage}";
+            prompt += $"\n\nGenerate engaging, professional content that aligns with the brand's voice and appeals to the target audience.";
+
+            return prompt;
+        }
+
+        private bool ShouldGenerateContent(string message)
+        {
+            var generateKeywords = new[]
+            {
+                "create", "generate", "make", "write", "design", "produce",
+                "help me create", "give me", "i want", "i need",
+                "content for", "post about", "advertisement for"
+            };
+
+            return generateKeywords.Any(keyword => message.Contains(keyword));
         }
 
         private ContentResponseDto MapToContentDto(ContentEntity content, PublishResultDto? publishResult)
