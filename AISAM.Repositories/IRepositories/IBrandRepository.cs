@@ -12,5 +12,7 @@ namespace AISAM.Repositories.IRepositories
         Task<Brand> AddAsync(Brand brand);
         Task UpdateAsync(Brand brand);
         Task<bool> UserExistsAsync(Guid userId);
+        Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid userId, PaginationRequest request);
+
     }
 }

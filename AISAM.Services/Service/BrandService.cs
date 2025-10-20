@@ -44,6 +44,22 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
+        /// Lấy danh sách brand theo quyền truy cập qua team membership với phân trang, hỗ trợ search và sắp xếp
+        /// </summary>
+        public async Task<PagedResult<BrandResponseDto>> GetPagedBrandsByTeamMembershipAsync(Guid userId, PaginationRequest request)
+        {
+            var brands = await _brandRepository.GetPagedBrandsByTeamMembershipAsync(userId, request);
+
+            return new PagedResult<BrandResponseDto>
+            {
+                Data = brands.Data.Select(MapToResponse).ToList(),
+                TotalCount = brands.TotalCount,
+                Page = brands.Page,
+                PageSize = brands.PageSize
+            };
+        }
+
+        /// <summary>
         /// Lấy thông tin chi tiết brand theo Id
         /// </summary>
         public async Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid userId)
