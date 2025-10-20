@@ -91,6 +91,41 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<PagedResult<BrandResponseDto>>.CreateError("Đã xảy ra lỗi khi lấy danh sách brand"));
             }
         }
+        [HttpGet("team")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<PagedResult<BrandResponseDto>>>> GetBrandsByTeamMembership(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] bool sortDescending = true)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+
+                var paginationRequest = new PaginationRequest
+                {
+                    Page = page,
+                    PageSize = pageSize,
+                    SearchTerm = searchTerm,
+                    SortBy = sortBy,
+                    SortDescending = sortDescending
+                };
+
+                var result = await _brandService.GetPagedBrandsByTeamMembershipAsync(userId, paginationRequest);
+                return Ok(GenericResponse<PagedResult<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand thành công"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<PagedResult<BrandResponseDto>>.CreateError("Token không hợp lệ"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting paginated brands");
+                return StatusCode(500, GenericResponse<PagedResult<BrandResponseDto>>.CreateError("Đã xảy ra lỗi khi lấy danh sách brand"));
+            }
+        }
 
         /// <summary>
         /// Tạo brand mới
