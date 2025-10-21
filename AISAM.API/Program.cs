@@ -11,7 +11,6 @@ using Microsoft.OpenApi.Models;
 using AISAM.API.Filters;
 using AISAM.Repositories.Repositories;
 using AISAM.Services.Helper;
-using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
@@ -137,6 +136,9 @@ builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -154,6 +156,9 @@ builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
+// Add subscription services
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 // Add scheduled posting services
 builder.Services.AddScoped<IScheduledPostingService, ScheduledPostingService>();
 builder.Services.AddHostedService<ScheduledPostingBackgroundService>();

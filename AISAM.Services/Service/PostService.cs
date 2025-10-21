@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AISAM.Common.Dtos;
 using AISAM.Common.Models;
 using AISAM.Data.Enumeration;
@@ -23,6 +22,7 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly IEnumerable<IProviderService> _providers;
+        private readonly ISubscriptionService _subscriptionService;
         private readonly ILogger<PostService> _logger;
 
         public PostService(
@@ -37,6 +37,7 @@ namespace AISAM.Services.Service
             IUserRepository userRepository,
             RolePermissionConfig rolePermissionConfig,
             IEnumerable<IProviderService> providers,
+            ISubscriptionService subscriptionService,
             ILogger<PostService> logger)
         {
             _postRepository = postRepository;
@@ -50,11 +51,19 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _providers = providers;
+            _subscriptionService = subscriptionService;
             _logger = logger;
         }
 
         public async Task<PagedResult<PostListItemDto>> GetPostsAsync(Guid requesterId, Guid? brandId, int page, int pageSize, ContentStatusEnum? status = null)
         {
+            // Check quota before allowing post operations
+            var hasQuota = await _subscriptionService.CheckQuotaAsync(requesterId, "posts", 1);
+            if (!hasQuota)
+            {
+                throw new InvalidOperationException("Post quota exceeded. Please upgrade your subscription.");
+            }
+
             // Check if user has permission to view posts
             var canView = await CanUserPerformActionAsync(requesterId, "VIEW_POSTS", brandId);
             if (!canView)
