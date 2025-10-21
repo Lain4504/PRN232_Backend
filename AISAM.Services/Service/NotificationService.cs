@@ -57,7 +57,7 @@ namespace AISAM.Services.Service
         {
             var notification = new Notification
             {
-                UserId = request.UserId,
+                ProfileId = request.UserId,
                 Title = request.Title,
                 Message = request.Message,
                 Type = request.Type,
@@ -72,7 +72,7 @@ namespace AISAM.Services.Service
         public async Task<bool> DeleteAsync(Guid id, Guid userId)
         {
             var notification = await _notificationRepository.GetByIdAsync(id);
-            if (notification == null || notification.UserId != userId)
+            if (notification == null || notification.ProfileId != userId)
                 return false;
 
             return await _notificationRepository.DeleteAsync(id);
@@ -88,7 +88,7 @@ namespace AISAM.Services.Service
             return new NotificationResponseDto
             {
                 Id = notification.Id,
-                UserId = notification.UserId,
+                ProfileId = notification.ProfileId,
                 Title = notification.Title,
                 Message = notification.Message,
                 Type = notification.Type,
@@ -97,7 +97,7 @@ namespace AISAM.Services.Service
                 IsRead = notification.IsRead,
                 IsDeleted = notification.IsDeleted,
                 CreatedAt = notification.CreatedAt,
-                UserEmail = notification.User?.Email ?? ""
+                UserEmail = notification.Profile?.User?.Email ?? ""
             };
         }
 

@@ -41,8 +41,8 @@ namespace AISAM.Data.Model
         [Column("integration_ids")]
         public string? IntegrationIds { get; set; } // JSON array of selected integration IDs
 
-        [Column("user_id")]
-        public Guid UserId { get; set; } // User who created the schedule
+        [Column("profile_id")]
+        public Guid ProfileId { get; set; } // Profile who created the schedule
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
@@ -59,5 +59,8 @@ namespace AISAM.Data.Model
         // Navigation properties
         [ForeignKey("ContentId")]
         public virtual Content Content { get; set; } = null!;
+
+        [ForeignKey("ProfileId")]
+        public virtual Profile Profile { get; set; } = null!;
     }
 }

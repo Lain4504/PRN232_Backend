@@ -36,7 +36,7 @@ namespace AISAM.Repositories.Repositories
             return await _context.TeamMembers
                 .Include(tm => tm.Team)
                 .Include(tm => tm.User)
-                .Where(tm => tm.Team.VendorId == vendorId && tm.IsActive)
+                .Where(tm => tm.Team.ProfileId == vendorId && tm.IsActive)
                 .ToListAsync();
         }
 

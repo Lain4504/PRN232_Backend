@@ -32,14 +32,14 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
                 var notification = await _notificationService.GetByIdAsync(id);
                 if (notification == null)
                 {
                     return NotFound(GenericResponse<NotificationResponseDto>.CreateError("Thông báo không tồn tại"));
                 }
 
-                if (notification.UserId != userId)
+                if (notification.ProfileId != profileId)
                 {
                     return Forbid("Bạn chỉ có thể xem thông báo của chính mình");
                 }
@@ -71,7 +71,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
                 var request = new PaginationRequest
                 {
@@ -82,7 +82,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _notificationService.GetPagedNotificationsAsync(userId, request, unread);
+                var result = await _notificationService.GetPagedNotificationsAsync(profileId, request, unread);
                 var message = unread ? "Lấy danh sách thông báo chưa đọc thành công" : "Lấy danh sách thông báo thành công";
                 
                 return Ok(GenericResponse<PagedResult<NotificationListDto>>.CreateSuccess(result, message));
@@ -108,13 +108,13 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
                 var notification = await _notificationService.GetByIdAsync(id);
                 if (notification == null)
                 {
                     return NotFound(GenericResponse<bool>.CreateError("Thông báo không tồn tại"));
                 }
-                if (notification.UserId != userId)
+                if (notification.ProfileId != profileId)
                 {
                     return Forbid("Bạn chỉ có thể đánh dấu thông báo của chính mình");
                 }
@@ -141,8 +141,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var count = await _notificationService.MarkAsReadBulkAsync(request.Ids, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var count = await _notificationService.MarkAsReadBulkAsync(request.Ids, profileId);
                 return Ok(GenericResponse<int>.CreateSuccess(count, $"Đã đánh dấu đã đọc {count} thông báo"));
             }
             catch (UnauthorizedAccessException)

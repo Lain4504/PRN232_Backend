@@ -1,5 +1,4 @@
 using AISAM.Common.Dtos;
-using AISAM.Common.Dtos;
 using AISAM.Data.Model;
 
 namespace AISAM.Repositories.IRepositories

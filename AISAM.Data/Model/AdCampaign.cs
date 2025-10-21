@@ -11,8 +11,8 @@ namespace AISAM.Data.Model
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
-        [Column("user_id")]
-        public Guid UserId { get; set; }
+        [Column("profile_id")]
+        public Guid ProfileId { get; set; }
 
         [Required]
         [Column("brand_id")]
@@ -54,8 +54,8 @@ namespace AISAM.Data.Model
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
-        [ForeignKey("UserId")]
-        public virtual User User { get; set; } = null!;
+        [ForeignKey("ProfileId")]
+        public virtual Profile Profile { get; set; } = null!;
 
         [ForeignKey("BrandId")]
         public virtual Brand Brand { get; set; } = null!;

@@ -6,8 +6,8 @@ namespace AISAM.Repositories.IRepositories
     {
         Task<Team> CreateAsync(Team team);
         Task<Team?> GetByIdAsync(Guid id);
-        Task<IEnumerable<Team>> GetByVendorIdAsync(Guid vendorId, Guid userId);
-        Task<bool> ExistsByNameAndVendorAsync(string name, Guid vendorId);
+        Task<IEnumerable<Team>> GetByProfileIdAsync(Guid profileId, Guid userId);
+        Task<bool> ExistsByNameAndProfileAsync(string name, Guid profileId);
         Task<Team> UpdateAsync(Team team);
         Task DeleteAsync(Guid id);
     }

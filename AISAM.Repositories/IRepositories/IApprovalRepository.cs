@@ -8,7 +8,7 @@ namespace AISAM.Repositories.IRepositories
         Task<Approval?> GetByIdAsync(Guid id);
         Task<Approval?> GetByIdIncludingDeletedAsync(Guid id);
         Task<IEnumerable<Approval>> GetByContentIdAsync(Guid contentId);
-        Task<IEnumerable<Approval>> GetByApproverIdAsync(Guid approverId);
+        Task<IEnumerable<Approval>> GetByApproverProfileIdAsync(Guid approverProfileId);
         
         Task<(IEnumerable<Approval> Items, int TotalCount)> GetPagedAsync(
             int page,

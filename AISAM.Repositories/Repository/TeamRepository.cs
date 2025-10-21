@@ -23,26 +23,26 @@ namespace AISAM.Repositories.Repositories
         public async Task<Team?> GetByIdAsync(Guid id)
         {
             return await _context.Teams
-                .Include(t => t.Vendor)
+                .Include(t => t.Profile)
                 .Include(t => t.TeamMembers)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        public async Task<IEnumerable<Team>> GetByVendorIdAsync(Guid vendorId, Guid userId)
+        public async Task<IEnumerable<Team>> GetByProfileIdAsync(Guid profileId, Guid userId)
         {
             return await _context.Teams
-                .Include(t => t.Vendor)
+                .Include(t => t.Profile)
                 .Include(t => t.TeamMembers)
-                .Where(t => t.VendorId == vendorId)
+                .Where(t => t.ProfileId == profileId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
         }
 
-        public async Task<bool> ExistsByNameAndVendorAsync(string name, Guid vendorId)
+        public async Task<bool> ExistsByNameAndProfileAsync(string name, Guid profileId)
         {
             return await _context.Teams
                 .AnyAsync(t => t.Name.ToLower() == name.ToLower() 
-                          && t.VendorId == vendorId 
+                          && t.ProfileId == profileId 
                           && !t.IsDeleted);
         }
 

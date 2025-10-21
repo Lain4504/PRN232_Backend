@@ -45,10 +45,10 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                // Lấy userId từ JWT token
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                // Lấy profileId từ JWT token
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var member = await _teamMemberService.GetByIdAsync(id, userId);
+                var member = await _teamMemberService.GetByIdAsync(id, profileId);
                 if (member == null)
                     return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
 
@@ -73,8 +73,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var created = await _teamMemberService.CreateAsync(request, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var created = await _teamMemberService.CreateAsync(request, profileId);
 
                 return CreatedAtAction(nameof(GetById), new { id = created.Id },
                     GenericResponse<TeamMemberResponseDto>.CreateSuccess(created, "Tạo thành viên thành công"));
@@ -103,8 +103,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var updated = await _teamMemberService.UpdateAsync(id, request, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var updated = await _teamMemberService.UpdateAsync(id, request, profileId);
 
                 if (updated == null)
                     return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
@@ -135,8 +135,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var ok = await _teamMemberService.DeleteAsync(id, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var ok = await _teamMemberService.DeleteAsync(id, profileId);
 
                 if (!ok)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy thành viên"));

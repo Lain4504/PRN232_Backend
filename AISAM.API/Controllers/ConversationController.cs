@@ -36,7 +36,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
                 var paginationRequest = new PaginationRequest
                 {
@@ -47,7 +47,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _conversationService.GetUserConversationsAsync(userId, paginationRequest);
+                var result = await _conversationService.GetUserConversationsAsync(profileId, paginationRequest);
                 return Ok(GenericResponse<PagedResult<ConversationResponseDto>>.CreateSuccess(result, "Conversations retrieved successfully"));
             }
             catch (UnauthorizedAccessException)
@@ -71,8 +71,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var conversation = await _conversationService.GetConversationByIdAsync(id, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var conversation = await _conversationService.GetConversationByIdAsync(id, profileId);
 
                 if (conversation == null)
                     return NotFound(GenericResponse<ConversationDetailDto>.CreateError("Không tìm thấy cuộc trò chuyện"));
@@ -100,8 +100,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var success = await _conversationService.DeleteConversationAsync(id, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var success = await _conversationService.DeleteConversationAsync(id, profileId);
 
                 if (!success)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy cuộc trò chuyện hoặc không có quyền truy cập"));

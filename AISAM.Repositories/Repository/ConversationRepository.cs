@@ -23,10 +23,10 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
         }
 
-        public async Task<IEnumerable<Conversation>> GetByUserIdAsync(Guid userId, PaginationRequest request)
+        public async Task<IEnumerable<Conversation>> GetByProfileIdAsync(Guid profileId, PaginationRequest request)
         {
             var query = _context.Conversations
-                .Where(c => c.UserId == userId && !c.IsDeleted)
+                .Where(c => c.ProfileId == profileId && !c.IsDeleted)
                 .Include(c => c.ChatMessages.OrderBy(cm => cm.CreatedAt).Take(1)) // Get first message for preview
                 .Include(c => c.Brand)
                 .Include(c => c.Product)
@@ -83,14 +83,14 @@ namespace AISAM.Repositories.Repository
             return true;
         }
 
-        public async Task<Conversation?> GetActiveConversationAsync(Guid userId, Guid? brandId, Guid? productId, int adType)
+        public async Task<Conversation?> GetActiveConversationAsync(Guid profileId, Guid? brandId, Guid? productId, int adType)
         {
             return await _context.Conversations
                 .Include(c => c.ChatMessages.OrderBy(cm => cm.CreatedAt))
                 .Include(c => c.Brand)
                 .Include(c => c.Product)
                 .FirstOrDefaultAsync(c =>
-                    c.UserId == userId &&
+                    c.ProfileId == profileId &&
                     c.BrandId == brandId &&
                     c.ProductId == productId &&
                     c.AdType == (AISAM.Data.Enumeration.AdTypeEnum)adType &&

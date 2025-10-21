@@ -151,7 +151,7 @@ namespace AISAM.Services.Service
                     var ok = await _postRepository.SoftDeleteAsync(postId);
                     if (ok)
                     {
-                        await SendNotificationAsync(brand.UserId, "post_deleted", postId, "Post đã bị xóa");
+                        await SendNotificationAsync(brand.ProfileId, "post_deleted", postId, "Post đã bị xóa");
                     }
                     return ok;
                 }
@@ -166,13 +166,13 @@ namespace AISAM.Services.Service
                 var ok = await _postRepository.SoftDeleteAsync(postId);
                 if (ok)
                 {
-                    await SendNotificationAsync(brand.UserId, "post_deleted", postId, "Post đã bị hủy");
+                    await SendNotificationAsync(brand.ProfileId, "post_deleted", postId, "Post đã bị hủy");
                 }
                 return ok;
             }
         }
 
-        private async Task SendNotificationAsync(Guid userId, string type, Guid targetId, string? message)
+        private async Task SendNotificationAsync(Guid profileId, string type, Guid targetId, string? message)
         {
             if (!Enum.TryParse<NotificationTypeEnum>(type, true, out var notificationType))
             {
@@ -181,7 +181,7 @@ namespace AISAM.Services.Service
 
             var noti = new Notification
             {
-                UserId = userId,
+                ProfileId = profileId,
                 Type = notificationType,
                 TargetId = targetId,
                 Message = message ?? string.Empty,
@@ -211,7 +211,7 @@ namespace AISAM.Services.Service
                 if (brand == null) return false;
 
                 // User is brand owner
-                if (brand.UserId == userId)
+                if (brand.ProfileId == userId)
                 {
                     return true;
                 }
@@ -220,8 +220,8 @@ namespace AISAM.Services.Service
                 var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
                 if (teamMember == null) return false;
 
-                // Check if team member belongs to the brand owner's vendor
-                if (teamMember.Team.VendorId != brand.UserId) return false;
+                // Check if team member belongs to the brand owner's profile
+                if (teamMember.Team.ProfileId != brand.ProfileId) return false;
 
                 // Check if team member has required permission
                 return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);

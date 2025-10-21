@@ -63,7 +63,7 @@ namespace AISAM.Services.Service
             }
 
             // Verify user exists
-            var user = await _userRepository.GetByIdAsync(request.UserId);
+            var user = await _userRepository.GetByIdAsync(request.ProfileId);
             if (user == null)
             {
                 throw new ArgumentException("User not found");
@@ -73,18 +73,18 @@ namespace AISAM.Services.Service
             // Must be IDENTICAL to the redirect_uri used in the OAuth dialog
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
-            // Check if this specific Facebook account is already linked to this user
+            // Check if this specific Facebook account is already linked to this profile
             var platform = ParseProviderToEnum(request.Provider);
-            var existingAccount = await _socialAccountRepository.GetByUserIdPlatformAndAccountIdAsync(request.UserId, platform, accountData.ProviderUserId);
+            var existingAccount = await _socialAccountRepository.GetByProfileIdPlatformAndAccountIdAsync(request.ProfileId, platform, accountData.ProviderUserId);
             if (existingAccount != null)
             {
-                throw new InvalidOperationException("Tài khoản mạng xã hội này đã được liên kết với người dùng này");
+                throw new InvalidOperationException("Tài khoản mạng xã hội này đã được liên kết với profile này");
             }
 
             // Create new social account only (opt-in pages later)
             var socialAccount = new SocialAccount
             {
-                UserId = request.UserId,
+                ProfileId = request.ProfileId,
                 Platform = platform,
                 AccountId = accountData.ProviderUserId,
                 UserAccessToken = accountData.AccessToken,
@@ -102,7 +102,7 @@ namespace AISAM.Services.Service
             try
             {
                 var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
-                if (account == null || account.UserId != userId)
+                if (account == null || account.ProfileId != userId)
                 {
                     return false;
                 }
@@ -120,9 +120,9 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(Guid userId)
+        public async Task<IEnumerable<SocialAccountDto>> GetProfileAccountsAsync(Guid profileId)
         {
-            var accounts = await _socialAccountRepository.GetByUserIdAsync(userId);
+            var accounts = await _socialAccountRepository.GetByProfileIdAsync(profileId);
             return accounts.Select(MapToDto);
         }
 
@@ -177,7 +177,7 @@ namespace AISAM.Services.Service
             }
             //TO DO: Verify brand belongs to user when brand repository is ready
             // Verify brand exists and belongs to user
-            //var brandId = _brandRepository.findyByIdAndUserId(request.BrandId, account.UserId);
+            //var brandId = _brandRepository.findyByIdAndUserId(request.BrandId, account.ProfileId);
             var brandId = request.BrandId;
             if (brandId == null)
             {
@@ -212,7 +212,7 @@ namespace AISAM.Services.Service
 
                     var integration = new SocialIntegration
                     {
-                        UserId = account.UserId,
+                        ProfileId = account.ProfileId,
                         BrandId = brandId,
                         SocialAccountId = account.Id,
                         Platform = account.Platform,
@@ -241,7 +241,7 @@ namespace AISAM.Services.Service
             try
             {
                 var integration = await _socialIntegrationRepository.GetByIdAsync(socialIntegrationId);
-                if (integration == null || integration.UserId != userId)
+                if (integration == null || integration.ProfileId != userId)
                 {
                     return false;
                 }
@@ -289,7 +289,7 @@ namespace AISAM.Services.Service
             return new SocialAccountDto
             {
                 Id = account.Id,
-                UserId = account.UserId,
+                ProfileId = account.ProfileId,
                 Provider = account.Platform.ToString().ToLower(),
                 ProviderUserId = account.AccountId ?? string.Empty,
                 AccessToken = account.UserAccessToken,

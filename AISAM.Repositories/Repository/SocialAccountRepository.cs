@@ -17,7 +17,7 @@ namespace AISAM.Repositories.Repository
         public async Task<SocialAccount?> GetByIdAsync(Guid id)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.User)
+                .Include(sa => sa.Profile)
                 .Include(sa => sa.SocialIntegrations)
                 .FirstOrDefaultAsync(sa => sa.Id == id);
         }
@@ -25,7 +25,7 @@ namespace AISAM.Repositories.Repository
         public async Task<SocialAccount?> GetByIdWithIntegrationsAsync(Guid id)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.User)
+                .Include(sa => sa.Profile)
                 .Include(sa => sa.SocialIntegrations)
                 .FirstOrDefaultAsync(sa => sa.Id == id);
         }
@@ -33,39 +33,39 @@ namespace AISAM.Repositories.Repository
         public async Task<SocialAccount?> GetByPlatformAndAccountIdAsync(SocialPlatformEnum platform, string accountId)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.User)
+                .Include(sa => sa.Profile)
                 .Include(sa => sa.SocialIntegrations)
                 .FirstOrDefaultAsync(sa => sa.Platform == platform && sa.AccountId == accountId);
         }
 
-        public async Task<SocialAccount?> GetByUserIdPlatformAndAccountIdAsync(Guid userId, SocialPlatformEnum platform, string accountId)
+        public async Task<SocialAccount?> GetByProfileIdPlatformAndAccountIdAsync(Guid profileId, SocialPlatformEnum platform, string accountId)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.User)
+                .Include(sa => sa.Profile)
                 .Include(sa => sa.SocialIntegrations)
-                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Platform == platform && sa.AccountId == accountId);
+                .FirstOrDefaultAsync(sa => sa.ProfileId == profileId && sa.Platform == platform && sa.AccountId == accountId);
         }
 
-        public async Task<SocialAccount?> GetByUserIdAndPlatformAsync(Guid userId, SocialPlatformEnum platform)
+        public async Task<SocialAccount?> GetByProfileIdAndPlatformAsync(Guid profileId, SocialPlatformEnum platform)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.User)
+                .Include(sa => sa.Profile)
                 .Include(sa => sa.SocialIntegrations)
-                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.Platform == platform);
+                .FirstOrDefaultAsync(sa => sa.ProfileId == profileId && sa.Platform == platform);
         }
 
-        public async Task<IEnumerable<SocialAccount>> GetByUserIdAsync(Guid userId)
+        public async Task<IEnumerable<SocialAccount>> GetByProfileIdAsync(Guid profileId)
         {
             return await _context.SocialAccounts
                 .Include(sa => sa.SocialIntegrations)
-                .Where(sa => sa.UserId == userId)
+                .Where(sa => sa.ProfileId == profileId)
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<SocialAccount>> GetByPlatformAsync(SocialPlatformEnum platform)
         {
             return await _context.SocialAccounts
-                .Include(sa => sa.User)
+                .Include(sa => sa.Profile)
                 .Include(sa => sa.SocialIntegrations)
                 .Where(sa => sa.Platform == platform)
                 .ToListAsync();

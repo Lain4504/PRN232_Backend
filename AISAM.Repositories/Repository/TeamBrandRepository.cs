@@ -65,7 +65,7 @@ namespace AISAM.Repositories.Repository
             foreach (var brandId in brandIds)
             {
                 var brand = await _context.Brands
-                    .FirstOrDefaultAsync(b => b.Id == brandId && b.UserId == userId && !b.IsDeleted);
+                    .FirstOrDefaultAsync(b => b.Id == brandId && b.ProfileId == userId && !b.IsDeleted);
 
                 if (brand != null)
                 {

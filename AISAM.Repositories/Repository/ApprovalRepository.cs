@@ -19,7 +19,7 @@ namespace AISAM.Repositories.Repository
             return await _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
-                .Include(a => a.Approver)
+                .Include(a => a.ApproverProfile)
                 .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
         }
 
@@ -28,7 +28,7 @@ namespace AISAM.Repositories.Repository
             return await _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
-                .Include(a => a.Approver)
+                .Include(a => a.ApproverProfile)
                 .FirstOrDefaultAsync(a => a.Id == id);
         }
 
@@ -37,19 +37,19 @@ namespace AISAM.Repositories.Repository
             return await _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
-                .Include(a => a.Approver)
+                .Include(a => a.ApproverProfile)
                 .Where(a => a.ContentId == contentId && !a.IsDeleted)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Approval>> GetByApproverIdAsync(Guid approverId)
+        public async Task<IEnumerable<Approval>> GetByApproverProfileIdAsync(Guid approverProfileId)
         {
             return await _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
-                .Include(a => a.Approver)
-                .Where(a => a.ApproverId == approverId && !a.IsDeleted)
+                .Include(a => a.ApproverProfile)
+                .Where(a => a.ApproverProfileId == approverProfileId && !a.IsDeleted)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
@@ -68,7 +68,7 @@ namespace AISAM.Repositories.Repository
             var query = _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
-                .Include(a => a.Approver)
+                .Include(a => a.ApproverProfile)
                 .AsQueryable();
 
             query = onlyDeleted ? query.Where(a => a.IsDeleted) : query.Where(a => !a.IsDeleted);
@@ -85,7 +85,7 @@ namespace AISAM.Repositories.Repository
 
             if (approverId.HasValue)
             {
-                query = query.Where(a => a.ApproverId == approverId.Value);
+                query = query.Where(a => a.ApproverProfileId == approverId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -94,7 +94,7 @@ namespace AISAM.Repositories.Repository
                 query = query.Where(a =>
                     (a.Notes != null && a.Notes.ToLower().Contains(term)) ||
                     (a.Content.Title != null && a.Content.Title.ToLower().Contains(term)) ||
-                    (a.Approver.Email != null && a.Approver.Email.ToLower().Contains(term))
+                    (a.ApproverProfile.Name != null && a.ApproverProfile.Name.ToLower().Contains(term))
                 );
             }
 
@@ -111,7 +111,7 @@ namespace AISAM.Repositories.Repository
                         query = desc ? query.OrderByDescending(a => a.ApprovedAt) : query.OrderBy(a => a.ApprovedAt);
                         break;
                     case "approver":
-                        query = desc ? query.OrderByDescending(a => a.Approver.Email) : query.OrderBy(a => a.Approver.Email);
+                        query = desc ? query.OrderByDescending(a => a.ApproverProfile.Name) : query.OrderBy(a => a.ApproverProfile.Name);
                         break;
                     default:
                         query = desc ? query.OrderByDescending(a => a.CreatedAt) : query.OrderBy(a => a.CreatedAt);

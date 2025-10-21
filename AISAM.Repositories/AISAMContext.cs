@@ -56,16 +56,12 @@ namespace AISAM.Repositories
             modelBuilder.Entity<Brand>(entity =>
             {
                 entity.HasKey(b => b.Id);
-                entity.HasIndex(b => b.UserId);
+                entity.HasIndex(b => b.ProfileId);
                 entity.HasIndex(b => b.Name);
-                entity.HasOne(b => b.User)
-                      .WithMany(u => u.Brands)
-                      .HasForeignKey(b => b.UserId)
-                      .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(b => b.Profile)
-                      .WithMany()
+                      .WithMany(p => p.Brands)
                       .HasForeignKey(b => b.ProfileId)
-                      .OnDelete(DeleteBehavior.SetNull);
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Content entity configuration
@@ -105,13 +101,13 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(sa => sa.Id);
                 entity.Property(sa => sa.Platform).HasConversion<int>();
-                entity.HasIndex(sa => sa.UserId);
+                entity.HasIndex(sa => sa.ProfileId);
                 entity.HasIndex(sa => sa.Platform);
                 entity.HasIndex(sa => sa.AccountId);
                 entity.HasIndex(sa => sa.IsActive);
-                entity.HasOne(sa => sa.User)
-                      .WithMany(u => u.SocialAccounts)
-                      .HasForeignKey(sa => sa.UserId)
+                entity.HasOne(sa => sa.Profile)
+                      .WithMany(p => p.SocialAccounts)
+                      .HasForeignKey(sa => sa.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -119,8 +115,13 @@ namespace AISAM.Repositories
             modelBuilder.Entity<SocialIntegration>(entity =>
             {
                 entity.HasKey(si => si.Id);
+                entity.HasIndex(si => si.ProfileId);
                 entity.HasIndex(si => si.BrandId);
                 entity.HasIndex(si => si.SocialAccountId);
+                entity.HasOne(si => si.Profile)
+                      .WithMany(p => p.SocialIntegrations)
+                      .HasForeignKey(si => si.ProfileId)
+                      .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(si => si.Brand)
                       .WithMany(b => b.SocialIntegrations)
                       .HasForeignKey(si => si.BrandId)
@@ -167,11 +168,17 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(p => p.Id);
                 entity.Property(p => p.ProfileType).HasConversion<int>();
+                entity.Property(p => p.Name).HasMaxLength(255).IsRequired();
                 entity.HasIndex(p => p.UserId);
+                entity.HasIndex(p => p.SubscriptionId);
                 entity.HasOne(p => p.User)
                       .WithMany(u => u.Profiles)
                       .HasForeignKey(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(p => p.Subscription)
+                      .WithMany()
+                      .HasForeignKey(p => p.SubscriptionId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Team entity configuration
@@ -179,12 +186,12 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(t => t.Id);
                 entity.Property(t => t.Status).HasConversion<int>().HasDefaultValue(TeamStatusEnum.Active);
-                entity.HasIndex(t => t.VendorId);
+                entity.HasIndex(t => t.ProfileId);
                 entity.HasIndex(t => t.Name);
                 entity.HasIndex(t => t.Status);
-                entity.HasOne(t => t.Vendor)
-                      .WithMany(u => u.Teams)
-                      .HasForeignKey(t => t.VendorId)
+                entity.HasOne(t => t.Profile)
+                      .WithMany(p => p.Teams)
+                      .HasForeignKey(t => t.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -226,11 +233,11 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(s => s.Id);
                 entity.Property(s => s.Plan).HasConversion<int>();
-                entity.HasIndex(s => s.UserId);
+                entity.HasIndex(s => s.ProfileId);
                 entity.HasIndex(s => s.IsActive);
-                entity.HasOne(s => s.User)
-                      .WithMany(u => u.Subscriptions)
-                      .HasForeignKey(s => s.UserId)
+                entity.HasOne(s => s.Profile)
+                      .WithMany()
+                      .HasForeignKey(s => s.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -239,14 +246,14 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(a => a.Id);
                 entity.HasIndex(a => a.ContentId);
-                entity.HasIndex(a => a.ApproverId);
+                entity.HasIndex(a => a.ApproverProfileId);
                 entity.HasOne(a => a.Content)
                       .WithMany(c => c.Approvals)
                       .HasForeignKey(a => a.ContentId)
                       .OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne(a => a.Approver)
-                      .WithMany(u => u.Approvals)
-                      .HasForeignKey(a => a.ApproverId)
+                entity.HasOne(a => a.ApproverProfile)
+                      .WithMany(p => p.Approvals)
+                      .HasForeignKey(a => a.ApproverProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -255,12 +262,12 @@ namespace AISAM.Repositories
             modelBuilder.Entity<AdCampaign>(entity =>
             {
                 entity.HasKey(ac => ac.Id);
-                entity.HasIndex(ac => ac.UserId);
+                entity.HasIndex(ac => ac.ProfileId);
                 entity.HasIndex(ac => ac.BrandId);
                 entity.HasIndex(ac => ac.Name);
-                entity.HasOne(ac => ac.User)
-                      .WithMany(u => u.AdCampaigns)
-                      .HasForeignKey(ac => ac.UserId)
+                entity.HasOne(ac => ac.Profile)
+                      .WithMany(p => p.AdCampaigns)
+                      .HasForeignKey(ac => ac.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(ac => ac.Brand)
                       .WithMany(b => b.AdCampaigns)
@@ -323,10 +330,15 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(cc => cc.Id);
                 entity.HasIndex(cc => cc.ContentId);
+                entity.HasIndex(cc => cc.ProfileId);
                 entity.HasIndex(cc => cc.ScheduledDate);
                 entity.HasOne(cc => cc.Content)
                       .WithMany(c => c.ContentCalendars)
                       .HasForeignKey(cc => cc.ContentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(cc => cc.Profile)
+                      .WithMany(p => p.ContentCalendars)
+                      .HasForeignKey(cc => cc.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -348,13 +360,13 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(n => n.Id);
                 entity.Property(n => n.Type).HasConversion<int>();
-                entity.HasIndex(n => n.UserId);
+                entity.HasIndex(n => n.ProfileId);
                 entity.HasIndex(n => n.Type);
                 entity.HasIndex(n => n.IsRead);
                 entity.HasIndex(n => n.CreatedAt);
-                entity.HasOne(n => n.User)
-                      .WithMany(u => u.Notifications)
-                      .HasForeignKey(n => n.UserId)
+                entity.HasOne(n => n.Profile)
+                      .WithMany(p => p.Notifications)
+                      .HasForeignKey(n => n.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -407,14 +419,14 @@ namespace AISAM.Repositories
             {
                 entity.HasKey(c => c.Id);
                 entity.Property(c => c.AdType).HasConversion<int>();
-                entity.HasIndex(c => c.UserId);
+                entity.HasIndex(c => c.ProfileId);
                 entity.HasIndex(c => c.BrandId);
                 entity.HasIndex(c => c.ProductId);
                 entity.HasIndex(c => c.IsActive);
                 entity.HasIndex(c => c.CreatedAt);
-                entity.HasOne(c => c.User)
-                      .WithMany(u => u.Conversations)
-                      .HasForeignKey(c => c.UserId)
+                entity.HasOne(c => c.Profile)
+                      .WithMany(p => p.Conversations)
+                      .HasForeignKey(c => c.ProfileId)
                       .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(c => c.Brand)
                       .WithMany()

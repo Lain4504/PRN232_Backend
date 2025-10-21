@@ -13,33 +13,40 @@ namespace AISAM.Services.Service
         private readonly ITeamRepository _teamRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly IBrandRepository _brandRepository;
         private readonly ITeamBrandRepository _teamBrandRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public TeamService(ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IUserRepository userRepository, IBrandRepository brandRepository, ITeamBrandRepository teamBrandRepository, RolePermissionConfig rolePermissionConfig)
+        public TeamService(ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IUserRepository userRepository, IProfileRepository profileRepository, IBrandRepository brandRepository, ITeamBrandRepository teamBrandRepository, RolePermissionConfig rolePermissionConfig)
         {
             _teamMemberRepository = teamMemberRepository;
             _teamRepository = teamRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
             _brandRepository = brandRepository;
             _teamBrandRepository = teamBrandRepository;
             _rolePermissionConfig = rolePermissionConfig;
         }
 
-        public async Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid userId)
+        public async Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid profileId)
         {
             try
             {
-                // Kiểm tra quyền tạo team: user phải có role Vendor 
-                var user = await _userRepository.GetByIdAsync(userId);
-                if (user == null || user.Role != UserRoleEnum.Vendor)
+                // Kiểm tra profile type: chỉ Basic và Pro mới có thể tạo team
+                var profile = await _profileRepository.GetByIdAsync(profileId);
+                if (profile == null)
                 {
-                    throw new UnauthorizedAccessException("Bạn không có quyền tạo team.");
+                    throw new UnauthorizedAccessException("Profile not found.");
+                }
+
+                if (profile.ProfileType == ProfileTypeEnum.Free)
+                {
+                    return GenericResponse<TeamResponse>.CreateError("Tính năng team chỉ dành cho gói Basic và Pro. Vui lòng nâng cấp gói để sử dụng tính năng này.");
                 }
 
                 // Kiểm tra tên team đã tồn tại chưa
-                var existingTeam = await _teamRepository.ExistsByNameAndVendorAsync(request.Name, userId);
+                var existingTeam = await _teamRepository.ExistsByNameAndProfileAsync(request.Name, profileId);
                 if (existingTeam)
                 {
                     return GenericResponse<TeamResponse>.CreateError("Tên team đã tồn tại");
@@ -49,7 +56,7 @@ namespace AISAM.Services.Service
                 var team = new Team
                 {
                     Id = Guid.NewGuid(),
-                    VendorId = userId,
+                    ProfileId = profileId,
                     Name = request.Name.Trim(),
                     Description = request.Description?.Trim(),
                     CreatedAt = DateTime.UtcNow,
@@ -59,7 +66,7 @@ namespace AISAM.Services.Service
                 var createdTeam = await _teamRepository.CreateAsync(team);
                 if (request.BrandIds?.Any() == true)
                 {
-                    await _teamBrandRepository.CreateTeamBrandAssociationsAsync(createdTeam.Id, request.BrandIds, userId);
+                    await _teamBrandRepository.CreateTeamBrandAssociationsAsync(createdTeam.Id, request.BrandIds, profileId);
                 }
 
                 try
@@ -69,7 +76,7 @@ namespace AISAM.Services.Service
                     {
                         Id = Guid.NewGuid(),
                         TeamId = createdTeam.Id,
-                        UserId = userId,
+                        UserId = profileId,
                         Role = "Vendor",
                         Permissions = _rolePermissionConfig.GetPermissionsByRole("Vendor"),
                         JoinedAt = DateTime.UtcNow,
@@ -81,17 +88,17 @@ namespace AISAM.Services.Service
                 catch (Exception ex)
                 {
                     // Log lỗi tạo TeamMember nhưng không làm fail việc tạo team
-                    Console.WriteLine($"Warning: Failed to create team member for user {userId} in team {createdTeam.Id}: {ex.Message}");
+                    Console.WriteLine($"Warning: Failed to create team member for user {profileId} in team {createdTeam.Id}: {ex.Message}");
                 }
 
                 var response = new TeamResponse
                 {
                     Id = createdTeam.Id,
-                    VendorId = createdTeam.VendorId,
+                    ProfileId = createdTeam.ProfileId,
                     Name = createdTeam.Name,
                     Description = createdTeam.Description,
                     CreatedAt = createdTeam.CreatedAt,
-                    VendorEmail = user?.Email ?? "",
+                    VendorEmail = profile?.User?.Email ?? "",
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Tạo team thành công");
@@ -118,15 +125,15 @@ namespace AISAM.Services.Service
                 }
 
                 // Lấy thông tin vendor để có email
-                var vendor = await _userRepository.GetByIdAsync(team.VendorId);
+                var profile = await _profileRepository.GetByIdAsync(team.ProfileId);
                 var response = new TeamResponse
                 {
                     Id = team.Id,
-                    VendorId = team.VendorId,
+                    ProfileId = team.ProfileId,
                     Name = team.Name,
                     Description = team.Description,
                     CreatedAt = team.CreatedAt,
-                    VendorEmail = vendor?.Email ?? "",
+                    VendorEmail = profile?.User?.Email ?? "",
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Lấy thông tin team thành công");
@@ -137,7 +144,7 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByVendorAsync(Guid vendorId, Guid userId)
+        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid userId)
         {
             try
             {
@@ -145,11 +152,11 @@ namespace AISAM.Services.Service
                 if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
                     throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách team.");
 
-                // Lấy danh sách teams theo vendor
-                var teams = await _teamRepository.GetByVendorIdAsync(vendorId, userId);
+                // Lấy danh sách teams theo profile
+                var teams = await _teamRepository.GetByProfileIdAsync(profileId, userId);
 
-                // Lấy thông tin vendor để có email
-                var vendor = await _userRepository.GetByIdAsync(vendorId);
+                // Lấy thông tin profile để có email
+                var profile = await _profileRepository.GetByIdAsync(profileId);
 
                 // Chuyển đổi sang TeamResponse với thông tin đầy đủ
                 var teamResponses = new List<TeamResponse>();
@@ -158,11 +165,11 @@ namespace AISAM.Services.Service
                     teamResponses.Add(new TeamResponse
                     {
                         Id = team.Id,
-                        VendorId = team.VendorId,
+                        ProfileId = team.ProfileId,
                         Name = team.Name,
                         Description = team.Description,
                         CreatedAt = team.CreatedAt,
-                        VendorEmail = vendor?.Email ?? "",
+                        VendorEmail = profile?.User?.Email ?? "",
                     });
                 }
 
@@ -192,7 +199,7 @@ namespace AISAM.Services.Service
                 // Kiểm tra tên team mới có bị trùng không (chỉ khi tên thay đổi)
                 if (existingTeam.Name.Trim() != request.Name.Trim())
                 {
-                    var nameExists = await _teamRepository.ExistsByNameAndVendorAsync(request.Name, existingTeam.VendorId);
+                    var nameExists = await _teamRepository.ExistsByNameAndProfileAsync(request.Name, existingTeam.ProfileId);
                     if (nameExists)
                     {
                         return GenericResponse<TeamResponse>.CreateError("Tên team đã tồn tại");
@@ -206,16 +213,16 @@ namespace AISAM.Services.Service
                 var updatedTeam = await _teamRepository.UpdateAsync(existingTeam);
 
                 // Lấy thông tin vendor để có email
-                var vendor = await _userRepository.GetByIdAsync(updatedTeam.VendorId);
+                var profile = await _profileRepository.GetByIdAsync(updatedTeam.ProfileId);
 
                 var response = new TeamResponse
                 {
                     Id = updatedTeam.Id,
-                    VendorId = updatedTeam.VendorId,
+                    ProfileId = updatedTeam.ProfileId,
                     Name = updatedTeam.Name,
                     Description = updatedTeam.Description,
                     CreatedAt = updatedTeam.CreatedAt,
-                    VendorEmail = vendor?.Email ?? "",
+                    VendorEmail = profile?.User?.Email ?? "",
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Cập nhật team thành công");
@@ -345,7 +352,7 @@ namespace AISAM.Services.Service
                     return GenericResponse<bool>.CreateError("Không tìm thấy brand với ID được cung cấp.");
                 }
 
-                if (brand.UserId != existingTeam.VendorId)
+                if (brand.ProfileId != existingTeam.ProfileId)
                 {
                     return GenericResponse<bool>.CreateError("Brand không thuộc về vendor của team.");
                 }

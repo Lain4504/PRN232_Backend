@@ -57,7 +57,7 @@ namespace AISAM.API.Validators
                 return result;
             }
 
-            if (brand.UserId != userId)
+            if (brand.ProfileId != userId)
             {
                 result.Errors.Add(new FluentValidation.Results.ValidationFailure("Authorization", "Bạn không có quyền xuất bản cho thương hiệu này"));
             }

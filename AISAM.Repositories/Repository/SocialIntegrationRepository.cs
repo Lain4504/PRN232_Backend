@@ -17,7 +17,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.SocialIntegrations
                 .Include(si => si.SocialAccount)
-                .Include(si => si.User)
+                .Include(si => si.Profile)
                 .Include(si => si.Brand)
                 .Include(si => si.Posts)
                 .FirstOrDefaultAsync(si => si.Id == id);
@@ -27,7 +27,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.SocialIntegrations
                 .Include(si => si.SocialAccount)
-                .Include(si => si.User)
+                .Include(si => si.Profile)
                 .Include(si => si.Brand)
                 .Include(si => si.Posts)
                 .FirstOrDefaultAsync(si => si.ExternalId == externalId);
@@ -37,21 +37,21 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.SocialIntegrations
                 .Include(si => si.SocialAccount)
-                .Include(si => si.User)
+                .Include(si => si.Profile)
                 .Include(si => si.Brand)
                 .Include(si => si.Posts)
                 .Where(si => si.SocialAccountId == socialAccountId)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<SocialIntegration>> GetByUserIdAsync(Guid userId)
+        public async Task<IEnumerable<SocialIntegration>> GetByProfileIdAsync(Guid profileId)
         {
             return await _context.SocialIntegrations
                 .Include(si => si.SocialAccount)
-                .Include(si => si.User)
+                .Include(si => si.Profile)
                 .Include(si => si.Brand)
                 .Include(si => si.Posts)
-                .Where(si => si.UserId == userId)
+                .Where(si => si.ProfileId == profileId)
                 .ToListAsync();
         }
 

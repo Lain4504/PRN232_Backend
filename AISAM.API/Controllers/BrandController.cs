@@ -33,8 +33,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var brand = await _brandService.GetByIdAsync(id, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var brand = await _brandService.GetByIdAsync(id, profileId);
                 if (brand == null)
                     return NotFound(GenericResponse<BrandResponseDto>.CreateError("Không tìm thấy brand"));
 
@@ -67,7 +67,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
                 var paginationRequest = new PaginationRequest
                 {
@@ -78,7 +78,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _brandService.GetPagedByUserIdAsync(userId, paginationRequest);
+                var result = await _brandService.GetPagedByProfileIdAsync(profileId, paginationRequest);
                 return Ok(GenericResponse<PagedResult<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand thành công"));
             }
             catch (UnauthorizedAccessException)
@@ -102,7 +102,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
                 var paginationRequest = new PaginationRequest
                 {
@@ -113,7 +113,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _brandService.GetPagedBrandsByTeamMembershipAsync(userId, paginationRequest);
+                var result = await _brandService.GetPagedBrandsByTeamMembershipAsync(profileId, paginationRequest);
                 return Ok(GenericResponse<PagedResult<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand thành công"));
             }
             catch (UnauthorizedAccessException)
@@ -137,9 +137,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var created = await _brandService.CreateAsync(userId, request);
+                var created = await _brandService.CreateAsync(profileId, request);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, GenericResponse<BrandResponseDto>.CreateSuccess(created, "Tạo brand thành công"));
             }
             catch (UnauthorizedAccessException)
@@ -168,9 +168,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var updated = await _brandService.UpdateAsync(id, userId, request);
+                var updated = await _brandService.UpdateAsync(id, profileId, request);
                 if (updated == null)
                     return NotFound(GenericResponse<BrandResponseDto>.CreateError("Không tìm thấy brand hoặc không có quyền truy cập"));
 
@@ -202,9 +202,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var success = await _brandService.SoftDeleteAsync(id, userId);
+                var success = await _brandService.SoftDeleteAsync(id, profileId);
                 if (!success)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy brand hoặc không có quyền truy cập"));
 
@@ -231,9 +231,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var ok = await _brandService.RestoreAsync(id, userId);
+                var ok = await _brandService.RestoreAsync(id, profileId);
                 if (!ok)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy brand hoặc không ở trạng thái đã xóa"));
 

@@ -4,6 +4,6 @@ namespace AISAM.Common.Dtos.Request
     {
         public string Code { get; set; } = string.Empty;
         public string? State { get; set; }
-        public Guid UserId { get; set; }
+        public Guid ProfileId { get; set; }
     }
 }
