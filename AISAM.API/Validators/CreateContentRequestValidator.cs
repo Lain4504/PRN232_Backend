@@ -10,7 +10,7 @@ namespace AISAM.API.Validators
 	{
 		public CreateContentRequestValidator()
 		{
-			RuleFor(x => x.UserId).NotEmpty();
+			RuleFor(x => x.ProfileId).NotEmpty();
 			RuleFor(x => x.BrandId).NotEmpty();
 			RuleFor(x => x.TextContent)
 				.NotEmpty().WithMessage("TextContent is required")

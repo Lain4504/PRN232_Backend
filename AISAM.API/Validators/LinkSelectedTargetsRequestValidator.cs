@@ -8,9 +8,9 @@ namespace AISAM.API.Validators
     {
         public LinkSelectedTargetsRequestValidator()
         {
-            RuleFor(x => x.UserId)
+            RuleFor(x => x.ProfileId)
                 .NotEmpty()
-                .WithMessage("UserId is required");
+                .WithMessage("ProfileId is required");
 
             RuleFor(x => x.Provider)
                 .NotEmpty()

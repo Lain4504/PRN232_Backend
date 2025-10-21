@@ -8,25 +8,20 @@ namespace AISAM.API.Validators
     {
         public CreateProfileRequestValidator()
         {
+            RuleFor(x => x.Name)
+                .NotEmpty()
+                .WithMessage("Tên hồ sơ là bắt buộc")
+                .MaximumLength(255)
+                .WithMessage("Tên hồ sơ không được vượt quá 255 ký tự");
+
             RuleFor(x => x.ProfileType)
                 .IsInEnum()
-                .WithMessage("Loại hồ sơ phải là Cá nhân hoặc Doanh nghiệp");
+                .WithMessage("Loại hồ sơ phải là Free, Basic hoặc Pro");
 
-            When(x => x.ProfileType == ProfileTypeEnum.Personal, () =>
-            {
-                RuleFor(x => x.CompanyName)
-                    .Must(x => string.IsNullOrWhiteSpace(x))
-                    .WithMessage("Hồ sơ cá nhân không được có tên công ty");
-            });
-
-            When(x => x.ProfileType == ProfileTypeEnum.Business, () =>
-            {
-                RuleFor(x => x.CompanyName)
-                    .NotEmpty()
-                    .WithMessage("Tên công ty là bắt buộc đối với hồ sơ doanh nghiệp")
-                    .MaximumLength(255)
-                    .WithMessage("Tên công ty không được vượt quá 255 ký tự");
-            });
+            RuleFor(x => x.CompanyName)
+                .MaximumLength(255)
+                .WithMessage("Tên công ty không được vượt quá 255 ký tự")
+                .When(x => !string.IsNullOrWhiteSpace(x.CompanyName));
 
             RuleFor(x => x.Bio)
                 .MaximumLength(1000)

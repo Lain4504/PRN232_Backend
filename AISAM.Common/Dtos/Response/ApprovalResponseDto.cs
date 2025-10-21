@@ -4,7 +4,7 @@ namespace AISAM.Common.Dtos.Response
     {
         public Guid Id { get; set; }
         public Guid ContentId { get; set; }
-        public Guid ApproverId { get; set; }
+        public Guid ApproverProfileId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? Notes { get; set; }
         public DateTime? ApprovedAt { get; set; }
@@ -12,6 +12,6 @@ namespace AISAM.Common.Dtos.Response
         
         // Navigation properties
         public ContentResponseDto? Content { get; set; }
-        public UserResponseDto? Approver { get; set; }
+        public ProfileResponseDto? ApproverProfile { get; set; }
     }
 }

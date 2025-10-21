@@ -16,8 +16,16 @@ namespace AISAM.Data.Model
         public Guid UserId { get; set; }
 
         [Required]
+        [MaxLength(255)]
+        [Column("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
         [Column("profile_type")]
         public ProfileTypeEnum ProfileType { get; set; }
+
+        [Column("subscription_id")]
+        public Guid? SubscriptionId { get; set; }
 
         [MaxLength(255)]
         [Column("company_name")]
@@ -43,6 +51,17 @@ namespace AISAM.Data.Model
         [ForeignKey("UserId")]
         public virtual User User { get; set; } = null!;
 
+        [ForeignKey("SubscriptionId")]
+        public virtual Subscription? Subscription { get; set; }
+
         public virtual ICollection<Brand> Brands { get; set; } = new List<Brand>();
+        public virtual ICollection<Team> Teams { get; set; } = new List<Team>();
+        public virtual ICollection<SocialAccount> SocialAccounts { get; set; } = new List<SocialAccount>();
+        public virtual ICollection<SocialIntegration> SocialIntegrations { get; set; } = new List<SocialIntegration>();
+        public virtual ICollection<Approval> Approvals { get; set; } = new List<Approval>();
+        public virtual ICollection<AdCampaign> AdCampaigns { get; set; } = new List<AdCampaign>();
+        public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+        public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
+        public virtual ICollection<ContentCalendar> ContentCalendars { get; set; } = new List<ContentCalendar>();
     }
 }

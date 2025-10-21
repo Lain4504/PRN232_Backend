@@ -48,14 +48,14 @@ namespace AISAM.Services.Service
         public async Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request)
         {
             // Validate user exists
-            var user = await _userRepository.GetByIdAsync(request.UserId);
+            var user = await _userRepository.GetByIdAsync(request.ProfileId);
             if (user == null)
             {
                 throw new ArgumentException("User not found");
             }
 
             // Check if user has permission to create content
-            var canCreate = await CanUserPerformActionAsync(request.UserId, "CREATE_CONTENT", request.BrandId);
+            var canCreate = await CanUserPerformActionAsync(request.ProfileId, "CREATE_CONTENT", request.BrandId);
             if (!canCreate)
             {
                 throw new UnauthorizedAccessException("You are not allowed to create content");
@@ -84,7 +84,7 @@ namespace AISAM.Services.Service
             // If publish immediately, publish to specified integration
             if (request.PublishImmediately && request.IntegrationId.HasValue)
             {
-                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, request.UserId);
+                publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, request.ProfileId);
                 if (publishResult.Success)
                 {
                     content.Status = ContentStatusEnum.Published;
@@ -153,7 +153,7 @@ namespace AISAM.Services.Service
             }
 
             // Validate integration belongs to same user as content
-            if (integration.UserId != content.Brand.UserId) // Assuming Brand has UserId
+            if (integration.ProfileId != content.Brand.ProfileId) // Assuming Brand has ProfileId
             {
                 return new PublishResultDto
                 {
@@ -365,7 +365,7 @@ namespace AISAM.Services.Service
                 if (brand == null) return false;
 
                 // User is brand owner
-                if (brand.UserId == userId)
+                if (brand.ProfileId == userId)
                 {
                     return true;
                 }
@@ -374,8 +374,8 @@ namespace AISAM.Services.Service
                 var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
                 if (teamMember == null) return false;
 
-                // Check if team member belongs to the brand owner's vendor
-                if (teamMember.Team.VendorId != brand.UserId) return false;
+                // Check if team member belongs to the brand owner's profile
+                if (teamMember.Team.ProfileId != brand.ProfileId) return false;
 
                 // Check if team member has required permission
                 return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);

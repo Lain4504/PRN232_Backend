@@ -12,7 +12,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContentEntity = AISAM.Data.Model.Content;
 using AISAM.Repositories;
-using AISAM.Data.Model;
 using DataModel = AISAM.Data.Model;
 
 namespace AISAM.Services.Service
@@ -241,7 +240,7 @@ namespace AISAM.Services.Service
                     var result = await response.Content.ReadFromJsonAsync<GeminiApiResponse>();
                     if (result?.Candidates?.Length > 0 && result.Candidates[0].Content?.Parts?.Length > 0)
                     {
-                        return result.Candidates[0].Content.Parts[0].Text?.Trim() ?? "No content generated";
+                        return result.Candidates[0].Content?.Parts?[0].Text?.Trim() ?? "No content generated";
                     }
                 }
 
@@ -428,7 +427,7 @@ namespace AISAM.Services.Service
             // This ensures each chat session gets its own conversation
             var conversation = new Data.Model.Conversation
             {
-                UserId = request.UserId,
+                ProfileId = request.UserId,
                 BrandId = request.BrandId,
                 ProductId = request.ProductId,
                 AdType = request.AdType,

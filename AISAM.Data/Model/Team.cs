@@ -12,8 +12,8 @@ namespace AISAM.Data.Model
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
-        [Column("vendor_id")]
-        public Guid VendorId { get; set; }
+        [Column("profile_id")]
+        public Guid ProfileId { get; set; }
 
         [Required]
         [MaxLength(255)]
@@ -37,8 +37,8 @@ namespace AISAM.Data.Model
         public DateTime? UpdatedAt { get; set; }
 
         // Navigation properties
-        [ForeignKey("VendorId")]
-        public virtual User? Vendor { get; set; }
+        [ForeignKey("ProfileId")]
+        public virtual Profile Profile { get; set; } = null!;
 
         public virtual ICollection<TeamMember> TeamMembers { get; set; } = new List<TeamMember>();
         public virtual ICollection<TeamBrand> TeamBrands { get; set; } = new List<TeamBrand>();

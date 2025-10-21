@@ -8,11 +8,11 @@ namespace AISAM.Repositories.IRepositories
     {
         Task<Brand?> GetByIdAsync(Guid id);
         Task<Brand?> GetByIdIncludingDeletedAsync(Guid id);
-        Task<PagedResult<Brand>> GetPagedByUserIdAsync(Guid userId, PaginationRequest request);
+        Task<PagedResult<Brand>> GetPagedByProfileIdAsync(Guid profileId, PaginationRequest request);
         Task<Brand> AddAsync(Brand brand);
         Task UpdateAsync(Brand brand);
-        Task<bool> UserExistsAsync(Guid userId);
-        Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid userId, PaginationRequest request);
+        Task<bool> ProfileExistsAsync(Guid profileId);
+        Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, PaginationRequest request);
 
     }
 }

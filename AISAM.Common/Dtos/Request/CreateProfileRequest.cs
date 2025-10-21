@@ -7,6 +7,10 @@ namespace AISAM.Common.Dtos.Request
     public class CreateProfileRequest
     {
         [Required]
+        [MaxLength(255)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
         public ProfileTypeEnum ProfileType { get; set; }
 
         [MaxLength(255)]

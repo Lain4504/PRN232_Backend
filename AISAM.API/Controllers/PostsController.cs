@@ -34,8 +34,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _postService.GetPostsAsync(userId, brandId, page, pageSize, status);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _postService.GetPostsAsync(profileId, brandId, page, pageSize, status);
                 return Ok(GenericResponse<PagedResult<PostListItemDto>>.CreateSuccess(result, "OK"));
             }
             catch (UnauthorizedAccessException ex)
@@ -55,8 +55,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var item = await _postService.GetPostByIdAsync(userId, postId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var item = await _postService.GetPostByIdAsync(profileId, postId);
                 if (item == null)
                 {
                     return NotFound(GenericResponse<PostListItemDto>.CreateError("Bài viết không tồn tại"));
@@ -80,8 +80,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var ok = await _postService.DeletePostAsync(userId, postId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var ok = await _postService.DeletePostAsync(profileId, postId);
                 if (!ok) return BadRequest(GenericResponse<object>.CreateError("Không thể xóa bài viết"));
                 return Ok(GenericResponse<object>.CreateSuccess(null, "Đã xóa"));
             }

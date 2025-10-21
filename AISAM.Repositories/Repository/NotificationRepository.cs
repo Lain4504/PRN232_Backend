@@ -17,12 +17,12 @@ namespace AISAM.Repositories.Repository
         public async Task<Notification?> GetByIdAsync(Guid id)
         {
             return await _context.Notifications
-                .Include(n => n.User)
+                .Include(n => n.Profile)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
         }
-    // ...existing code...
-    public async Task<Notification> CreateAsync(Notification notification)
+    
+        public async Task<Notification> CreateAsync(Notification notification)
         {
             notification.CreatedAt = DateTime.UtcNow;
             notification.IsRead = false;
@@ -56,13 +56,13 @@ namespace AISAM.Repositories.Repository
             return true;
         }
 
-        public async Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid userId)
+        public async Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid profileId)
         {
             var idList = ids.Distinct().ToList();
             if (idList.Count == 0) return 0;
 
             var notifications = await _context.Notifications
-                .Where(n => idList.Contains(n.Id) && n.UserId == userId && !n.IsDeleted && !n.IsRead)
+                .Where(n => idList.Contains(n.Id) && n.ProfileId == profileId && !n.IsDeleted && !n.IsRead)
                 .ToListAsync();
 
             foreach (var n in notifications)
@@ -74,11 +74,11 @@ namespace AISAM.Repositories.Repository
             return notifications.Count;
         }
 
-        public async Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid userId, PaginationRequest request, bool unreadOnly = false)
+        public async Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid profileId, PaginationRequest request, bool unreadOnly = false)
         {
             var query = _context.Notifications
-                .Include(n => n.User)
-                .Where(n => n.UserId == userId && !n.IsDeleted);
+                .Include(n => n.Profile)
+                .Where(n => n.ProfileId == profileId && !n.IsDeleted);
 
             // Apply unread filter at database level
             if (unreadOnly)
@@ -116,7 +116,7 @@ namespace AISAM.Repositories.Repository
                     Type = n.Type,
                     IsRead = n.IsRead,
                     CreatedAt = n.CreatedAt,
-                    UserEmail = n.User.Email ?? ""
+                    UserEmail = n.Profile.Name ?? ""
                 })
                 .ToListAsync();
 
@@ -129,10 +129,10 @@ namespace AISAM.Repositories.Repository
             };
         }
 
-        public async Task<int> GetUnreadCountAsync(Guid userId)
+        public async Task<int> GetUnreadCountAsync(Guid profileId)
         {
             return await _context.Notifications
-                .CountAsync(n => n.UserId == userId && !n.IsRead && !n.IsDeleted);
+                .CountAsync(n => n.ProfileId == profileId && !n.IsRead && !n.IsDeleted);
         }
 
 

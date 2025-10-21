@@ -18,7 +18,7 @@ namespace AISAM.Services.Service
 
         public async Task<PagedResult<ConversationResponseDto>> GetUserConversationsAsync(Guid userId, PaginationRequest request)
         {
-            var conversations = await _conversationRepository.GetByUserIdAsync(userId, request);
+            var conversations = await _conversationRepository.GetByProfileIdAsync(userId, request);
 
             var result = new PagedResult<ConversationResponseDto>
             {
@@ -36,7 +36,7 @@ namespace AISAM.Services.Service
             var conversation = await _conversationRepository.GetByIdAsync(conversationId);
 
             // Check if conversation exists and belongs to user
-            if (conversation == null || conversation.UserId != userId)
+            if (conversation == null || conversation.ProfileId != userId)
                 return null;
 
             return MapToDetailDto(conversation);
@@ -47,7 +47,7 @@ namespace AISAM.Services.Service
             var conversation = await _conversationRepository.GetByIdAsync(conversationId);
 
             // Check if conversation exists and belongs to user
-            if (conversation == null || conversation.UserId != userId)
+            if (conversation == null || conversation.ProfileId != userId)
                 return false;
 
             return await _conversationRepository.SoftDeleteAsync(conversationId);
@@ -67,7 +67,7 @@ namespace AISAM.Services.Service
             // Create new conversation
             var conversation = new Conversation
             {
-                UserId = userId,
+                ProfileId = userId,
                 BrandId = brandId,
                 ProductId = productId,
                 AdType = (AdTypeEnum)adType,
@@ -88,7 +88,7 @@ namespace AISAM.Services.Service
             return new ConversationResponseDto
             {
                 Id = conversation.Id,
-                UserId = conversation.UserId,
+                ProfileId = conversation.ProfileId,
                 BrandId = conversation.BrandId,
                 BrandName = conversation.Brand?.Name,
                 ProductId = conversation.ProductId,
@@ -109,7 +109,7 @@ namespace AISAM.Services.Service
             return new ConversationDetailDto
             {
                 Id = conversation.Id,
-                UserId = conversation.UserId,
+                ProfileId = conversation.ProfileId,
                 BrandId = conversation.BrandId,
                 BrandName = conversation.Brand?.Name,
                 ProductId = conversation.ProductId,

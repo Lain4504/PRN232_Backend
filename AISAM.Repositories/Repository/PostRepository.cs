@@ -36,7 +36,7 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
-        public async Task<PagedResult<Post>> GetPagedAsync(Guid? brandId, Guid? userId, int page, int pageSize, bool includeDeleted = false, ContentStatusEnum? status = null)
+        public async Task<PagedResult<Post>> GetPagedAsync(Guid? brandId, Guid? profileId, int page, int pageSize, bool includeDeleted = false, ContentStatusEnum? status = null)
         {
             var query = _context.Posts
                 .Include(p => p.Content)
@@ -53,9 +53,9 @@ namespace AISAM.Repositories.Repository
                 query = query.Where(p => p.Content.BrandId == brandId.Value);
             }
 
-            if (userId.HasValue)
+            if (profileId.HasValue)
             {
-                query = query.Where(p => p.Content.Brand.UserId == userId.Value);
+                query = query.Where(p => p.Content.Brand.ProfileId == profileId.Value);
             }
 
             if (status.HasValue)

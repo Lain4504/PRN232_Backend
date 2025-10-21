@@ -8,7 +8,7 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Get authorization URL for a provider. Optionally include userId in callback URL.
         /// </summary>
-        Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? userId = null);
+        Task<AuthUrlResponse> GetAuthUrlAsync(string provider, string? state = null, Guid? profileId = null);
         
         /// <summary>
         /// Link a social account to a user
@@ -18,12 +18,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Unlink a social account from a user
         /// </summary>
-        Task<bool> UnlinkAccountAsync(Guid userId, Guid socialAccountId);
+        Task<bool> UnlinkAccountAsync(Guid profileId, Guid socialAccountId);
         
         /// <summary>
         /// Get all social accounts for a user
         /// </summary>
-        Task<IEnumerable<SocialAccountDto>> GetUserAccountsAsync(Guid userId);
+        Task<IEnumerable<SocialAccountDto>> GetProfileAccountsAsync(Guid profileId);
         
         /// <summary>
         /// Get all targets for a social account
@@ -49,6 +49,6 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Unlink a specific target/page (social integration) from the user's social account
         /// </summary>
-        Task<bool> UnlinkTargetAsync(Guid userId, Guid socialIntegrationId);
+        Task<bool> UnlinkTargetAsync(Guid profileId, Guid socialIntegrationId);
     }
 }

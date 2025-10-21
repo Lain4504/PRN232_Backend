@@ -97,7 +97,7 @@ namespace AISAM.Services.Service
                 bool allSuccessful = true;
                 foreach (var integrationId in integrationIds)
                 {
-                    var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, integrationId, schedule.UserId);
+                    var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, integrationId, schedule.ProfileId);
                     if (publishResult == null)
                     {
                         _logger.LogWarning($"Failed to publish content {schedule.ContentId} to integration {integrationId}");
@@ -146,7 +146,7 @@ namespace AISAM.Services.Service
                 bool allSuccessful = true;
                 foreach (var integrationId in integrationIds)
                 {
-                    var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, integrationId, schedule.UserId);
+                    var publishResult = await _contentService.PublishContentAsync(schedule.ContentId, integrationId, schedule.ProfileId);
                     if (publishResult == null)
                     {
                         _logger.LogWarning($"Failed to publish content {schedule.ContentId} to integration {integrationId} for recurring schedule");
@@ -195,7 +195,7 @@ namespace AISAM.Services.Service
                 Timezone = timezone,
                 RepeatType = RepeatTypeEnum.None,
                 IntegrationIds = integrationIds != null && integrationIds.Any() ? System.Text.Json.JsonSerializer.Serialize(integrationIds) : null,
-                UserId = userId,
+                ProfileId = userId,
                 IsActive = true
             };
 
@@ -220,7 +220,7 @@ namespace AISAM.Services.Service
                 RepeatUntil = repeatUntil,
                 NextScheduledDate = startDate.Date,
                 IntegrationIds = integrationIds != null && integrationIds.Any() ? System.Text.Json.JsonSerializer.Serialize(integrationIds) : null,
-                UserId = userId,
+                ProfileId = userId,
                 IsActive = true
             };
 

@@ -34,11 +34,11 @@ public class SocialAccountsController : ControllerBase
     {
         try
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
             // Verify the social account belongs to the user
             var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
-            if (socialAccount == null || socialAccount.UserId != userId)
+            if (socialAccount == null || socialAccount.ProfileId != profileId)
             {
                 return NotFound(GenericResponse<AvailableTargetsResponse>.CreateError(
                     "Không tìm thấy tài khoản mạng xã hội", 
@@ -94,11 +94,11 @@ public class SocialAccountsController : ControllerBase
         try
         {
             var authenticatedUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-            if (authenticatedUserId != request.UserId) return Forbid();
+            if (authenticatedUserId != request.ProfileId) return Forbid();
 
             // Verify the social account belongs to the user
             var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
-            if (socialAccount == null || socialAccount.UserId != request.UserId)
+            if (socialAccount == null || socialAccount.ProfileId != request.ProfileId)
             {
                 return NotFound(GenericResponse<SocialAccountDto>.CreateError(
                     "Không tìm thấy tài khoản mạng xã hội", 
@@ -143,15 +143,15 @@ public class SocialAccountsController : ControllerBase
     /// <summary>
     ///     Unlink social account from user
     /// </summary>
-    [HttpDelete("unlink/{userId}/{socialAccountId}")]
+    [HttpDelete("unlink/{profileId}/{socialAccountId}")]
     [Authorize]
     public async Task<ActionResult<GenericResponse<object>>> UnlinkAccount(
-        Guid userId,
+        Guid profileId,
         Guid socialAccountId)
     {
         try
         {
-            var success = await _socialService.UnlinkAccountAsync(userId, socialAccountId);
+            var success = await _socialService.UnlinkAccountAsync(profileId, socialAccountId);
             if (success)
                 return Ok(new GenericResponse<object>
                 {
@@ -179,15 +179,15 @@ public class SocialAccountsController : ControllerBase
     /// <summary>
     ///     Unlink a linked page/target from the user's social account
     /// </summary>
-    [HttpDelete("unlink-target/{userId}/{socialIntegrationId}")]
+    [HttpDelete("unlink-target/{profileId}/{socialIntegrationId}")]
     [Authorize]
     public async Task<ActionResult<GenericResponse<object>>> UnlinkTarget(
-        Guid userId,
+        Guid profileId,
         Guid socialIntegrationId)
     {
         try
         {
-            var success = await _socialService.UnlinkTargetAsync(userId, socialIntegrationId);
+            var success = await _socialService.UnlinkTargetAsync(profileId, socialIntegrationId);
             if (success)
                 return Ok(new GenericResponse<object>
                 {
@@ -222,30 +222,38 @@ public class SocialAccountsController : ControllerBase
     {
         try
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-            var user = await _userService.GetUserByIdAsync(userId);
+            var user = await _userService.GetUserByIdAsync(profileId);
             if (user == null)
                 return NotFound(GenericResponse<List<SocialAccountDto>>.CreateError("Không tìm thấy người dùng"));
 
-            var socialAccounts = user.SocialAccounts.Select(sa => new SocialAccountDto
+            // Get user's profiles and their social accounts
+            var socialAccounts = new List<SocialAccountDto>();
+            foreach (var profile in user.Profiles)
             {
-                Id = sa.Id,
-                Provider = sa.Platform.ToString().ToLower(),
-                ProviderUserId = sa.AccountId ?? string.Empty,
-                AccessToken = sa.UserAccessToken,
-                IsActive = sa.IsActive,
-                ExpiresAt = sa.ExpiresAt,
-                CreatedAt = sa.CreatedAt,
-                Targets = sa.SocialIntegrations.Select(si => new SocialTargetDto
+                var profileSocialAccounts = profile.SocialAccounts.Select(sa => new SocialAccountDto
                 {
-                    Id = si.Id,
-                    ProviderTargetId = si.ExternalId ?? string.Empty,
-                    Name = $"Page {si.ExternalId}",
-                    Type = si.Platform.ToString().ToLower(),
+                    Id = sa.Id,
+                    ProfileId = sa.ProfileId,
+                    Provider = sa.Platform.ToString().ToLower(),
+                    ProviderUserId = sa.AccountId ?? string.Empty,
+                    AccessToken = sa.UserAccessToken,
+                    IsActive = sa.IsActive,
+                    ExpiresAt = sa.ExpiresAt,
+                    CreatedAt = sa.CreatedAt,
+                    Targets = sa.SocialIntegrations.Select(si => new SocialTargetDto
+                    {
+                        Id = si.Id,
+                        ProviderTargetId = si.ExternalId ?? string.Empty,
+                        Name = $"Page {si.ExternalId}",
+                        Type = si.Platform.ToString().ToLower(),
                     IsActive = si.IsActive
                 }).ToList()
-            }).ToList();
+                }).ToList();
+                
+                socialAccounts.AddRange(profileSocialAccounts);
+            }
 
             return Ok(GenericResponse<List<SocialAccountDto>>.CreateSuccess(
                 socialAccounts,
@@ -268,19 +276,19 @@ public class SocialAccountsController : ControllerBase
     /// <summary>
     ///     Get all social accounts for a user
     /// </summary>
-    [HttpGet("user/{userId}")]
-    public async Task<ActionResult<GenericResponse<IEnumerable<SocialAccountDto>>>> GetUserAccounts(Guid userId)
+    [HttpGet("user/{profileId}")]
+    public async Task<ActionResult<GenericResponse<IEnumerable<SocialAccountDto>>>> GetUserAccounts(Guid profileId)
     {
         try
         {
-            var accounts = await _socialService.GetUserAccountsAsync(userId);
+            var accounts = await _socialService.GetProfileAccountsAsync(profileId);
             return Ok(GenericResponse<IEnumerable<SocialAccountDto>>.CreateSuccess(
                 accounts, 
                 "Lấy danh sách tài khoản mạng xã hội thành công"));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting user accounts for user {UserId}", userId);
+            _logger.LogError(ex, "Error getting user accounts for user {UserId}", profileId);
             return StatusCode(500, GenericResponse<IEnumerable<SocialAccountDto>>.CreateError(
                 "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.", 
                 System.Net.HttpStatusCode.InternalServerError, 
@@ -297,11 +305,11 @@ public class SocialAccountsController : ControllerBase
     {
         try
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
             // Verify the social account belongs to the user
             var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
-            if (socialAccount == null || socialAccount.UserId != userId)
+            if (socialAccount == null || socialAccount.ProfileId != profileId)
             {
                 return NotFound(GenericResponse<IEnumerable<SocialTargetDto>>.CreateError(
                     "Không tìm thấy tài khoản mạng xã hội", 
@@ -340,8 +348,8 @@ public class SocialAccountsController : ControllerBase
     {
         try
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-            var accounts = await _socialService.GetUserAccountsAsync(userId);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+            var accounts = await _socialService.GetProfileAccountsAsync(profileId);
             
             var accountsWithTargets = new List<SocialAccountWithTargetsDto>();
             

@@ -18,7 +18,6 @@ namespace AISAM.Repositories.Repository
         public async Task<Brand?> GetByIdAsync(Guid id)
         {
             return await _context.Brands
-                .Include(b => b.User)
                 .Include(b => b.Profile)
                 .FirstOrDefaultAsync(b => b.Id == id && !b.IsDeleted);
         }
@@ -26,17 +25,15 @@ namespace AISAM.Repositories.Repository
         public async Task<Brand?> GetByIdIncludingDeletedAsync(Guid id)
         {
             return await _context.Brands
-                .Include(b => b.User)
                 .Include(b => b.Profile)
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
 
-        public async Task<PagedResult<Brand>> GetPagedByUserIdAsync(Guid userId, PaginationRequest request)
+        public async Task<PagedResult<Brand>> GetPagedByProfileIdAsync(Guid profileId, PaginationRequest request)
         {
             var query = _context.Brands
-                .Include(b => b.User)
                 .Include(b => b.Profile)
-                .Where(b => b.UserId == userId && !b.IsDeleted);
+                .Where(b => b.ProfileId == profileId && !b.IsDeleted);
 
             // search theo name
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
@@ -94,32 +91,30 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
-        public async Task<bool> UserExistsAsync(Guid userId)
+        public async Task<bool> ProfileExistsAsync(Guid profileId)
         {
-            return await _context.Users.AnyAsync(u => u.Id == userId);
+            return await _context.Profiles.AnyAsync(p => p.Id == profileId);
         }
 
-        public async Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid userId, PaginationRequest request)
+        public async Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, PaginationRequest request)
         {
-            // Get brands where user is the owner
+            // Get brands where profile is the owner
             var ownerBrandsQuery = _context.Brands
-                .Include(b => b.User)
                 .Include(b => b.Profile)
-                .Where(b => b.UserId == userId && !b.IsDeleted);
+                .Where(b => b.ProfileId == profileId && !b.IsDeleted);
 
-            // Get brands where user is a team member of the brand owner
+            // Get brands where profile is a team member of the brand owner
             var teamBrandsQuery = _context.Brands
-                .Include(b => b.User)
                 .Include(b => b.Profile)
                 .Where(b => !b.IsDeleted &&
                     _context.TeamBrands.Any(tb =>
                         tb.BrandId == b.Id &&
                         tb.IsActive &&
                         _context.TeamMembers.Any(tm =>
-                            tm.UserId == userId &&
+                            tm.UserId == profileId &&
                             tm.TeamId == tb.TeamId &&
                             tm.IsActive &&
-                            tm.Team.VendorId == b.UserId)));
+                            tm.Team.ProfileId == b.ProfileId)));
 
             // Combine both queries
             var combinedQuery = ownerBrandsQuery.Union(teamBrandsQuery);

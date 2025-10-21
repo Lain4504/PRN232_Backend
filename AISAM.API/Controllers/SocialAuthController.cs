@@ -38,13 +38,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                Guid? userId = null;
-                if (UserClaimsHelper.TryGetUserId(User, out var parsed))
-                {
-                    userId = parsed;
-                }
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var result = await _socialService.GetAuthUrlAsync(provider, state, userId);
+                var result = await _socialService.GetAuthUrlAsync(provider, state, profileId);
                 return Ok(new GenericResponse<AuthUrlResponse>
                 {
                     Success = true,
@@ -82,25 +78,37 @@ namespace AISAM.API.Controllers
         {
             try
             {
+                // Get current profile ID from context
+                var currentProfileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                
                 // Validate request
-                if (request == null || request.UserId == Guid.Empty)
+                if (request == null || request.ProfileId == Guid.Empty)
                 {
                     return BadRequest(GenericResponse<object>.CreateError(
                         "Invalid request data", 
                         System.Net.HttpStatusCode.BadRequest, 
                         "INVALID_REQUEST"));
                 }
+                
+                // Validate that the request profile ID matches the current profile context
+                if (request.ProfileId != currentProfileId)
+                {
+                    return StatusCode(403, GenericResponse<object>.CreateError(
+                        "Profile context mismatch", 
+                        System.Net.HttpStatusCode.Forbidden, 
+                        "PROFILE_MISMATCH"));
+                }
 
                 var linkRequest = new LinkSocialAccountRequest
                 {
-                    UserId = request.UserId,
+                    ProfileId = request.ProfileId,
                     Provider = provider,
                     Code = request.Code,
                     State = request.State
                 };
 
                 var socialAccount = await _socialService.LinkAccountAsync(linkRequest);
-                var user = await _userService.GetUserByIdAsync(request.UserId);
+                var user = await _userService.GetUserByIdAsync(request.ProfileId);
 
                 // Get available targets (pages) for this newly linked account
                 var availableTargets = await _socialService.ListAvailableTargetsForAccountAsync(socialAccount.Id);

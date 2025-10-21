@@ -6,8 +6,11 @@ namespace AISAM.Common.Dtos.Request
 {
     public class UpdateProfileRequest
     {
+        [MaxLength(255)]
+        public string? Name { get; set; }
+
         /// <summary>
-        /// Profile type (Personal, Business, etc.)
+        /// Profile type (Free, Basic, Pro)
         /// </summary>
         public ProfileTypeEnum? ProfileType { get; set; }
 

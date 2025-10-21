@@ -34,13 +34,13 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
                 var result = await _approvalService.GetPendingApprovalsAsync(new PaginationRequest
                 {
                     Page = page,
                     PageSize = pageSize
-                }, userId);
+                }, profileId);
 
                 return Ok(GenericResponse<PagedResult<ApprovalResponseDto>>.CreateSuccess(result));
             }
@@ -58,30 +58,30 @@ namespace AISAM.API.Controllers
         [Authorize]
         public async Task<ActionResult<GenericResponse<ApprovalResponseDto>>> CreateApproval([FromBody] CreateApprovalRequest request)
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
             _logger.LogInformation("CreateApproval request started. UserId: {UserId}, ContentId: {ContentId}, ApproverId: {ApproverId}", 
-                userId, request.ContentId, request.ApproverId);
+                profileId, request.ContentId, request.ApproverId);
 
             try
             {
-                var result = await _approvalService.CreateApprovalAsync(request, userId);
+                var result = await _approvalService.CreateApprovalAsync(request, profileId);
                 
                 _logger.LogInformation("CreateApproval completed successfully. ApprovalId: {ApprovalId}, UserId: {UserId}", 
-                    result.Id, userId);
+                    result.Id, profileId);
                 
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Tạo yêu cầu phê duyệt thành công"));
             }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "CreateApproval invalid request. UserId: {UserId}, ContentId: {ContentId}", 
-                    userId, request.ContentId);
+                    profileId, request.ContentId);
                 return BadRequest(GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CreateApproval error. UserId: {UserId}, ContentId: {ContentId}", 
-                    userId, request.ContentId);
+                    profileId, request.ContentId);
                 return StatusCode(500, GenericResponse<ApprovalResponseDto>.CreateError("Lỗi hệ thống khi tạo yêu cầu phê duyệt"));
             }
         }
@@ -93,14 +93,14 @@ namespace AISAM.API.Controllers
         [Authorize]
         public async Task<ActionResult<GenericResponse<ApprovalResponseDto>>> GetApproval(Guid id)
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
             _logger.LogInformation("GetApproval request started. UserId: {UserId}, ApprovalId: {ApprovalId}", 
-                userId, id);
+                profileId, id);
 
             try
             {
-                var result = await _approvalService.GetApprovalByIdAsync(id, userId);
+                var result = await _approvalService.GetApprovalByIdAsync(id, profileId);
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result!));
             }
             catch (UnauthorizedAccessException ex)
@@ -111,7 +111,7 @@ namespace AISAM.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetApproval error. UserId: {UserId}, ApprovalId: {ApprovalId}", 
-                    userId, id);
+                    profileId, id);
                 return StatusCode(500, GenericResponse<ApprovalResponseDto>.CreateError("Lỗi hệ thống"));
             }
         }
@@ -125,8 +125,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _approvalService.UpdateApprovalAsync(id, request, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _approvalService.UpdateApprovalAsync(id, request, profileId);
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Cập nhật yêu cầu phê duyệt thành công"));
             }
             catch (ArgumentException ex)
@@ -148,30 +148,30 @@ namespace AISAM.API.Controllers
         [Authorize]
         public async Task<ActionResult<GenericResponse<ApprovalResponseDto>>> ApproveContent(Guid id, [FromBody] string? notes = null)
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
             _logger.LogInformation("ApproveContent request started. UserId: {UserId}, ApprovalId: {ApprovalId}", 
-                userId, id);
+                profileId, id);
 
             try
             {
-                var result = await _approvalService.ApproveAsync(id, userId, notes);
+                var result = await _approvalService.ApproveAsync(id, profileId, notes);
                 
                 _logger.LogInformation("ApproveContent completed successfully. ApprovalId: {ApprovalId}, UserId: {UserId}", 
-                    id, userId);
+                    id, profileId);
                 
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Phê duyệt nội dung thành công"));
             }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "ApproveContent invalid request. UserId: {UserId}, ApprovalId: {ApprovalId}", 
-                    userId, id);
+                    profileId, id);
                 return BadRequest(GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ApproveContent error. UserId: {UserId}, ApprovalId: {ApprovalId}", 
-                    userId, id);
+                    profileId, id);
                 return StatusCode(500, GenericResponse<ApprovalResponseDto>.CreateError("Lỗi hệ thống khi phê duyệt nội dung"));
             }
         }
@@ -210,8 +210,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _approvalService.GetApprovalsByContentIdAsync(contentId, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _approvalService.GetApprovalsByContentIdAsync(contentId, profileId);
                 return Ok(GenericResponse<IEnumerable<ApprovalResponseDto>>.CreateSuccess(result));
             }
             catch (UnauthorizedAccessException ex)
@@ -235,8 +235,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _approvalService.GetApprovalsByApproverIdAsync(approverId, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _approvalService.GetApprovalsByApproverIdAsync(approverId, profileId);
                 return Ok(GenericResponse<IEnumerable<ApprovalResponseDto>>.CreateSuccess(result));
             }
             catch (UnauthorizedAccessException ex)
@@ -269,7 +269,7 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
                 var request = new PaginationRequest
                 {
                     Page = page,
@@ -279,7 +279,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _approvalService.GetPagedApprovalsAsync(request, status, contentId, approverId, onlyDeleted, userId);
+                var result = await _approvalService.GetPagedApprovalsAsync(request, status, contentId, approverId, onlyDeleted, profileId);
 
                 return Ok(GenericResponse<PagedResult<ApprovalResponseDto>>.CreateSuccess(result));
             }
@@ -304,8 +304,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _approvalService.SoftDeleteAsync(id, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _approvalService.SoftDeleteAsync(id, profileId);
                 if (!result)
                 {
                     return NotFound(GenericResponse<bool>.CreateError("Không tìm thấy yêu cầu phê duyệt"));
@@ -334,8 +334,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _approvalService.RestoreAsync(id, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _approvalService.RestoreAsync(id, profileId);
                 if (!result)
                 {
                     return NotFound(GenericResponse<bool>.CreateError("Không tìm thấy yêu cầu phê duyệt đã xóa"));

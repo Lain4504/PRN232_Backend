@@ -103,6 +103,7 @@ namespace AISAM.Services.Service
                 var profile = new Profile
                 {
                     UserId = userId,
+                    Name = request.Name.Trim(),
                     ProfileType = request.ProfileType,
                     CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim(),
                     Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio.Trim(),
@@ -132,16 +133,16 @@ namespace AISAM.Services.Service
                     return GenericResponse<ProfileResponseDto>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
                 }
 
+                // Update Name if provided
+                if (!string.IsNullOrWhiteSpace(request.Name))
+                {
+                    profile.Name = request.Name.Trim();
+                }
+
                 // Update profile properties
                 if (request.ProfileType.HasValue)
                 {
                     profile.ProfileType = request.ProfileType.Value;
-
-                    // Clear CompanyName if changing to Personal profile
-                    if (profile.ProfileType == ProfileTypeEnum.Personal)
-                    {
-                        profile.CompanyName = null;
-                    }
                 }
 
                 // Update CompanyName - normalize and apply
@@ -246,7 +247,9 @@ namespace AISAM.Services.Service
             {
                 Id = profile.Id,
                 UserId = profile.UserId,
+                Name = profile.Name,
                 ProfileType = profile.ProfileType,
+                SubscriptionId = profile.SubscriptionId,
                 CompanyName = profile.CompanyName,
                 Bio = profile.Bio,
                 AvatarUrl = profile.AvatarUrl,

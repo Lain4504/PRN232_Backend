@@ -66,7 +66,7 @@ namespace AISAM.Repositories.Repository
                     Id = u.Id,
                     Email = u.Email ?? "",
                     CreatedAt = u.CreatedAt,
-                    SocialAccountsCount = u.SocialAccounts!.Count
+                    SocialAccountsCount = 0 // User no longer has direct SocialAccounts relationship
                 })
                 .ToListAsync();
 

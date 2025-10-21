@@ -66,9 +66,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                var result = await _approvalService.SubmitForApprovalAsync(contentId, userId);
+                var result = await _approvalService.SubmitForApprovalAsync(contentId, profileId);
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Gửi phê duyệt thành công"));
             }
             catch (UnauthorizedAccessException ex)
@@ -99,8 +99,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _contentService.PublishContentAsync(contentId, integrationId, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var result = await _contentService.PublishContentAsync(contentId, integrationId, profileId);
                 
                 var message = result.Success 
                     ? "Đăng bài thành công" 
@@ -173,8 +173,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var content = await _contentService.GetContentByIdAsync(contentId, userId);
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var content = await _contentService.GetContentByIdAsync(contentId, profileId);
                 
                 if (content == null)
                 {

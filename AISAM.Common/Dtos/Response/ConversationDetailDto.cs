@@ -3,7 +3,7 @@ namespace AISAM.Common.Dtos.Response
     public class ConversationDetailDto
     {
         public Guid Id { get; set; }
-        public Guid UserId { get; set; }
+        public Guid ProfileId { get; set; }
         public Guid? BrandId { get; set; }
         public string? BrandName { get; set; }
         public Guid? ProductId { get; set; }

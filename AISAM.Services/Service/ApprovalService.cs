@@ -51,7 +51,7 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to submit content for approval");
             }
 
-            var brandOwnerId = content.Brand.UserId;
+            var brandOwnerId = content.Brand.ProfileId;
 
             // quota check based on brand owner
             // var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(brandOwnerId);
@@ -78,7 +78,7 @@ namespace AISAM.Services.Service
                 var approval = await _approvalRepository.CreateAsync(new Approval
                 {
                     ContentId = content.Id,
-                    ApproverId = actorUserId,
+                    ApproverProfileId = actorUserId,
                     Status = ContentStatusEnum.Approved,
                     Notes = "Auto-approved by admin",
                     ApprovedAt = DateTime.UtcNow
@@ -99,7 +99,7 @@ namespace AISAM.Services.Service
                 var approval = await _approvalRepository.CreateAsync(new Approval
                 {
                     ContentId = content.Id,
-                    ApproverId = actorUserId,
+                    ApproverProfileId = actorUserId,
                     Status = ContentStatusEnum.Approved,
                     Notes = "Auto-approved by owner",
                     ApprovedAt = DateTime.UtcNow
@@ -135,7 +135,7 @@ namespace AISAM.Services.Service
                 await _approvalRepository.CreateAsync(new Approval
                 {
                     ContentId = content.Id,
-                    ApproverId = approverId,
+                    ApproverProfileId = approverId,
                     Status = ContentStatusEnum.PendingApproval
                 });
 
@@ -209,7 +209,7 @@ namespace AISAM.Services.Service
             var approval = new Approval
             {
                 ContentId = request.ContentId,
-                ApproverId = request.ApproverId,
+                ApproverProfileId = request.ApproverId,
                 Status = ContentStatusEnum.PendingApproval,
                 Notes = request.Notes
             };
@@ -235,7 +235,7 @@ namespace AISAM.Services.Service
             }
 
             // Check if user has permission to update this approval
-            var canUpdate = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
+            var canUpdate = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
             if (!canUpdate)
             {
                 throw new UnauthorizedAccessException("You are not allowed to update this approval");
@@ -302,7 +302,7 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to view approvals");
             }
 
-            var approvals = await _approvalRepository.GetByApproverIdAsync(approverId);
+            var approvals = await _approvalRepository.GetByApproverProfileIdAsync(approverId);
             return approvals.Select(MapToResponseDto);
         }
 
@@ -350,7 +350,7 @@ namespace AISAM.Services.Service
             var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
             
             // Check if user is the assigned approver or has permission to approve
-            var canApprove = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
+            var canApprove = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
             if (!canApprove)
             {
                 throw new UnauthorizedAccessException("You are not allowed to approve this item");
@@ -376,7 +376,7 @@ namespace AISAM.Services.Service
             var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
             
             // Check if user is the assigned approver or has permission to reject
-            var canReject = approval.ApproverId == actorUserId || await CanUserPerformActionAsync(actorUserId, "REJECT_CONTENT");
+            var canReject = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "REJECT_CONTENT");
             if (!canReject)
             {
                 throw new UnauthorizedAccessException("You are not allowed to reject this item");
@@ -458,7 +458,7 @@ namespace AISAM.Services.Service
             {
                 Id = approval.Id,
                 ContentId = approval.ContentId,
-                ApproverId = approval.ApproverId,
+                ApproverProfileId = approval.ApproverProfileId,
                 Status = approval.Status.ToString(),
                 Notes = approval.Notes,
                 ApprovedAt = approval.ApprovedAt,
@@ -480,11 +480,15 @@ namespace AISAM.Services.Service
                     CreatedAt = approval.Content.CreatedAt,
                     UpdatedAt = approval.Content.UpdatedAt
                 } : null,
-                Approver = approval.Approver != null ? new UserResponseDto
+                ApproverProfile = approval.ApproverProfile != null ? new ProfileResponseDto
                 {
-                    Id = approval.Approver.Id,
-                    Email = approval.Approver.Email,
-                    CreatedAt = approval.Approver.CreatedAt
+                    Id = approval.ApproverProfile.Id,
+                    Name = approval.ApproverProfile.Name,
+                    ProfileType = approval.ApproverProfile.ProfileType,
+                    CompanyName = approval.ApproverProfile.CompanyName,
+                    Bio = approval.ApproverProfile.Bio,
+                    AvatarUrl = approval.ApproverProfile.AvatarUrl,
+                    CreatedAt = approval.ApproverProfile.CreatedAt
                 } : null
             };
         }

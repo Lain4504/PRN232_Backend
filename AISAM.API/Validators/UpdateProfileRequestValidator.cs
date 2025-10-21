@@ -8,20 +8,15 @@ namespace AISAM.API.Validators
     {
         public UpdateProfileRequestValidator()
         {
+            RuleFor(x => x.Name)
+                .MaximumLength(255)
+                .WithMessage("Tên hồ sơ không được vượt quá 255 ký tự")
+                .When(x => !string.IsNullOrWhiteSpace(x.Name));
+
             RuleFor(x => x.ProfileType)
                 .IsInEnum()
-                .WithMessage("Loại hồ sơ phải là Cá nhân hoặc Doanh nghiệp")
+                .WithMessage("Loại hồ sơ phải là Free, Basic hoặc Pro")
                 .When(x => x.ProfileType.HasValue);
-
-            RuleFor(x => x.CompanyName)
-                .Must(x => !string.IsNullOrWhiteSpace(x?.Trim()))
-                .WithMessage("Tên công ty là bắt buộc đối với hồ sơ doanh nghiệp")
-                .When(x => x.ProfileType == ProfileTypeEnum.Business);
-
-            RuleFor(x => x.CompanyName)
-                .Must(x => string.IsNullOrWhiteSpace(x?.Trim()))
-                .WithMessage("Hồ sơ cá nhân không được có tên công ty")
-                .When(x => x.ProfileType.HasValue && x.ProfileType == ProfileTypeEnum.Personal);
 
             RuleFor(x => x.CompanyName)
                 .Must(x => string.IsNullOrWhiteSpace(x) || x.Trim().Length <= 255)
@@ -42,6 +37,11 @@ namespace AISAM.API.Validators
                 .Must(x => x.AvatarFile == null || string.IsNullOrWhiteSpace(x.AvatarUrl))
                 .WithMessage("Không thể cung cấp cả file ảnh và URL ảnh cùng lúc")
                 .WithName("Avatar");
+
+            RuleFor(x => x.Name)
+                .Must(x => x == null || !string.IsNullOrWhiteSpace(x))
+                .WithMessage("Tên hồ sơ không được chỉ chứa khoảng trắng")
+                .When(x => x.Name != null);
 
             RuleFor(x => x.CompanyName)
                 .Must(x => x == null || !string.IsNullOrWhiteSpace(x))

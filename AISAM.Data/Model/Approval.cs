@@ -16,8 +16,8 @@ namespace AISAM.Data.Model
         public Guid ContentId { get; set; }
 
         [Required]
-        [Column("approver_id")]
-        public Guid ApproverId { get; set; }
+        [Column("approver_profile_id")]
+        public Guid ApproverProfileId { get; set; }
 
         [Required]
         [Column("status")]
@@ -39,7 +39,7 @@ namespace AISAM.Data.Model
         [ForeignKey("ContentId")]
         public virtual Content Content { get; set; } = null!;
 
-        [ForeignKey("ApproverId")]
-        public virtual User Approver { get; set; } = null!;
+        [ForeignKey("ApproverProfileId")]
+        public virtual Profile ApproverProfile { get; set; } = null!;
     }
 }
