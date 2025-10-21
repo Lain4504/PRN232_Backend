@@ -614,15 +614,33 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("IntegrationIds")
+                        .HasColumnType("text")
+                        .HasColumnName("integration_ids");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
 
-                    b.Property<string>("RepeatType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                    b.Property<DateTime?>("NextScheduledDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_scheduled_date");
+
+                    b.Property<int>("RepeatInterval")
+                        .HasColumnType("integer")
+                        .HasColumnName("repeat_interval");
+
+                    b.Property<int>("RepeatType")
+                        .HasColumnType("integer")
                         .HasColumnName("repeat_type");
+
+                    b.Property<DateTime?>("RepeatUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("repeat_until");
 
                     b.Property<DateTime>("ScheduledDate")
                         .HasColumnType("timestamp with time zone")
@@ -637,6 +655,14 @@ namespace AISAM.Repositories.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("timezone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
 
                     b.HasKey("Id");
 
