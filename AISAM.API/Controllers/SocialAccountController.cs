@@ -94,12 +94,11 @@ public class SocialAccountsController : ControllerBase
     {
         try
         {
-            var authenticatedUserId = UserClaimsHelper.GetUserIdOrThrow(User);
-            if (authenticatedUserId != request.ProfileId) return Forbid();
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-            // Verify the social account belongs to the user
+            // Verify the social account belongs to the profile
             var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
-            if (socialAccount == null || socialAccount.ProfileId != request.ProfileId)
+            if (socialAccount == null || socialAccount.ProfileId != profileId)
             {
                 return NotFound(GenericResponse<SocialAccountDto>.CreateError(
                     "Không tìm thấy tài khoản mạng xã hội", 
@@ -107,6 +106,8 @@ public class SocialAccountsController : ControllerBase
                     "SOCIAL_ACCOUNT_NOT_FOUND"));
             }
 
+            // Update request with profileId from header
+            request.ProfileId = profileId;
             var result = await _socialService.LinkSelectedTargetsForAccountAsync(socialAccountId, request);
             return Ok(GenericResponse<SocialAccountDto>.CreateSuccess(result, "Liên kết các trang đã chọn thành công"));
         }
@@ -142,16 +143,16 @@ public class SocialAccountsController : ControllerBase
     }
 
     /// <summary>
-    ///     Unlink social account from user
+    ///     Unlink social account from profile
     /// </summary>
-    [HttpDelete("unlink/{profileId}/{socialAccountId}")]
+    [HttpDelete("unlink/{socialAccountId}")]
     [Authorize]
     public async Task<ActionResult<GenericResponse<object>>> UnlinkAccount(
-        Guid profileId,
         Guid socialAccountId)
     {
         try
         {
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
             var success = await _socialService.UnlinkAccountAsync(profileId, socialAccountId);
             if (success)
                 return Ok(new GenericResponse<object>
@@ -178,16 +179,16 @@ public class SocialAccountsController : ControllerBase
     }
 
     /// <summary>
-    ///     Unlink a linked page/target from the user's social account
+    ///     Unlink a linked page/target from the profile's social account
     /// </summary>
-    [HttpDelete("unlink-target/{profileId}/{socialIntegrationId}")]
+    [HttpDelete("unlink-target/{socialIntegrationId}")]
     [Authorize]
     public async Task<ActionResult<GenericResponse<object>>> UnlinkTarget(
-        Guid profileId,
         Guid socialIntegrationId)
     {
         try
         {
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
             var success = await _socialService.UnlinkTargetAsync(profileId, socialIntegrationId);
             if (success)
                 return Ok(new GenericResponse<object>
@@ -217,7 +218,7 @@ public class SocialAccountsController : ControllerBase
     /// <summary>
     ///     Get all social accounts linked to the authenticated user
     /// </summary>
-    [HttpGet("social-accounts/me")]
+    [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<GenericResponse<List<SocialAccountDto>>>> GetSocialAccounts()
     {
@@ -225,36 +226,9 @@ public class SocialAccountsController : ControllerBase
         {
             var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-            var user = await _userService.GetUserByIdAsync(profileId);
-            if (user == null)
-                return NotFound(GenericResponse<List<SocialAccountDto>>.CreateError("Không tìm thấy người dùng"));
-
-            // Get user's profiles and their social accounts
-            var socialAccounts = new List<SocialAccountDto>();
-            foreach (var profile in user.Profiles)
-            {
-                var profileSocialAccounts = profile.SocialAccounts.Select(sa => new SocialAccountDto
-                {
-                    Id = sa.Id,
-                    ProfileId = sa.ProfileId,
-                    Provider = sa.Platform.ToString().ToLower(),
-                    ProviderUserId = sa.AccountId ?? string.Empty,
-                    AccessToken = sa.UserAccessToken,
-                    IsActive = sa.IsActive,
-                    ExpiresAt = sa.ExpiresAt,
-                    CreatedAt = sa.CreatedAt,
-                    Targets = sa.SocialIntegrations.Select(si => new SocialTargetDto
-                    {
-                        Id = si.Id,
-                        ProviderTargetId = si.ExternalId ?? string.Empty,
-                        Name = $"Page {si.ExternalId}",
-                        Type = si.Platform.ToString().ToLower(),
-                    IsActive = si.IsActive
-                }).ToList()
-                }).ToList();
-                
-                socialAccounts.AddRange(profileSocialAccounts);
-            }
+            // Get social accounts for the active profile
+            var accounts = await _socialService.GetProfileAccountsAsync(profileId);
+            var socialAccounts = accounts.ToList();
 
             return Ok(GenericResponse<List<SocialAccountDto>>.CreateSuccess(
                 socialAccounts,
@@ -394,11 +368,11 @@ public class SocialAccountsController : ControllerBase
     {
         try
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-            // Verify the social account belongs to the user
+            // Verify the social account belongs to the profile
             var socialAccount = await _socialService.GetSocialAccountByIdAsync(socialAccountId);
-            if (socialAccount == null || socialAccount.ProfileId != userId)
+            if (socialAccount == null || socialAccount.ProfileId != profileId)
             {
                 return NotFound(GenericResponse<List<AdAccountDto>>.CreateError(
                     "Không tìm thấy tài khoản mạng xã hội", 

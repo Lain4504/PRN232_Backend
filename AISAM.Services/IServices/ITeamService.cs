@@ -7,16 +7,15 @@ namespace AISAM.Services.IServices
 {
     public interface ITeamService
     {
-        Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid profileId);
-        Task<GenericResponse<TeamResponse>> GetTeamByIdAsync(Guid id, Guid profileId);
-        Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid authenticatedProfileId);
-        Task<GenericResponse<TeamResponse>> UpdateTeamAsync(Guid id, CreateTeamRequest request, Guid profileId);
-        Task<GenericResponse<bool>> DeleteTeamAsync(Guid id, Guid profileId);
-        Task<GenericResponse<bool>> UpdateTeamStatusAsync(Guid id, UpdateTeamStatusRequest request, Guid profileId);
-        Task<GenericResponse<bool>> RestoreTeamAsync(Guid id, Guid profileId);
-        Task<GenericResponse<bool>> AssignBrandToTeamAsync(Guid id, AssignBrandToTeamRequest request, Guid profileId);
-        Task<GenericResponse<IEnumerable<TeamMemberResponseDto>>> GetTeamMembersAsync(Guid teamId, Guid profileId);
-        Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByVendorAsync(Guid vendorId, Guid userId);
+        Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid profileId, Guid userId);
+        Task<GenericResponse<TeamResponse>> GetTeamByIdAsync(Guid id, Guid profileId, Guid userId);
+        Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid userId);
+        Task<GenericResponse<TeamResponse>> UpdateTeamAsync(Guid id, UpdateTeamRequest request, Guid userId);
+        Task<GenericResponse<bool>> DeleteTeamAsync(Guid id, Guid userId);
+        Task<GenericResponse<bool>> RestoreTeamAsync(Guid id, Guid userId);
+        Task<GenericResponse<bool>> AssignBrandToTeamAsync(Guid id, AssignBrandToTeamRequest request, Guid userId);
+        Task<GenericResponse<IEnumerable<TeamMemberResponseDto>>> GetTeamMembersAsync(Guid teamId, Guid profileId, Guid userId);
         Task<GenericResponse<bool>> UnassignBrandFromTeamAsync(Guid teamId, UnassignBrandFromTeamRequest request, Guid userId);
+        Task<GenericResponse<IEnumerable<TeamResponse>>> GetUserTeamsAsync(Guid userId);
     }
 }

@@ -10,7 +10,14 @@ namespace AISAM.Common.Dtos.Response
         public DateTime? ApprovedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         
-        // Navigation properties
+        // Flattened convenience properties for frontend
+        public string? ContentTitle { get; set; }
+        public string? BrandName { get; set; }
+        public Guid? BrandId { get; set; }
+        public string? ApproverEmail { get; set; }
+        public string? ApproverName { get; set; }
+        
+        // Navigation properties (kept for backward compatibility)
         public ContentResponseDto? Content { get; set; }
         public ProfileResponseDto? ApproverProfile { get; set; }
     }

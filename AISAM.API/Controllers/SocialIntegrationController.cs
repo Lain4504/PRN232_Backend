@@ -1,6 +1,7 @@
 ﻿using AISAM.API.Utils;
 using AISAM.Common;
 using AISAM.Common.Dtos.Request;
+using AISAM.Common.Dtos.Response;
 using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,31 @@ public class SocialIntegrationController : ControllerBase
     }
 
     /// <summary>
+    /// Get social integrations by brand ID
+    /// </summary>
+    [HttpGet("brand/{brandId}")]
+    [Authorize]
+    public async Task<ActionResult<GenericResponse<IEnumerable<SocialIntegrationDto>>>> GetByBrandId(Guid brandId)
+    {
+        try
+        {
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+            var integrations = await _socialService.GetSocialIntegrationsByBrandIdAsync(brandId, profileId);
+            return Ok(GenericResponse<IEnumerable<SocialIntegrationDto>>.CreateSuccess(integrations));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access to social integrations for brand {BrandId}", brandId);
+            return StatusCode(403, GenericResponse<IEnumerable<SocialIntegrationDto>>.CreateError(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting social integrations for brand {BrandId}", brandId);
+            return StatusCode(500, GenericResponse<IEnumerable<SocialIntegrationDto>>.CreateError("Lỗi hệ thống"));
+        }
+    }
+
+    /// <summary>
     /// Link Facebook ad account to social integration
     /// </summary>
     [HttpPost("{socialIntegrationId}/link-ad-account")]
@@ -33,7 +59,7 @@ public class SocialIntegrationController : ControllerBase
     {
         try
         {
-            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
             if (string.IsNullOrEmpty(request.AdAccountId))
             {

@@ -4,6 +4,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 
 namespace AISAM.Services.Service
@@ -22,6 +23,8 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly IProfileRepository _profileRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IBrandRepository _brandRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<AdService> _logger;
 
         public AdService(
@@ -37,6 +40,8 @@ namespace AISAM.Services.Service
             IUserRepository userRepository,
             IProfileRepository profileRepository,
             ITeamMemberRepository teamMemberRepository,
+            IBrandRepository brandRepository,
+            RolePermissionConfig rolePermissionConfig,
             ILogger<AdService> logger)
         {
             _adRepository = adRepository;
@@ -51,6 +56,8 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
             _profileRepository = profileRepository;
             _teamMemberRepository = teamMemberRepository;
+            _brandRepository = brandRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
@@ -460,76 +467,140 @@ namespace AISAM.Services.Service
 
         private async Task ValidateCampaignAccessAsync(Guid userId, AdCampaign campaign)
         {
-            if (campaign.Brand.ProfileId == userId)
-            {
-                return;
-            }
-
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
-            {
-                return;
-            }
-
-            throw new UnauthorizedAccessException("You do not have permission to access this campaign");
-        }
-
-        private async Task ValidateContentAccessAsync(Guid userId, Content content)
-        {
-            if (content.Brand.ProfileId == userId)
-            {
-                return;
-            }
-
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
-            {
-                return;
-            }
-
-            throw new UnauthorizedAccessException("You do not have permission to access this content");
-        }
-
-        private async Task ValidateBrandAccessAsync(Guid userId, Brand brand)
-        {
-            // Check if user is brand owner (through any of their profiles)
+            var brand = campaign.Brand;
+            
+            // Check if user directly owns the brand
             var profiles = await _profileRepository.GetByUserIdAsync(userId);
             if (profiles.Any(p => p.Id == brand.ProfileId))
             {
                 return;
             }
 
-            // Check if user is team member with access to this brand through TeamBrand relationship
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this campaign");
+            }
+
+            // For Basic/Pro profiles: check team member access
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, campaign.BrandId);
+            if (teamMember == null)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this campaign");
+            }
+
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this campaign");
+            }
+        }
+
+        private async Task ValidateContentAccessAsync(Guid userId, Content content)
+        {
+            var brand = content.Brand;
+            
+            // Check if user directly owns the brand
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
+            {
+                return;
+            }
+
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this content");
+            }
+
+            // For Basic/Pro profiles: check team member access
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, content.BrandId);
+            if (teamMember == null)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this content");
+            }
+
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this content");
+            }
+        }
+
+        private async Task ValidateBrandAccessAsync(Guid userId, Brand brand)
+        {
+            // Check if user directly owns the brand (through any of their profiles)
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
+            {
+                return;
+            }
+
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
+            }
+
+            // For Basic/Pro profiles: check team member access with permission
             var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brand.Id);
-            if (teamMember != null)
+            if (teamMember == null)
             {
-                return;
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
             }
 
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
             {
-                return;
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
             }
-
-            throw new UnauthorizedAccessException("You do not have permission to access this brand");
         }
 
         private async Task<Brand?> GetBrandByIdAsync(Guid brandId)
         {
-            // This would typically use IBrandRepository
-            // For now, return null to avoid circular dependency
-            return null;
+            return await _brandRepository.GetByIdAsync(brandId);
         }
 
         private async Task<PagedResult<Ad>> GetUserAdsAsync(Guid userId, int page, int pageSize)
         {
-            // This would typically get all ads for user's brands
-            // For now, return empty result to avoid circular dependency
+            // Get user's brands and team brands with permissions
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            var ownedBrandIds = new List<Guid>();
+            
+            foreach (var profile in profiles)
+            {
+                var brands = await _brandRepository.GetPagedByProfileIdAsync(profile.Id, new PaginationRequest { Page = 1, PageSize = 10000 });
+                ownedBrandIds.AddRange(brands.Data.Select(b => b.Id));
+            }
+            
+            // Add team brands with permission
+            var teamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+            var teamBrandIds = teamMembers
+                .Where(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, "can_create_ad"))
+                .SelectMany(tm => tm.Team.TeamBrands.Select(tb => tb.BrandId))
+                .Distinct()
+                .ToList();
+            
+            var allBrandIds = ownedBrandIds.Union(teamBrandIds).Distinct().ToList();
+            
+            // Get ads for all accessible brands
+            var allAds = new List<Ad>();
+            foreach (var brandId in allBrandIds)
+            {
+                var ads = await _adRepository.GetByBrandIdAsync(brandId, 1, 10000);
+                allAds.AddRange(ads.Data);
+            }
+            
+            var pagedAds = allAds
+                .OrderByDescending(a => a.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+            
             return new PagedResult<Ad>
             {
-                Data = new List<Ad>(),
-                TotalCount = 0,
+                Data = pagedAds,
+                TotalCount = allAds.Count,
                 Page = page,
                 PageSize = pageSize
             };

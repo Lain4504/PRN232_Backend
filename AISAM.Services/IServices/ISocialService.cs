@@ -60,5 +60,10 @@ namespace AISAM.Services.IServices
         /// Link ad account to social integration
         /// </summary>
         Task<bool> LinkAdAccountToIntegrationAsync(Guid socialIntegrationId, string adAccountId);
+
+        /// <summary>
+        /// Get social integrations by brand ID
+        /// </summary>
+        Task<IEnumerable<SocialIntegrationDto>> GetSocialIntegrationsByBrandIdAsync(Guid brandId, Guid profileId);
     }
 }

@@ -64,9 +64,24 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to create content");
             }
 
+            // Get brand to get the profile ID (content belongs to brand owner's profile)
+            var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+            if (brand == null)
+            {
+                throw new ArgumentException("Brand not found");
+            }
+
+            // Check subscription and quota for the profile (brand owner)
+            var canCreateQuota = await CheckSubscriptionAndQuotaForProfile(brand.ProfileId, "CREATE_CONTENT");
+            if (!canCreateQuota)
+            {
+                throw new UnauthorizedAccessException("Subscription or quota limit exceeded");
+            }
+
             // Create content entity
             var content = new Content
             {
+                ProfileId = brand.ProfileId,  // Content belongs to brand owner's profile
                 BrandId = request.BrandId,
                 ProductId = request.ProductId,
                 AdType = request.AdType,
@@ -347,6 +362,82 @@ namespace AISAM.Services.Service
             return true;
         }
 
+        public async Task<ContentResponseDto> UpdateContentAsync(Guid contentId, UpdateContentRequest request, Guid userId)
+        {
+            // Get existing content
+            var content = await _contentRepository.GetByIdAsync(contentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
+            // Check if user has permission to update this content
+            var canUpdate = await CanUserPerformActionAsync(userId, "EDIT_CONTENT", content.BrandId);
+            if (!canUpdate)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to update this content");
+            }
+
+            // Check if content can be updated (only draft content can be updated)
+            if (content.Status != ContentStatusEnum.Draft)
+            {
+                throw new ArgumentException("Only draft content can be updated");
+            }
+
+            // Update fields if provided
+            if (!string.IsNullOrEmpty(request.Title))
+            {
+                content.Title = request.Title;
+            }
+
+            if (!string.IsNullOrEmpty(request.TextContent))
+            {
+                content.TextContent = request.TextContent;
+            }
+
+            if (request.AdType.HasValue)
+            {
+                content.AdType = request.AdType.Value;
+            }
+
+            if (request.ProductId.HasValue)
+            {
+                content.ProductId = request.ProductId.Value;
+            }
+
+            if (!string.IsNullOrEmpty(request.ImageUrl))
+            {
+                content.ImageUrl = request.ImageUrl;
+            }
+
+            if (!string.IsNullOrEmpty(request.VideoUrl))
+            {
+                content.VideoUrl = request.VideoUrl;
+            }
+
+            if (!string.IsNullOrEmpty(request.StyleDescription))
+            {
+                content.StyleDescription = request.StyleDescription;
+            }
+
+            if (!string.IsNullOrEmpty(request.ContextDescription))
+            {
+                content.ContextDescription = request.ContextDescription;
+            }
+
+            if (!string.IsNullOrEmpty(request.RepresentativeCharacter))
+            {
+                content.RepresentativeCharacter = request.RepresentativeCharacter;
+            }
+
+            // Update the content
+            await _contentRepository.UpdateAsync(content);
+
+            _logger.LogInformation("Updated content {ContentId} by user {UserId}", contentId, userId);
+
+            return MapToDto(content, null);
+        }
+
         /// <summary>
         /// Check if user can perform action with required permission
         /// </summary>
@@ -355,42 +446,68 @@ namespace AISAM.Services.Service
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
 
-            // Admin users have all permissions
-            if (user.Role == UserRoleEnum.Admin)
-            {
-                return true;
-            }
-
             // If brandId is provided, check if user is brand owner or team member
             if (brandId.HasValue)
             {
                 var brand = await _brandRepository.GetByIdAsync(brandId.Value);
                 if (brand == null) return false;
 
-                // Check if user is brand owner (through any of their profiles)
-                var profiles = await _profileRepository.GetByUserIdAsync(userId);
-                if (profiles.Any(p => p.Id == brand.ProfileId))
+                // Check direct ownership through user's profiles
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (userProfiles?.Any(p => p.Id == brand.ProfileId) == true)
                 {
-                    return true;
+                    return true; // User owns this brand directly
                 }
 
-                // Check if user is team member with access to this brand through TeamBrand relationship
+                // If brand's profile is Free type, only owner can access
+                var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+                if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+                {
+                    return false; // Free profiles don't have team features
+                }
+
+                // For Basic/Pro profiles: check team member access
                 var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
                 if (teamMember == null) return false;
 
-                // Check if team member has required permission
                 return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
             }
 
-            // Check team member's actual permissions (not role-based)
-            var userTeamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-            if (userTeamMember != null)
+            // Fallback: check if user has permission in any team membership
+            var userTeamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+            if (userTeamMembers != null && userTeamMembers.Any())
             {
-                // Only check the actual permissions assigned to this team member
-                return _rolePermissionConfig.HasCustomPermission(userTeamMember.Permissions, permission);
+                return userTeamMembers.Any(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, permission));
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Check subscription and quota for profile (used for content creation)
+        /// </summary>
+        private async Task<bool> CheckSubscriptionAndQuotaForProfile(Guid profileId, string operation)
+        {
+            // Get profile and subscription
+            var profile = await _profileRepository.GetByIdAsync(profileId);
+            if (profile == null) return false;
+
+            // For Free profiles, no subscription check needed
+            if (profile.ProfileType == ProfileTypeEnum.Free)
+            {
+                return true;
+            }
+
+            // For Basic/Pro profiles, check subscription
+            // TODO: Implement subscription repository and check active subscription
+            // var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
+            // if (subscription?.IsActive != true) return false;
+
+            // TODO: Implement quota checking
+            // var quotaCheck = await _quotaService.CheckQuotaForProfile(profileId, operation);
+            // return quotaCheck;
+
+            return true; // Temporary: allow all for now
         }
 
         private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult)
@@ -398,6 +515,7 @@ namespace AISAM.Services.Service
             return new ContentResponseDto
             {
                 Id = content.Id,
+                ProfileId = content.ProfileId,
                 BrandId = content.BrandId,
                 ProductId = content.ProductId,
                 AdType = content.AdType.ToString(),

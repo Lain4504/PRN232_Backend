@@ -5,6 +5,7 @@ using AISAM.Data.Model;
 using AISAM.Common.Dtos.Request;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -13,6 +14,7 @@ using System.Text.Json.Serialization;
 using ContentEntity = AISAM.Data.Model.Content;
 using AISAM.Repositories;
 using DataModel = AISAM.Data.Model;
+using Microsoft.EntityFrameworkCore;
 
 namespace AISAM.Services.Service
 {
@@ -30,6 +32,9 @@ namespace AISAM.Services.Service
         private readonly IBrandRepository _brandRepository;
         private readonly IProductRepository _productRepository;
         private readonly IConversationRepository _conversationRepository;
+        private readonly IProfileRepository _profileRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly AisamContext _context;
 
         public AIService(
@@ -44,6 +49,9 @@ namespace AISAM.Services.Service
             IBrandRepository brandRepository,
             IProductRepository productRepository,
             IConversationRepository conversationRepository,
+            IProfileRepository profileRepository,
+            ITeamMemberRepository teamMemberRepository,
+            RolePermissionConfig rolePermissionConfig,
             AisamContext context,
             IEnumerable<IProviderService> providers)
         {
@@ -58,6 +66,9 @@ namespace AISAM.Services.Service
             _brandRepository = brandRepository;
             _productRepository = productRepository;
             _conversationRepository = conversationRepository;
+            _profileRepository = profileRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _context = context;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
 
@@ -76,9 +87,17 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("User not found");
             }
 
+            // Get brand to get the profile ID (content belongs to brand owner's profile)
+            var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+            if (brand == null)
+            {
+                throw new ArgumentException("Brand not found");
+            }
+
             // Create draft content
             var content = new ContentEntity
             {
+                ProfileId = brand.ProfileId,  // Content belongs to brand owner's profile
                 BrandId = request.BrandId,
                 ProductId = request.ProductId,
                 AdType = request.AdType,
@@ -301,6 +320,21 @@ namespace AISAM.Services.Service
                     throw new ArgumentException("User not found");
                 }
 
+                // Validate user has permission to access AI chat for this brand
+                var canAccess = await CanUserAccessAIChatAsync(request.UserId, request.BrandId);
+                if (!canAccess)
+                {
+                    throw new UnauthorizedAccessException("You are not allowed to use AI chat for this brand");
+                }
+
+                // Get the effective profile ID for the conversation
+                // This could be either the user's own profile or the brand owner's profile (for team members)
+                var effectiveProfileId = await GetEffectiveProfileIdAsync(request.ProfileId, request.BrandId);
+                if (effectiveProfileId == Guid.Empty)
+                {
+                    throw new ArgumentException("No valid profile found for this request");
+                }
+
                 // Get or create conversation
                 var conversation = await GetOrCreateConversationAsync(request);
 
@@ -361,6 +395,7 @@ namespace AISAM.Services.Service
                 // Create draft content and generate AI content
                 var content = new ContentEntity
                 {
+                    ProfileId = brand.ProfileId,  // Content belongs to brand owner's profile
                     BrandId = brand.Id, // Brand is guaranteed to be non-null here
                     ProductId = request.ProductId,
                     AdType = request.AdType,
@@ -423,11 +458,26 @@ namespace AISAM.Services.Service
 
         private async Task<Data.Model.Conversation> GetOrCreateConversationAsync(ChatRequest request)
         {
-            // Always create a new conversation for each chat request
-            // This ensures each chat session gets its own conversation
+            // Get the effective profile ID for the conversation
+            var effectiveProfileId = await GetEffectiveProfileIdAsync(request.ProfileId, request.BrandId);
+            
+            // Check if we have an existing conversation ID and it's valid
+            if (request.ConversationId.HasValue)
+            {
+                var existingConversation = await _conversationRepository.GetByIdAsync(request.ConversationId.Value);
+                if (existingConversation != null && existingConversation.IsActive && !existingConversation.IsDeleted)
+                {
+                    // Update the conversation's updated timestamp
+                    existingConversation.UpdatedAt = DateTime.UtcNow;
+                    await _conversationRepository.UpdateAsync(existingConversation);
+                    return existingConversation;
+                }
+            }
+            
+            // Create a new conversation if no valid existing conversation is found
             var conversation = new Data.Model.Conversation
             {
-                ProfileId = request.UserId,
+                ProfileId = effectiveProfileId,
                 BrandId = request.BrandId,
                 ProductId = request.ProductId,
                 AdType = request.AdType,
@@ -517,11 +567,80 @@ namespace AISAM.Services.Service
             return generateKeywords.Any(keyword => message.Contains(keyword));
         }
 
+        /// <summary>
+        /// Get the effective profile ID for the conversation
+        /// Always use the brand owner's profile for quota and billing purposes
+        /// </summary>
+        private async Task<Guid> GetEffectiveProfileIdAsync(Guid requestedProfileId, Guid? brandId)
+        {
+            // If brandId is provided, always use the brand owner's profile
+            // This ensures quota and billing are charged to the correct profile
+            if (brandId.HasValue)
+            {
+                var brand = await _brandRepository.GetByIdAsync(brandId.Value);
+                if (brand != null)
+                {
+                    return brand.ProfileId; // Always use brand owner's profile
+                }
+            }
+
+            // Fallback: if no brand specified, use the requested profile
+            var profile = await _context.Profiles.FirstOrDefaultAsync(p => p.Id == requestedProfileId && !p.IsDeleted);
+            if (profile != null)
+            {
+                return profile.Id;
+            }
+
+            return Guid.Empty;
+        }
+
+        /// <summary>
+        /// Validate if user can access AI chat for the given brand
+        /// </summary>
+        private async Task<bool> CanUserAccessAIChatAsync(Guid userId, Guid? brandId)
+        {
+            if (!brandId.HasValue)
+            {
+                return true; // No brand restriction
+            }
+
+            var brand = await _brandRepository.GetByIdAsync(brandId.Value);
+            if (brand == null)
+            {
+                return false;
+            }
+
+            // Check if user is brand owner (through any of their profiles)
+            var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (userProfiles?.Any(p => p.Id == brand.ProfileId) == true)
+            {
+                return true; // User owns this brand directly
+            }
+
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+            {
+                return false; // Free profiles don't have team features
+            }
+
+            // For Basic/Pro profiles: check team member access
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
+            if (teamMember == null)
+            {
+                return false;
+            }
+
+            // Check if team member has permission to use AI chat
+            return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "CREATE_CONTENT");
+        }
+
         private ContentResponseDto MapToContentDto(ContentEntity content, PublishResultDto? publishResult)
         {
             return new ContentResponseDto
             {
                 Id = content.Id,
+                ProfileId = content.ProfileId,
                 BrandId = content.BrandId,
                 ProductId = content.ProductId,
                 AdType = content.AdType.ToString(),

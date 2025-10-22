@@ -67,7 +67,7 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Handle OAuth callback and link social account to user (supports multiple Facebook accounts per user)
+        /// Handle OAuth callback and link social account to profile (supports multiple Facebook accounts per profile)
         /// This endpoint is called by the frontend after OAuth redirect
         /// </summary>
         [HttpPost("{provider}/callback")]
@@ -82,40 +82,30 @@ namespace AISAM.API.Controllers
                 var currentProfileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
                 
                 // Validate request
-                if (request == null || request.ProfileId == Guid.Empty)
+                if (request == null || string.IsNullOrEmpty(request.Code))
                 {
                     return BadRequest(GenericResponse<object>.CreateError(
                         "Invalid request data", 
                         System.Net.HttpStatusCode.BadRequest, 
                         "INVALID_REQUEST"));
                 }
-                
-                // Validate that the request profile ID matches the current profile context
-                if (request.ProfileId != currentProfileId)
-                {
-                    return StatusCode(403, GenericResponse<object>.CreateError(
-                        "Profile context mismatch", 
-                        System.Net.HttpStatusCode.Forbidden, 
-                        "PROFILE_MISMATCH"));
-                }
 
                 var linkRequest = new LinkSocialAccountRequest
                 {
-                    ProfileId = request.ProfileId,
+                    ProfileId = currentProfileId,
                     Provider = provider,
                     Code = request.Code,
                     State = request.State
                 };
 
                 var socialAccount = await _socialService.LinkAccountAsync(linkRequest);
-                var user = await _userService.GetUserByIdAsync(request.ProfileId);
+                // Profile information is already validated in SocialService.LinkAccountAsync
 
                 // Get available targets (pages) for this newly linked account
                 var availableTargets = await _socialService.ListAvailableTargetsForAccountAsync(socialAccount.Id);
 
                 return Ok(GenericResponse<object>.CreateSuccess(new
                 {
-                    User = user,
                     SocialAccount = socialAccount,
                     AvailableTargets = availableTargets,
                     Message = $"Tài khoản {provider} đã được liên kết thành công. Bây giờ bạn có thể chọn các trang để liên kết."

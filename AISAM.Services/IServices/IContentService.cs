@@ -44,5 +44,10 @@ namespace AISAM.Services.IServices
         /// </summary>
         Task<bool> RestoreAsync(Guid contentId);
 
+        /// <summary>
+        /// Update existing content
+        /// </summary>
+        Task<ContentResponseDto> UpdateContentAsync(Guid contentId, UpdateContentRequest request, Guid userId);
+
     }
 }

@@ -15,6 +15,8 @@ namespace AISAM.Repositories.IRepositories
         Task<IEnumerable<ContentCalendar>> GetActiveSchedulesAsync(DateTime fromDate, DateTime toDate);
         Task UpdateNextScheduledDateAsync(Guid id, DateTime nextDate);
         Task DeactivateScheduleAsync(Guid id);
+        Task<IEnumerable<ContentCalendar>> GetByTeamIdAsync(Guid teamId, int limit = 50);
+        Task<IEnumerable<ContentCalendar>> GetUpcomingSchedulesByBrandAsync(Guid brandId, DateTime fromDate, DateTime toDate, int limit = 50);
     }
 }
 

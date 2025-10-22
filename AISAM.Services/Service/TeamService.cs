@@ -32,7 +32,7 @@ namespace AISAM.Services.Service
             _logger = logger;
         }
 
-        public async Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid profileId)
+        public async Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid profileId, Guid userId)
         {
             try
             {
@@ -79,7 +79,7 @@ namespace AISAM.Services.Service
                     {
                         Id = Guid.NewGuid(),
                         TeamId = createdTeam.Id,
-                        UserId = profileId,
+                        UserId = userId, // Sử dụng userId thực tế
                         Role = "Vendor",
                         Permissions = _rolePermissionConfig.GetPermissionsByRole("Vendor"),
                         JoinedAt = DateTime.UtcNow,
@@ -91,7 +91,7 @@ namespace AISAM.Services.Service
                 catch (Exception ex)
                 {
                     // Log lỗi tạo TeamMember nhưng không làm fail việc tạo team
-                    Console.WriteLine($"Warning: Failed to create team member for user {profileId} in team {createdTeam.Id}: {ex.Message}");
+                    Console.WriteLine($"Warning: Failed to create team member for user {userId} in team {createdTeam.Id}: {ex.Message}");
                 }
 
                 var response = new TeamResponse
@@ -101,7 +101,6 @@ namespace AISAM.Services.Service
                     Name = createdTeam.Name,
                     Description = createdTeam.Description,
                     CreatedAt = createdTeam.CreatedAt,
-                    VendorEmail = profile?.User?.Email ?? "",
                     Status = createdTeam.Status,
                     MembersCount = 1 // Vendor is automatically added as first member
                 };
@@ -114,41 +113,32 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<TeamResponse>> GetTeamByIdAsync(Guid id, Guid userId)
+        public async Task<GenericResponse<TeamResponse>> GetTeamByIdAsync(Guid id, Guid profileId, Guid userId)
         {
             try
             {
-                // Lấy thông tin team theo ID trước để kiểm tra vendor
+                // Lấy thông tin team theo ID trước để kiểm tra quyền
                 var team = await _teamRepository.GetByIdAsync(id);
                 if (team == null)
                 {
                     return GenericResponse<TeamResponse>.CreateError("Không tìm thấy team với ID được cung cấp.");
                 }
 
-                // Kiểm tra quyền: user phải là vendor của team đó hoặc có quyền xem team
-                var user = await _userRepository.GetByIdAsync(userId);
-                if (user == null)
+                // Kiểm tra quyền: profile phải là chủ sở hữu của team đó hoặc user là member của team
+                if (team.ProfileId == profileId)
                 {
-                    throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng.");
-                }
-
-                // Nếu user là vendor của team đó, cho phép xem
-                if (user.Role == UserRoleEnum.Vendor && team.ProfileId == userId)
-                {
-                    // Vendor có thể xem team của chính mình
+                    // Profile owner có thể xem team của chính mình
                 }
                 else
                 {
-                    // Kiểm tra quyền team member nếu không phải vendor của team đó
-                    var currentUserPermissions = await GetPermissionsByUserId(userId);
-                    if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
+                    // Kiểm tra xem user có phải là member của team không
+                    var isTeamMember = await _teamMemberRepository.GetByTeamAndUserAsync(id, userId);
+                    if (isTeamMember == null)
+                    {
                         throw new UnauthorizedAccessException("Bạn không có quyền xem thông tin team.");
+                    }
                 }
 
-                // Lấy thông tin vendor để có email
-                var profile = await _profileRepository.GetByIdAsync(team.ProfileId);
-                var vendor = await _userRepository.GetByIdAsync(profile.UserId);
-                
                 // Lấy số lượng members
                 var membersCount = await _teamMemberRepository.GetByTeamIdAsync(team.Id);
                 
@@ -159,7 +149,6 @@ namespace AISAM.Services.Service
                     Name = team.Name,
                     Description = team.Description,
                     CreatedAt = team.CreatedAt,
-                    VendorEmail = vendor?.Email ?? "",
                     Status = team.Status,
                     MembersCount = membersCount.Count()
                 };
@@ -172,15 +161,23 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid authenticatedProfileId)
+        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid userId)
         {
             try
             {
-                // Validate that the authenticated profile can access this profile's teams
-                if (profileId != authenticatedProfileId)
+                // Lấy profiles của user đang đăng nhập để kiểm tra quyền
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (userProfiles == null || !userProfiles.Any())
                 {
-                    // Check if the authenticated profile is a team member of any teams owned by the requested profile
-                    var isTeamMember = await _teamMemberRepository.IsUserMemberOfProfileTeamsAsync(authenticatedProfileId, profileId);
+                    return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không tìm thấy profile của user");
+                }
+
+                // Kiểm tra xem user có phải là owner của profile này không
+                var isOwner = userProfiles.Any(p => p.Id == profileId);
+                if (!isOwner)
+                {
+                    // Check if the user is a team member of any teams owned by the requested profile
+                    var isTeamMember = await _teamMemberRepository.IsUserMemberOfProfileTeamsAsync(userId, profileId);
                     if (!isTeamMember)
                     {
                         return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không có quyền truy cập teams của profile này");
@@ -198,71 +195,17 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByVendorAsync(Guid vendorId, Guid userId)
+
+        public async Task<GenericResponse<TeamResponse>> UpdateTeamAsync(Guid id, UpdateTeamRequest request, Guid userId)
         {
             try
             {
-                // Kiểm tra quyền: user phải là vendor của teams đó hoặc có quyền xem teams
-                var user = await _userRepository.GetByIdAsync(userId);
-                if (user == null)
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, id, "UPDATE_TEAM");
+                if (!permissionCheck.Success)
                 {
-                    throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng.");
+                    return GenericResponse<TeamResponse>.CreateError(permissionCheck.Message);
                 }
-
-                // Nếu user là vendor của teams đó, cho phép xem
-                if (user.Role == UserRoleEnum.Vendor && vendorId == userId)
-                {
-                    // Vendor có thể xem teams của chính mình
-                }
-                else
-                {
-                    // Kiểm tra quyền team member nếu không phải vendor của teams đó
-                    var currentUserPermissions = await GetPermissionsByUserId(userId);
-                    if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
-                        throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách team.");
-                }
-
-                // Lấy danh sách teams theo profile
-                var teams = await _teamRepository.GetByProfileIdAsync(vendorId, userId);
-
-                // Lấy thông tin profile để có email
-                var profile = await _profileRepository.GetByIdAsync(vendorId);
-
-                // Chuyển đổi sang TeamResponse với thông tin đầy đủ
-                var teamResponses = new List<TeamResponse>();
-                foreach (var team in teams)
-                {
-                    // Lấy số lượng members cho mỗi team
-                    var membersCount = await _teamMemberRepository.GetByTeamIdAsync(team.Id);
-                    
-                    teamResponses.Add(new TeamResponse
-                    {
-                        Id = team.Id,
-                        ProfileId = team.ProfileId,
-                        Name = team.Name,
-                        Description = team.Description,
-                        CreatedAt = team.CreatedAt,
-                        VendorEmail = profile?.User?.Email ?? "",
-                        Status = team.Status,
-                        MembersCount = membersCount.Count()
-                    });
-                }
-
-                return GenericResponse<IEnumerable<TeamResponse>>.CreateSuccess(teamResponses, "Lấy danh sách team thành công");
-            }
-            catch (Exception ex)
-            {
-                return GenericResponse<IEnumerable<TeamResponse>>.CreateError($"Lỗi khi lấy danh sách team: {ex.Message}");
-            }
-        }
-
-        public async Task<GenericResponse<TeamResponse>> UpdateTeamAsync(Guid id, CreateTeamRequest request, Guid userId)
-        {
-            try
-            {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
 
                 // Lấy thông tin team hiện tại
                 var existingTeam = await _teamRepository.GetByIdAsync(id);
@@ -271,24 +214,38 @@ namespace AISAM.Services.Service
                     return GenericResponse<TeamResponse>.CreateError("Không tìm thấy team để cập nhật.");
                 }
 
-                // Kiểm tra tên team mới có bị trùng không (chỉ khi tên thay đổi)
-                if (existingTeam.Name.Trim() != request.Name.Trim())
+                // Kiểm tra team đã bị xóa mềm chưa
+                if (existingTeam.IsDeleted)
                 {
-                    var nameExists = await _teamRepository.ExistsByNameAndProfileAsync(request.Name, existingTeam.ProfileId);
-                    if (nameExists)
-                    {
-                        return GenericResponse<TeamResponse>.CreateError("Tên team đã tồn tại");
-                    }
+                    return GenericResponse<TeamResponse>.CreateError("Không thể cập nhật team đã bị xóa.");
                 }
 
-                // Cập nhật thông tin team
-                existingTeam.Name = request.Name.Trim();
-                existingTeam.Description = request.Description?.Trim();
+                // Cập nhật thông tin team (chỉ cập nhật các field được cung cấp)
+                if (!string.IsNullOrEmpty(request.Name))
+                {
+                    // Kiểm tra tên team mới có bị trùng không (chỉ khi tên thay đổi)
+                    if (existingTeam.Name.Trim() != request.Name.Trim())
+                    {
+                        var nameExists = await _teamRepository.ExistsByNameAndProfileAsync(request.Name, existingTeam.ProfileId);
+                        if (nameExists)
+                        {
+                            return GenericResponse<TeamResponse>.CreateError("Tên team đã tồn tại");
+                        }
+                    }
+                    existingTeam.Name = request.Name.Trim();
+                }
+
+                if (request.Description != null)
+                {
+                    existingTeam.Description = request.Description.Trim();
+                }
+
+                if (request.Status.HasValue)
+                {
+                    existingTeam.Status = request.Status.Value;
+                }
 
                 var updatedTeam = await _teamRepository.UpdateAsync(existingTeam);
-
-                // Lấy thông tin vendor để có email
-                var profile = await _profileRepository.GetByIdAsync(updatedTeam.ProfileId);
 
                 var response = new TeamResponse
                 {
@@ -297,7 +254,7 @@ namespace AISAM.Services.Service
                     Name = updatedTeam.Name,
                     Description = updatedTeam.Description,
                     CreatedAt = updatedTeam.CreatedAt,
-                    VendorEmail = profile?.User?.Email ?? "",
+                    Status = updatedTeam.Status
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Cập nhật team thành công");
@@ -312,9 +269,12 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "DELETE_TEAM"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền xóa team.");
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, id, "DELETE_TEAM");
+                if (!permissionCheck.Success)
+                {
+                    return GenericResponse<bool>.CreateError(permissionCheck.Message);
+                }
 
                 // Lấy thông tin team hiện tại để kiểm tra tồn tại
                 var existingTeam = await _teamRepository.GetByIdAsync(id);
@@ -355,20 +315,32 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<IEnumerable<TeamMemberResponseDto>>> GetTeamMembersAsync(Guid teamId, Guid userId)
+        public async Task<GenericResponse<IEnumerable<TeamMemberResponseDto>>> GetTeamMembersAsync(Guid teamId, Guid profileId, Guid userId)
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách thành viên trong team.");
-
-                // Lấy thông tin team để kiểm tra tồn tại
+                // Lấy thông tin team để kiểm tra quyền
                 var team = await _teamRepository.GetByIdAsync(teamId);
                 if (team == null)
                 {
                     return GenericResponse<IEnumerable<TeamMemberResponseDto>>.CreateError("Không tìm thấy team với ID được cung cấp.");
                 }
+
+                // Kiểm tra quyền: profile phải là chủ sở hữu của team đó hoặc user là member của team
+                if (team.ProfileId == profileId)
+                {
+                    // Profile owner có thể xem team members của chính mình
+                }
+                else
+                {
+                    // Kiểm tra xem user có phải là member của team không
+                    var isTeamMember = await _teamMemberRepository.GetByTeamAndUserAsync(teamId, userId);
+                    if (isTeamMember == null)
+                    {
+                        throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách thành viên trong team.");
+                    }
+                }
+
 
                 // Lấy danh sách thành viên trong team
                 var teamMembers = await _teamMemberRepository.GetByTeamIdAsync(teamId);
@@ -403,9 +375,12 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, id, "UPDATE_TEAM");
+                if (!permissionCheck.Success)
+                {
+                    return GenericResponse<bool>.CreateError(permissionCheck.Message);
+                }
 
                 // Lấy thông tin team hiện tại
                 var existingTeam = await _teamRepository.GetByIdAsync(id);
@@ -505,9 +480,12 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, teamId, "UPDATE_TEAM");
+                if (!permissionCheck.Success)
+                {
+                    return GenericResponse<bool>.CreateError(permissionCheck.Message);
+                }
 
                 // Lấy thông tin team hiện tại
                 var existingTeam = await _teamRepository.GetByIdAsync(teamId);
@@ -554,46 +532,17 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<bool>> UpdateTeamStatusAsync(Guid id, UpdateTeamStatusRequest request, Guid userId)
-        {
-            try
-            {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
-
-                // Lấy thông tin team hiện tại
-                var existingTeam = await _teamRepository.GetByIdAsync(id);
-                if (existingTeam == null)
-                {
-                    return GenericResponse<bool>.CreateError("Không tìm thấy team để cập nhật.");
-                }
-
-                // Kiểm tra team đã bị xóa mềm chưa
-                if (existingTeam.IsDeleted)
-                {
-                    return GenericResponse<bool>.CreateError("Không thể cập nhật trạng thái của team đã bị xóa.");
-                }
-
-                // Cập nhật status
-                existingTeam.Status = request.Status;
-                await _teamRepository.UpdateAsync(existingTeam);
-
-                return GenericResponse<bool>.CreateSuccess(true, "Cập nhật trạng thái team thành công");
-            }
-            catch (Exception ex)
-            {
-                return GenericResponse<bool>.CreateError($"Lỗi khi cập nhật trạng thái team: {ex.Message}");
-            }
-        }
 
         public async Task<GenericResponse<bool>> RestoreTeamAsync(Guid id, Guid userId)
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền khôi phục team.");
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, id, "UPDATE_TEAM");
+                if (!permissionCheck.Success)
+                {
+                    return GenericResponse<bool>.CreateError(permissionCheck.Message);
+                }
 
                 // Lấy thông tin team hiện tại (bao gồm cả đã bị xóa mềm)
                 var existingTeam = await _teamRepository.GetByIdAsync(id);
@@ -633,6 +582,56 @@ namespace AISAM.Services.Service
                 return GenericResponse<bool>.CreateError($"Lỗi khi khôi phục team: {ex.Message}");
             }
         }
+        
+        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetUserTeamsAsync(Guid userId)
+        {
+            try
+            {
+                // Get all team memberships for the user
+                var teamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+                
+                if (teamMembers == null || !teamMembers.Any())
+                {
+                    return GenericResponse<IEnumerable<TeamResponse>>.CreateSuccess(
+                        new List<TeamResponse>(), 
+                        "Người dùng chưa tham gia team nào");
+                }
+
+                // Get team details for each membership
+                var teamIds = teamMembers.Select(tm => tm.TeamId).ToList();
+                var teams = new List<TeamResponse>();
+
+                foreach (var teamId in teamIds)
+                {
+                    var team = await _teamRepository.GetByIdAsync(teamId);
+                    if (team != null && !team.IsDeleted)
+                    {
+                        var teamMember = teamMembers.FirstOrDefault(tm => tm.TeamId == teamId);
+                        var teamResponse = new TeamResponse
+                        {
+                            Id = team.Id,
+                            ProfileId = team.ProfileId,
+                            Name = team.Name,
+                            Description = team.Description,
+                            CreatedAt = team.CreatedAt,
+                            Status = team.Status,
+                            MembersCount = team.TeamMembers?.Count(tm => tm.IsActive) ?? 0,
+                            UserRole = teamMember?.Role ?? "Member"
+                        };
+                        teams.Add(teamResponse);
+                    }
+                }
+
+                return GenericResponse<IEnumerable<TeamResponse>>.CreateSuccess(
+                    teams.OrderByDescending(t => t.CreatedAt), 
+                    "Lấy danh sách team thành công");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user teams for user {UserId}", userId);
+                return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Lỗi khi lấy danh sách team");
+            }
+        }
 
         private async Task<List<string>> GetPermissionsByUserId(Guid userId)
         {
@@ -640,6 +639,56 @@ namespace AISAM.Services.Service
             if (member == null || member.Permissions == null || member.Permissions.Count == 0)
                 return new List<string> {}; // default permissions
             return member.Permissions;
+        }
+        
+        /// <summary>
+        /// Validate quyền của user với team - kiểm tra có phải người tạo team hoặc member có permission
+        /// </summary>
+        private async Task<GenericResponse<bool>> ValidateUserTeamPermission(Guid userId, Guid teamId, string requiredPermission)
+        {
+            try
+            {
+                // Lấy thông tin team hiện tại
+                var existingTeam = await _teamRepository.GetByIdAsync(teamId);
+                if (existingTeam == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy team.");
+                }
+
+                // Kiểm tra quyền: user có phải là người tạo team hay không
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                var proProfiles = userProfiles?.Where(p => p.ProfileType == ProfileTypeEnum.Pro && !p.IsDeleted) ?? new List<Profile>();
+                
+                // Kiểm tra user có phải là người tạo team (có profile Pro nào thuộc về team này không)
+                bool isTeamCreator = proProfiles.Any() && proProfiles.Any(p => p.Id == existingTeam.ProfileId);
+                
+                if (isTeamCreator)
+                {
+                    // Người tạo team có full quyền
+                    return GenericResponse<bool>.CreateSuccess(true, "User có quyền thực hiện thao tác.");
+                }
+                else
+                {
+                    // Nếu không phải người tạo team, kiểm tra có phải member không và có permission không
+                    var teamMember = await _teamMemberRepository.GetByTeamAndUserAsync(teamId, userId);
+                    if (teamMember == null || !teamMember.IsActive)
+                    {
+                        return GenericResponse<bool>.CreateError("Bạn không có quyền thực hiện thao tác này.");
+                    }
+
+                    var currentUserPermissions = teamMember.Permissions ?? new List<string>();
+                    if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, requiredPermission))
+                    {
+                        return GenericResponse<bool>.CreateError("Bạn không có quyền thực hiện thao tác này.");
+                    }
+
+                    return GenericResponse<bool>.CreateSuccess(true, "User có quyền thực hiện thao tác.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi validate quyền: {ex.Message}");
+            }
         }
 
         private static TeamResponse MapToResponse(Team team)
@@ -655,5 +704,6 @@ namespace AISAM.Services.Service
                 MembersCount = team.TeamMembers?.Count ?? 0
             };
         }
+
     }
 }

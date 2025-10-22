@@ -1,5 +1,3 @@
-using AISAM.Data.Enumeration;
-
 namespace AISAM.Common.Models
 {
     public class PostListItemDto
@@ -9,7 +7,7 @@ namespace AISAM.Common.Models
         public Guid IntegrationId { get; set; }
         public string? ExternalPostId { get; set; }
         public DateTime PublishedAt { get; set; }
-        public ContentStatusEnum Status { get; set; }
+        public string Status { get; set; } = string.Empty;
         public bool IsDeleted { get; set; }
         public string? Link { get; set; }
     }

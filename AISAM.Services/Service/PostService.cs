@@ -65,7 +65,22 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to view posts");
             }
 
-            var posts = await _postRepository.GetPagedAsync(brandId, requesterId, page, pageSize, includeDeleted: false, status);
+            // If brandId is provided, we only need brandId to filter posts
+            // The repository will handle the relationship through Content -> Brand
+            Guid? profileId = null;
+            
+            // Only get profileId if no brandId is specified (for user's own posts)
+            if (!brandId.HasValue)
+            {
+                var userProfiles = await _profileRepository.GetByUserIdAsync(requesterId);
+                if (userProfiles == null || !userProfiles.Any())
+                {
+                    throw new UnauthorizedAccessException("User profile not found");
+                }
+                profileId = userProfiles.First().Id;
+            }
+
+            var posts = await _postRepository.GetPagedAsync(brandId, profileId, page, pageSize, includeDeleted: false, status);
             return new PagedResult<PostListItemDto>
             {
                 Page = posts.Page,
@@ -78,7 +93,7 @@ namespace AISAM.Services.Service
                     IntegrationId = p.IntegrationId,
                     ExternalPostId = p.ExternalPostId,
                     PublishedAt = p.PublishedAt,
-                    Status = p.Status,
+                    Status = p.Status.ToString(),
                     IsDeleted = p.IsDeleted,
                     Link = GeneratePermalink(p.ExternalPostId)
                 }).ToList()
@@ -110,7 +125,7 @@ namespace AISAM.Services.Service
                 IntegrationId = post.IntegrationId,
                 ExternalPostId = post.ExternalPostId,
                 PublishedAt = post.PublishedAt,
-                Status = post.Status,
+                Status = post.Status.ToString(),
                 IsDeleted = post.IsDeleted,
                 Link = GeneratePermalink(post.ExternalPostId)
             };
@@ -201,39 +216,38 @@ namespace AISAM.Services.Service
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
 
-            // Admin users have all permissions
-            if (user.Role == UserRoleEnum.Admin)
-            {
-                return true;
-            }
-
             // If brandId is provided, check if user is brand owner or team member
             if (brandId.HasValue)
             {
                 var brand = await _brandRepository.GetByIdAsync(brandId.Value);
                 if (brand == null) return false;
 
-                // Check if user is brand owner (through any of their profiles)
-                var profiles = await _profileRepository.GetByUserIdAsync(userId);
-                if (profiles.Any(p => p.Id == brand.ProfileId))
+                // Check direct ownership through user's profiles
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (userProfiles?.Any(p => p.Id == brand.ProfileId) == true)
                 {
-                    return true;
+                    return true; // User owns this brand directly
                 }
 
-                // Check if user is team member with access to this brand through TeamBrand relationship
+                // If brand's profile is Free type, only owner can access
+                var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+                if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+                {
+                    return false; // Free profiles don't have team features
+                }
+
+                // For Basic/Pro profiles: check team member access
                 var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
                 if (teamMember == null) return false;
 
-                // Check if team member has required permission
                 return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
             }
 
-            // Check team member's actual permissions (not role-based)
-            var userTeamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-            if (userTeamMember != null)
+            // Fallback: check if user has permission in any team membership
+            var userTeamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+            if (userTeamMembers != null && userTeamMembers.Any())
             {
-                // Only check the actual permissions assigned to this team member
-                return _rolePermissionConfig.HasCustomPermission(userTeamMember.Permissions, permission);
+                return userTeamMembers.Any(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, permission));
             }
 
             return false;
@@ -249,7 +263,7 @@ namespace AISAM.Services.Service
                 IntegrationId = p.IntegrationId,
                 ExternalPostId = p.ExternalPostId,
                 PublishedAt = p.PublishedAt,
-                Status = p.Status,
+                Status = p.Status.ToString(),
                 IsDeleted = p.IsDeleted,
                 Link = GeneratePermalink(p.ExternalPostId)
             }).ToList();

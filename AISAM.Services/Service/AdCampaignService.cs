@@ -4,6 +4,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 
 namespace AISAM.Services.Service
@@ -19,6 +20,7 @@ namespace AISAM.Services.Service
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IUserRepository _userRepository;
         private readonly IProfileRepository _profileRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<AdCampaignService> _logger;
 
         public AdCampaignService(
@@ -31,6 +33,7 @@ namespace AISAM.Services.Service
             ITeamMemberRepository teamMemberRepository,
             IUserRepository userRepository,
             IProfileRepository profileRepository,
+            RolePermissionConfig rolePermissionConfig,
             ILogger<AdCampaignService> logger)
         {
             _adCampaignRepository = adCampaignRepository;
@@ -42,6 +45,7 @@ namespace AISAM.Services.Service
             _teamMemberRepository = teamMemberRepository;
             _userRepository = userRepository;
             _profileRepository = profileRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
@@ -268,28 +272,32 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Brand not found");
             }
 
-            // Check if user is brand owner (through any of their profiles)
+            // Check if user directly owns the brand (through any of their profiles)
             var profiles = await _profileRepository.GetByUserIdAsync(userId);
             if (profiles.Any(p => p.Id == brand.ProfileId))
             {
-                return;
+                return; // User owns this brand directly
             }
 
-            // Check if user is team member with access to this brand through TeamBrand relationship
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
+            }
+
+            // For Basic/Pro profiles: check team member access with permission
             var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
-            if (teamMember != null && teamMember.Permissions.Contains("can_create_ad"))
+            if (teamMember == null)
             {
-                return;
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
             }
 
-            // Check if user is admin
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
+            // Check if team member has required permission
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
             {
-                return;
+                throw new UnauthorizedAccessException("You do not have permission to create ads for this brand");
             }
-
-            throw new UnauthorizedAccessException("You do not have permission to access this brand");
         }
 
         private async Task<SocialIntegration> GetSocialIntegrationWithAdAccountAsync(Guid brandId, string adAccountId)
