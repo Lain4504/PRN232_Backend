@@ -66,9 +66,9 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
-                var result = await _approvalService.SubmitForApprovalAsync(contentId, profileId);
+                var result = await _approvalService.SubmitForApprovalAsync(contentId, userId);
                 return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Gửi phê duyệt thành công"));
             }
             catch (UnauthorizedAccessException ex)
@@ -161,6 +161,41 @@ namespace AISAM.API.Controllers
             {
                 _logger.LogError(ex, "Error restoring content {ContentId}", contentId);
                 return StatusCode(500, GenericResponse<object>.CreateError("Đã xảy ra lỗi khi khôi phục nội dung"));
+            }
+        }
+
+        /// <summary>
+        /// Update existing content
+        /// </summary>
+        [HttpPut("{contentId}")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<ContentResponseDto>>> UpdateContent(
+            Guid contentId, 
+            [FromBody] UpdateContentRequest request)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.UpdateContentAsync(contentId, request, userId);
+                
+                return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "Cập nhật nội dung thành công"));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid request for content update {ContentId}", contentId);
+                return BadRequest(GenericResponse<ContentResponseDto>.CreateError(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized update for content {ContentId}", contentId);
+                return StatusCode(403, GenericResponse<ContentResponseDto>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating content {ContentId}", contentId);
+                return StatusCode(500, GenericResponse<ContentResponseDto>.CreateError(
+                    "Đã xảy ra lỗi khi cập nhật nội dung"
+                ));
             }
         }
 

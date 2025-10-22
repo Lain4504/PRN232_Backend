@@ -21,23 +21,6 @@ namespace AISAM.API.Controllers
             _logger = logger;
         }
 
-        // ✅ Lấy danh sách phân trang
-        [HttpGet]
-        [Authorize]
-        public async Task<ActionResult<GenericResponse<PagedResult<TeamMemberResponseDto>>>> GetPaged([FromQuery] PaginationRequest request)
-        {
-            try
-            {
-                var result = await _teamMemberService.GetPagedAsync(request);
-                return Ok(GenericResponse<PagedResult<TeamMemberResponseDto>>.CreateSuccess(result, "Lấy danh sách thành viên thành công"));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting team members");
-                return StatusCode(500, GenericResponse<PagedResult<TeamMemberResponseDto>>.CreateError("Lỗi khi lấy danh sách thành viên"));
-            }
-        }
-
         // ✅ Lấy chi tiết member
         [HttpGet("{id}")]
         [Authorize]
@@ -45,10 +28,10 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                // Lấy profileId từ JWT token
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
-                var member = await _teamMemberService.GetByIdAsync(id, profileId);
+                var member = await _teamMemberService.GetByIdAsync(id, userId);
                 if (member == null)
                     return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
 
@@ -73,8 +56,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var created = await _teamMemberService.CreateAsync(request, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var created = await _teamMemberService.CreateAsync(request, userId);
 
                 return CreatedAtAction(nameof(GetById), new { id = created.Id },
                     GenericResponse<TeamMemberResponseDto>.CreateSuccess(created, "Tạo thành viên thành công"));
@@ -103,8 +86,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var updated = await _teamMemberService.UpdateAsync(id, request, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var updated = await _teamMemberService.UpdateAsync(id, request, userId);
 
                 if (updated == null)
                     return NotFound(GenericResponse<TeamMemberResponseDto>.CreateError("Không tìm thấy thành viên"));
@@ -135,8 +118,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var ok = await _teamMemberService.DeleteAsync(id, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var ok = await _teamMemberService.DeleteAsync(id, userId);
 
                 if (!ok)
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy thành viên"));

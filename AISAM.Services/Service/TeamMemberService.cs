@@ -1,155 +1,215 @@
 ﻿using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Response;
+using AISAM.Common;
 using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.Helper;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 
 namespace AISAM.Services.Service
 {
     public class TeamMemberService : ITeamMemberService
     {
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly ITeamRepository _teamRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<TeamMemberService> _logger;
 
         public TeamMemberService(
             ITeamMemberRepository teamMemberRepository,
+            ITeamRepository teamRepository,
+            IProfileRepository profileRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<TeamMemberService> logger)
         {
             _teamMemberRepository = teamMemberRepository;
+            _teamRepository = teamRepository;
+            _profileRepository = profileRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
-        public async Task<PagedResult<TeamMemberResponseDto>> GetPagedAsync(PaginationRequest request)
-        {
-            var result = await _teamMemberRepository.GetPagedAsync(request);
-            return new PagedResult<TeamMemberResponseDto>
-            {
-                Data = result.Data.Select(MapToResponse).ToList(),
-                TotalCount = result.TotalCount,
-                Page = result.Page,
-                PageSize = result.PageSize
-            };
-        }
-
         public async Task<TeamMemberResponseDto?> GetByIdAsync(Guid id, Guid userId)
         {
-            var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-
-            if (currentUserMember == null)
+            try
             {
-                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+                // Lấy thông tin team member cần xem
+                var teamMember = await _teamMemberRepository.GetByIdAsync(id);
+                if (teamMember == null)
+                {
+                    throw new ArgumentException("Không tìm thấy thành viên.");
+                }
+
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, teamMember.TeamId, "VIEW_TEAM_MEMBERS");
+                if (!permissionCheck.Success)
+                {
+                    throw new UnauthorizedAccessException(permissionCheck.Message);
+                }
+
+                return MapToResponse(teamMember);
             }
-
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "VIEW_TEAM_MEMBER_DETAILS"))
-                throw new UnauthorizedAccessException("Bạn không có quyền xem chi tiết thành viên.");
-
-            var entity = await _teamMemberRepository.GetByIdAsync(id);
-            return entity == null ? null : MapToResponse(entity);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting team member {MemberId} by user {UserId}", id, userId);
+                throw;
+            }
         }
 
         public async Task<TeamMemberResponseDto> CreateAsync(TeamMemberCreateRequest request, Guid userId)
         {
-            var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-
-            if (currentUserMember == null)
+            try
             {
-                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, request.TeamId, "ADD_MEMBER");
+                if (!permissionCheck.Success)
+                {
+                    throw new UnauthorizedAccessException(permissionCheck.Message);
+                }
+
+                // Kiểm tra team tồn tại
+                var team = await _teamRepository.GetByIdAsync(request.TeamId);
+                if (team == null || team.IsDeleted)
+                {
+                    throw new ArgumentException("Team không tồn tại hoặc đã bị xóa.");
+                }
+
+                if (!await _teamMemberRepository.UserExistsAsync(request.UserId))
+                    throw new ArgumentException("User không tồn tại.");
+
+                // Kiểm tra user đã là member của team chưa
+                var existingMember = await _teamMemberRepository.GetByTeamAndUserAsync(request.TeamId, request.UserId);
+                if (existingMember != null && existingMember.IsActive)
+                {
+                    throw new ArgumentException("User đã là thành viên của team này.");
+                }
+
+                // Validate permissions nếu được cung cấp, nếu không thì dùng permissions mặc định của role
+                List<string> finalPermissions;
+                if (request.Permissions != null)
+                {
+                    // Nếu permissions được cung cấp, validate chúng phải thuộc về role
+                    ValidatePermissionsForRole(request.Role, request.Permissions);
+                    finalPermissions = request.Permissions;
+                }
+                else
+                {
+                    // Nếu không cung cấp permissions, dùng permissions mặc định của role
+                    finalPermissions = _rolePermissionConfig.GetPermissionsByRole(request.Role);
+                }
+
+                var entity = new TeamMember
+                {
+                    Id = Guid.NewGuid(),
+                    TeamId = request.TeamId,
+                    UserId = request.UserId,
+                    Role = request.Role,
+                    Permissions = finalPermissions,
+                    JoinedAt = DateTime.UtcNow,
+                    IsActive = true
+                };
+
+                var created = await _teamMemberRepository.AddAsync(entity);
+                _logger.LogInformation("Tạo team member thành công: {Id}", created.Id);
+                return MapToResponse(created);
             }
-
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "ADD_MEMBER"))
-                throw new InvalidOperationException("Bạn không có quyền thêm thành viên.");
-
-            if (!await _teamMemberRepository.TeamExistsAsync(request.TeamId))
-                throw new ArgumentException("Team không tồn tại.");
-
-            if (!await _teamMemberRepository.UserExistsAsync(request.UserId))
-                throw new ArgumentException("User không tồn tại.");
-
-            // Validate that all permissions belong to the assigned role
-            if (request.Permissions != null && request.Permissions.Any())
+            catch (Exception ex)
             {
-                ValidatePermissionsForRole(request.Role, request.Permissions);
+                _logger.LogError(ex, "Error creating team member for user {UserId} in team {TeamId}", request.UserId, request.TeamId);
+                throw;
             }
-
-            var entity = new TeamMember
-            {
-                Id = Guid.NewGuid(),
-                TeamId = request.TeamId,
-                UserId = request.UserId,
-                Role = request.Role, // đã đổi sang string
-                Permissions = request.Permissions ?? new List<string>(),
-                JoinedAt = DateTime.UtcNow,
-                IsActive = true
-            };
-
-            var created = await _teamMemberRepository.AddAsync(entity);
-            _logger.LogInformation("Tạo team member thành công: {Id}", created.Id);
-            return MapToResponse(created);
         }
 
         public async Task<TeamMemberResponseDto?> UpdateAsync(Guid id, TeamMemberUpdateRequest request, Guid userId)
         {
-            var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-            
-            if (currentUserMember == null)
+            try
             {
-                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+                var entity = await _teamMemberRepository.GetByIdAsync(id);
+                if (entity == null)
+                    throw new ArgumentException("Không tìm thấy thành viên.");
+
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, entity.TeamId, "UPDATE_MEMBER_ROLE");
+                if (!permissionCheck.Success)
+                {
+                    throw new UnauthorizedAccessException(permissionCheck.Message);
+                }
+
+                if (!string.IsNullOrEmpty(request.TeamId))
+                {
+                    var newTeamId = Guid.Parse(request.TeamId);
+                    
+                    // Validate quyền với team mới nếu team thay đổi
+                    if (newTeamId != entity.TeamId)
+                    {
+                        var newTeamPermissionCheck = await ValidateUserTeamPermission(userId, newTeamId, "UPDATE_MEMBER_ROLE");
+                        if (!newTeamPermissionCheck.Success)
+                        {
+                            throw new UnauthorizedAccessException(newTeamPermissionCheck.Message);
+                        }
+                    }
+
+                    var team = await _teamRepository.GetByIdAsync(newTeamId);
+                    if (team == null || team.IsDeleted)
+                        throw new ArgumentException("Team không tồn tại hoặc đã bị xóa.");
+                        
+                    entity.TeamId = newTeamId;
+                }
+
+                if (!string.IsNullOrEmpty(request.Role))
+                    entity.Role = request.Role;
+
+                if (request.Permissions != null)
+                {
+                    // Validate that all permissions belong to the assigned role
+                    var roleToValidate = !string.IsNullOrEmpty(request.Role) ? request.Role : entity.Role;
+                    ValidatePermissionsForRole(roleToValidate, request.Permissions);
+                    entity.Permissions = request.Permissions;
+                }
+
+                if (request.IsActive.HasValue)
+                    entity.IsActive = request.IsActive.Value;
+
+                await _teamMemberRepository.UpdateAsync(entity);
+                _logger.LogInformation("Cập nhật team member thành công: {Id}", id);
+                return MapToResponse(entity);
             }
-
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "UPDATE_MEMBER_ROLE"))
-                throw new UnauthorizedAccessException("Bạn không có quyền cập nhật thành viên.");
-
-            var entity = await _teamMemberRepository.GetByIdAsync(id);
-            if (entity == null)
-                throw new ArgumentException("Không tìm thấy thành viên.");
-
-            if (!string.IsNullOrEmpty(request.TeamId))
+            catch (Exception ex)
             {
-                if (!await _teamMemberRepository.TeamExistsAsync(Guid.Parse(request.TeamId)))
-                    throw new ArgumentException("Team không tồn tại.");
-                entity.TeamId = Guid.Parse(request.TeamId);
+                _logger.LogError(ex, "Error updating team member {MemberId} by user {UserId}", id, userId);
+                throw;
             }
-
-            if (!string.IsNullOrEmpty(request.Role))
-                entity.Role = request.Role;
-
-            if (request.Permissions != null && request.Permissions.Any())
-            {
-                // Validate that all permissions belong to the assigned role
-                var roleToValidate = !string.IsNullOrEmpty(request.Role) ? request.Role : entity.Role;
-                ValidatePermissionsForRole(roleToValidate, request.Permissions);
-                entity.Permissions = request.Permissions;
-            }
-
-            if (request.IsActive.HasValue)
-                entity.IsActive = request.IsActive.Value;
-
-            await _teamMemberRepository.UpdateAsync(entity);
-            _logger.LogInformation("Cập nhật team member thành công: {Id}", id);
-            return MapToResponse(entity);
         }
 
         public async Task<bool> DeleteAsync(Guid id, Guid userId)
         {
-            var currentUserMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-            
-            if (currentUserMember == null)
+            try
             {
-                throw new ArgumentException("Không tìm thấy thành viên hiện tại.");
+                var entity = await _teamMemberRepository.GetByIdAsync(id);
+                if (entity == null)
+                    throw new ArgumentException("Không tìm thấy thành viên để xóa.");
+
+                // Validate quyền của user với team
+                var permissionCheck = await ValidateUserTeamPermission(userId, entity.TeamId, "REMOVE_MEMBER");
+                if (!permissionCheck.Success)
+                {
+                    throw new UnauthorizedAccessException(permissionCheck.Message);
+                }
+
+                var result = await _teamMemberRepository.DeleteAsync(id);
+                if (result)
+                    _logger.LogInformation("Đã xóa team member {Id} by user {UserId}", id, userId);
+                return result;
             }
-
-            if (!_rolePermissionConfig.HasCustomPermission(currentUserMember.Permissions, "REMOVE_MEMBER"))
-                throw new UnauthorizedAccessException("Bạn không có quyền xóa thành viên.");
-
-            var result = await _teamMemberRepository.DeleteAsync(id);
-            if (result)
-                _logger.LogInformation("Đã xóa team member {Id}", id);
-            return result;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting team member {MemberId} by user {UserId}", id, userId);
+                throw;
+            }
         }
 
         private static TeamMemberResponseDto MapToResponse(TeamMember entity)
@@ -164,6 +224,56 @@ namespace AISAM.Services.Service
                 JoinedAt = entity.JoinedAt,
                 IsActive = entity.IsActive
             };
+        }
+
+        /// <summary>
+        /// Validate quyền của user với team - kiểm tra có phải người tạo team hoặc member có permission
+        /// </summary>
+        private async Task<GenericResponse<bool>> ValidateUserTeamPermission(Guid userId, Guid teamId, string requiredPermission)
+        {
+            try
+            {
+                // Lấy thông tin team hiện tại
+                var existingTeam = await _teamRepository.GetByIdAsync(teamId);
+                if (existingTeam == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy team.");
+                }
+
+                // Kiểm tra quyền: user có phải là người tạo team hay không
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                var proProfiles = userProfiles?.Where(p => p.ProfileType == ProfileTypeEnum.Pro && !p.IsDeleted) ?? new List<Profile>();
+                
+                // Kiểm tra user có phải là người tạo team (có profile Pro nào thuộc về team này không)
+                bool isTeamCreator = proProfiles.Any() && proProfiles.Any(p => p.Id == existingTeam.ProfileId);
+                
+                if (isTeamCreator)
+                {
+                    // Người tạo team có full quyền
+                    return GenericResponse<bool>.CreateSuccess(true, "User có quyền thực hiện thao tác.");
+                }
+                else
+                {
+                    // Nếu không phải người tạo team, kiểm tra có phải member không và có permission không
+                    var teamMember = await _teamMemberRepository.GetByTeamAndUserAsync(teamId, userId);
+                    if (teamMember == null || !teamMember.IsActive)
+                    {
+                        return GenericResponse<bool>.CreateError("Bạn không có quyền thực hiện thao tác này.");
+                    }
+
+                    var currentUserPermissions = teamMember.Permissions ?? new List<string>();
+                    if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, requiredPermission))
+                    {
+                        return GenericResponse<bool>.CreateError("Bạn không có quyền thực hiện thao tác này.");
+                    }
+
+                    return GenericResponse<bool>.CreateSuccess(true, "User có quyền thực hiện thao tác.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi validate quyền: {ex.Message}");
+            }
         }
 
         /// <summary>

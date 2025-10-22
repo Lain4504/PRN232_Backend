@@ -106,6 +106,33 @@ namespace AISAM.Repositories.Repository
                 await _context.SaveChangesAsync();
             }
         }
+
+        public async Task<IEnumerable<ContentCalendar>> GetByTeamIdAsync(Guid teamId, int limit = 50)
+        {
+            return await _context.ContentCalendars
+                .Include(c => c.Content)
+                    .ThenInclude(content => content.Brand)
+                .Where(c => !c.IsDeleted && 
+                           c.Content.Brand.TeamBrands.Any(tb => tb.TeamId == teamId))
+                .OrderBy(c => c.ScheduledDate)
+                .ThenBy(c => c.ScheduledTime)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<ContentCalendar>> GetUpcomingSchedulesByBrandAsync(Guid brandId, DateTime fromDate, DateTime toDate, int limit = 50)
+        {
+            return await _context.ContentCalendars
+                .Include(c => c.Content)
+                    .ThenInclude(content => content.Brand)
+                .Where(c => !c.IsDeleted && c.IsActive &&
+                           c.Content.BrandId == brandId &&
+                           c.ScheduledDate >= fromDate.Date && c.ScheduledDate <= toDate.Date)
+                .OrderBy(c => c.ScheduledDate)
+                .ThenBy(c => c.ScheduledTime)
+                .Take(limit)
+                .ToListAsync();
+        }
     }
 }
 

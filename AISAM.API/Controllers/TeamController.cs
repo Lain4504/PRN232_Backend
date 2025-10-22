@@ -5,6 +5,7 @@ using AISAM.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AISAM.API.Utils;
+using System.Linq;
 
 namespace AISAM.API.Controllers
 {
@@ -24,6 +25,7 @@ namespace AISAM.API.Controllers
         /// Tạo team mới
         /// </summary>
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<GenericResponse<TeamResponse>>> CreateTeam([FromBody] CreateTeamRequest request)
         {
             var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
@@ -32,7 +34,13 @@ namespace AISAM.API.Controllers
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.CreateTeamAsync(request, profileId);
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.CreateTeamAsync(request, profileId, userId);
 
             if (result.Success)
             {
@@ -54,7 +62,8 @@ namespace AISAM.API.Controllers
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.GetTeamByIdAsync(id, profileId);
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var result = await _teamService.GetTeamByIdAsync(id, profileId, userId);
 
             if (result.Success)
             {
@@ -76,7 +85,8 @@ namespace AISAM.API.Controllers
                 return Unauthorized(GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.GetTeamsByProfileAsync(vendorId, profileId);
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var result = await _teamService.GetTeamsByProfileAsync(vendorId, userId);
 
             if (result.Success)
             {
@@ -87,18 +97,29 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Cập nhật thông tin team
+        /// Cập nhật thông tin team (bao gồm tên, mô tả và trạng thái)
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<ActionResult<GenericResponse<TeamResponse>>> UpdateTeam(Guid id, [FromBody] CreateTeamRequest request)
+        public async Task<ActionResult<GenericResponse<TeamResponse>>> UpdateTeam(Guid id, [FromBody] UpdateTeamRequest request)
         {
-            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-            if (profileId == Guid.Empty)
+            if (request == null)
+            {
+                return BadRequest(GenericResponse<TeamResponse>.CreateError("Request body is required"));
+            }
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
+                return BadRequest(GenericResponse<TeamResponse>.CreateError($"Validation failed: {string.Join(", ", errors)}"));
+            }
+
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<TeamResponse>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.UpdateTeamAsync(id, request, profileId);
+            var result = await _teamService.UpdateTeamAsync(id, request, userId);
 
             if (result.Success)
             {
@@ -114,13 +135,13 @@ namespace AISAM.API.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<GenericResponse<bool>>> DeleteTeam(Guid id)
         {
-            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-            if (profileId == Guid.Empty)
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.DeleteTeamAsync(id, profileId);
+            var result = await _teamService.DeleteTeamAsync(id, userId);
 
             if (result.Success)
             {
@@ -142,7 +163,8 @@ namespace AISAM.API.Controllers
                 return Unauthorized(GenericResponse<IEnumerable<TeamMemberResponseDto>>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.GetTeamMembersAsync(teamId, profileId);
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            var result = await _teamService.GetTeamMembersAsync(teamId, profileId, userId);
 
             if (result.Success)
             {
@@ -158,13 +180,13 @@ namespace AISAM.API.Controllers
         [HttpPost("{id}/brands")]
         public async Task<ActionResult<GenericResponse<bool>>> AssignBrandToTeam(Guid id, [FromBody] AssignBrandToTeamRequest request)
         {
-            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-            if (profileId == Guid.Empty)
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.AssignBrandToTeamAsync(id, request, profileId);
+            var result = await _teamService.AssignBrandToTeamAsync(id, request, userId);
 
             if (result.Success)
             {
@@ -196,19 +218,20 @@ namespace AISAM.API.Controllers
             return BadRequest(result);
         }
 
+
         /// <summary>
-        /// Cập nhật trạng thái team
+        /// Khôi phục team đã bị xóa mềm
         /// </summary>
-        [HttpPatch("{id}/status")]
-        public async Task<ActionResult<GenericResponse<bool>>> UpdateTeamStatus(Guid id, [FromBody] UpdateTeamStatusRequest request)
+        [HttpPost("{id}/restore")]
+        public async Task<ActionResult<GenericResponse<bool>>> RestoreTeam(Guid id)
         {
-            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-            if (profileId == Guid.Empty)
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
             {
                 return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.UpdateTeamStatusAsync(id, request, profileId);
+            var result = await _teamService.RestoreTeamAsync(id, userId);
 
             if (result.Success)
             {
@@ -219,18 +242,18 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Khôi phục team đã bị xóa mềm
+        /// Lấy danh sách teams mà user đang tham gia
         /// </summary>
-        [HttpPost("{id}/restore")]
-        public async Task<ActionResult<GenericResponse<bool>>> RestoreTeam(Guid id)
+        [HttpGet("user-teams")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<TeamResponse>>>> GetUserTeams()
         {
-            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-            if (profileId == Guid.Empty)
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
             {
-                return Unauthorized(GenericResponse<bool>.CreateError("Không thể xác thực người dùng"));
+                return Unauthorized(GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _teamService.RestoreTeamAsync(id, profileId);
+            var result = await _teamService.GetUserTeamsAsync(userId);
 
             if (result.Success)
             {

@@ -14,6 +14,7 @@ namespace AISAM.Services.Service
         private readonly ISocialAccountRepository _socialAccountRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly ILogger<SocialService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
         private readonly FacebookSettings _facebookSettings;
@@ -23,6 +24,7 @@ namespace AISAM.Services.Service
             ISocialAccountRepository socialAccountRepository,
             ISocialIntegrationRepository socialIntegrationRepository,
             IUserRepository userRepository,
+            IProfileRepository profileRepository,
             ILogger<SocialService> logger,
             IEnumerable<IProviderService> providers,
             IOptions<FacebookSettings> facebookSettings,
@@ -31,6 +33,7 @@ namespace AISAM.Services.Service
             _socialAccountRepository = socialAccountRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
             _facebookSettings = facebookSettings.Value;
@@ -62,11 +65,11 @@ namespace AISAM.Services.Service
                 throw new ArgumentException($"Provider '{request.Provider}' is not supported");
             }
 
-            // Verify user exists
-            var user = await _userRepository.GetByIdAsync(request.ProfileId);
-            if (user == null)
+            // Verify profile exists
+            var profile = await _profileRepository.GetByIdAsync(request.ProfileId);
+            if (profile == null)
             {
-                throw new ArgumentException("User not found");
+                throw new ArgumentException("Profile not found");
             }
 
             var redirectUri = GetRedirectUri(request.Provider);
@@ -345,6 +348,52 @@ namespace AISAM.Services.Service
                 ProfilePictureUrl = null, // SocialIntegration doesn't have profile picture URL
                 IsActive = integration.IsActive
             };
+        }
+
+        public async Task<IEnumerable<SocialIntegrationDto>> GetSocialIntegrationsByBrandIdAsync(Guid brandId, Guid profileId)
+        {
+            try
+            {
+                // Verify profile exists
+                var profile = await _profileRepository.GetByIdAsync(profileId);
+                if (profile == null)
+                {
+                    throw new UnauthorizedAccessException("Profile not found");
+                }
+
+                // Get social integrations for the brand
+                var integrations = await _socialIntegrationRepository.GetByBrandIdAsync(brandId);
+                if (integrations == null)
+                {
+                    return new List<SocialIntegrationDto>();
+                }
+
+                // Convert to DTO
+                return new List<SocialIntegrationDto>
+                {
+                    new SocialIntegrationDto
+                    {
+                        Id = integrations.Id,
+                        SocialAccountId = integrations.SocialAccountId,
+                        ProfileId = integrations.ProfileId,
+                        BrandId = integrations.BrandId,
+                        ExternalId = integrations.ExternalId ?? string.Empty,
+                        Name = integrations.ExternalId ?? "Social Integration", // Use ExternalId as name
+                        Platform = integrations.Platform.ToString(),
+                        IsActive = integrations.IsActive,
+                        CreatedAt = integrations.CreatedAt,
+                        UpdatedAt = integrations.UpdatedAt,
+                        SocialAccountName = integrations.SocialAccount?.AccountId,
+                        BrandName = integrations.Brand?.Name,
+                        ProfileName = integrations.Profile?.Name
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting social integrations for brand {BrandId}", brandId);
+                throw;
+            }
         }
 
     }

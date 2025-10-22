@@ -62,7 +62,8 @@ namespace AISAM.Common.Models
 
     public class ChatRequest
     {
-        public Guid UserId { get; set; }
+        public Guid UserId { get; set; } // User making the request
+        public Guid ProfileId { get; set; } // Profile context (could be user's own profile or brand owner's profile for team members)
         public Guid? BrandId { get; set; } // Made optional
         public Guid? ProductId { get; set; }
         public AdTypeEnum AdType { get; set; }

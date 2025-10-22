@@ -4,6 +4,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AISAM.API.Controllers
@@ -15,15 +16,30 @@ namespace AISAM.API.Controllers
         private readonly IScheduledPostingService _scheduledPostingService;
         private readonly IContentService _contentService;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IBrandRepository _brandRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IProfileRepository _profileRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
 
         public ContentCalendarController(
             IScheduledPostingService scheduledPostingService,
             IContentService contentService,
-            ISocialIntegrationRepository socialIntegrationRepository)
+            ISocialIntegrationRepository socialIntegrationRepository,
+            IUserRepository userRepository,
+            IBrandRepository brandRepository,
+            ITeamMemberRepository teamMemberRepository,
+            IProfileRepository profileRepository,
+            RolePermissionConfig rolePermissionConfig)
         {
             _scheduledPostingService = scheduledPostingService;
             _contentService = contentService;
             _socialIntegrationRepository = socialIntegrationRepository;
+            _userRepository = userRepository;
+            _brandRepository = brandRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _profileRepository = profileRepository;
+            _rolePermissionConfig = rolePermissionConfig;
         }
 
         /// <summary>
@@ -47,7 +63,7 @@ namespace AISAM.API.Controllers
                 // Validate integration IDs
                 if (request.IntegrationIds != null && request.IntegrationIds.Any())
                 {
-                    var userIntegrations = await _socialIntegrationRepository.GetByProfileIdAsync(userId);
+                    var userIntegrations = await _socialIntegrationRepository.GetByUserIdAsync(userId);
                     var validIntegrationIds = userIntegrations.Select(i => i.Id).ToList();
 
                     var invalidIds = request.IntegrationIds.Where(id => !validIntegrationIds.Contains(id)).ToList();
@@ -62,7 +78,8 @@ namespace AISAM.API.Controllers
                     request.ScheduledDate,
                     request.ScheduledTime,
                     request.Timezone,
-                    request.IntegrationIds);
+                    request.IntegrationIds,
+                    userId);
 
                 return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "Content scheduled successfully"));
             }
@@ -93,7 +110,7 @@ namespace AISAM.API.Controllers
                 // Validate integration IDs
                 if (request.IntegrationIds != null && request.IntegrationIds.Any())
                 {
-                    var userIntegrations = await _socialIntegrationRepository.GetByProfileIdAsync(userId);
+                    var userIntegrations = await _socialIntegrationRepository.GetByUserIdAsync(userId);
                     var validIntegrationIds = userIntegrations.Select(i => i.Id).ToList();
 
                     var invalidIds = request.IntegrationIds.Where(id => !validIntegrationIds.Contains(id)).ToList();
@@ -111,7 +128,8 @@ namespace AISAM.API.Controllers
                     request.RepeatType,
                     request.RepeatInterval,
                     request.RepeatUntil,
-                    request.IntegrationIds);
+                    request.IntegrationIds,
+                    userId);
 
                 return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "Recurring content scheduled successfully"));
             }
@@ -176,17 +194,112 @@ namespace AISAM.API.Controllers
         /// Get upcoming scheduled posts
         /// </summary>
         [HttpGet("upcoming")]
-        public async Task<IActionResult> GetUpcomingSchedules([FromQuery] int limit = 50)
+        public async Task<IActionResult> GetUpcomingSchedules([FromQuery] int limit = 50, [FromQuery] Guid? brandId = null)
         {
             try
             {
-                var schedules = await _scheduledPostingService.GetUpcomingSchedulesAsync(limit);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                IEnumerable<Data.Model.ContentCalendar> schedules;
+
+                if (brandId.HasValue)
+                {
+                    // Check if user has permission to view schedules for this brand
+                    var canView = await CanUserPerformActionAsync(userId, "VIEW_POSTS", brandId.Value);
+                    if (!canView)
+                    {
+                        return Unauthorized(GenericResponse<object>.CreateError("You are not allowed to view schedules for this brand", System.Net.HttpStatusCode.Unauthorized, "UNAUTHORIZED"));
+                    }
+
+                    schedules = await _scheduledPostingService.GetUpcomingSchedulesByBrandAsync(brandId.Value, limit);
+                }
+                else
+                {
+                    schedules = await _scheduledPostingService.GetUpcomingSchedulesAsync(limit);
+                }
+
                 return Ok(GenericResponse<IEnumerable<Data.Model.ContentCalendar>>.CreateSuccess(schedules, "Upcoming schedules retrieved successfully"));
             }
             catch (Exception ex)
             {
                 return BadRequest(GenericResponse<object>.CreateError(ex.Message, System.Net.HttpStatusCode.BadRequest, "RETRIEVE_ERROR"));
             }
+        }
+
+        /// <summary>
+        /// Get scheduled posts for a specific team
+        /// </summary>
+        [HttpGet("team/{teamId}")]
+        public async Task<IActionResult> GetTeamSchedules(Guid teamId, [FromQuery] int limit = 50)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                
+                // TODO: Add team membership verification
+                // For now, we'll trust the frontend to handle authorization
+                
+                var schedules = await _scheduledPostingService.GetTeamSchedulesAsync(teamId, limit);
+                
+                // Convert to DTOs with content and brand information
+                var scheduleDtos = schedules.Select(schedule => 
+                {
+                    var contentTitle = schedule.Content?.Title ?? "Untitled Content";
+                    var brandName = schedule.Content?.Brand?.Name ?? "Unknown Brand";
+                    
+                    return ContentCalendarResponseDto.FromModel(schedule, contentTitle, brandName);
+                });
+
+                return Ok(GenericResponse<IEnumerable<ContentCalendarResponseDto>>.CreateSuccess(scheduleDtos, "Team schedules retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(GenericResponse<object>.CreateError(ex.Message, System.Net.HttpStatusCode.BadRequest, "RETRIEVE_ERROR"));
+            }
+        }
+
+        /// <summary>
+        /// Check if user can perform action with required permission
+        /// </summary>
+        private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission, Guid? brandId = null)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            // If brandId is provided, check if user is brand owner or team member
+            if (brandId.HasValue)
+            {
+                var brand = await _brandRepository.GetByIdAsync(brandId.Value);
+                if (brand == null) return false;
+
+                // Check direct ownership through user's profiles
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (userProfiles?.Any(p => p.Id == brand.ProfileId) == true)
+                {
+                    return true; // User owns this brand directly
+                }
+
+                // If brand's profile is Free type, only owner can access
+                var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+                if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+                {
+                    return false; // Free profiles don't have team features
+                }
+
+                // For Basic/Pro profiles: check team member access
+                var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
+                if (teamMember == null) return false;
+
+                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
+            }
+
+            // Fallback: check if user has permission in any team membership
+            var userTeamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+            if (userTeamMembers != null && userTeamMembers.Any())
+            {
+                return userTeamMembers.Any(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, permission));
+            }
+
+            return false;
         }
     }
 

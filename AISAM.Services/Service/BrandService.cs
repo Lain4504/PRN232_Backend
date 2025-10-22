@@ -257,13 +257,16 @@ namespace AISAM.Services.Service
             // Check if user is the team vendor
             var team = await _teamRepository.GetByIdAsync(teamId);
             if (team == null || team.IsDeleted) return false;
-            if (team.ProfileId == userId) return true;
+            
+            // Check if user is the owner of the team (through their profiles)
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == team.ProfileId)) return true;
 
             // Check if user is a team member
-            var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
+            var teamMember = await _teamMemberRepository.GetByTeamAndUserAsync(teamId, userId);
             if (teamMember == null) return false;
 
-            return teamMember.TeamId == teamId && teamMember.IsActive;
+            return teamMember.IsActive;
         }
 
         /// <summary>

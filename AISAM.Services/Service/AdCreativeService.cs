@@ -4,6 +4,7 @@ using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 
 namespace AISAM.Services.Service
@@ -15,6 +16,10 @@ namespace AISAM.Services.Service
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IFacebookMarketingApiService _facebookApiService;
         private readonly INotificationRepository _notificationRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<AdCreativeService> _logger;
 
         public AdCreativeService(
@@ -23,6 +28,10 @@ namespace AISAM.Services.Service
             ISocialIntegrationRepository socialIntegrationRepository,
             IFacebookMarketingApiService facebookApiService,
             INotificationRepository notificationRepository,
+            IUserRepository userRepository,
+            IProfileRepository profileRepository,
+            ITeamMemberRepository teamMemberRepository,
+            RolePermissionConfig rolePermissionConfig,
             ILogger<AdCreativeService> logger)
         {
             _adCreativeRepository = adCreativeRepository;
@@ -30,6 +39,10 @@ namespace AISAM.Services.Service
             _socialIntegrationRepository = socialIntegrationRepository;
             _facebookApiService = facebookApiService;
             _notificationRepository = notificationRepository;
+            _userRepository = userRepository;
+            _profileRepository = profileRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
@@ -174,30 +187,33 @@ namespace AISAM.Services.Service
 
         private async Task ValidateContentAccessAsync(Guid userId, Content content)
         {
-            // Check if user owns the brand
-            if (content.Brand.ProfileId == userId)
+            var brand = content.Brand;
+            
+            // Check if user directly owns the brand
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
             {
                 return;
             }
 
-            // Check if user is admin
-            var user = await GetUserByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
             {
-                return;
+                throw new UnauthorizedAccessException("You do not have permission to access this content");
             }
 
-            // Check if user is vendor with team access
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Vendor)
+            // For Basic/Pro profiles: check team member access
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, content.BrandId);
+            if (teamMember == null)
             {
-                var teamMember = await GetTeamMemberByUserAndBrandAsync(userId, content.BrandId);
-                if (teamMember != null && teamMember.Permissions.Contains("can_create_ad"))
-                {
-                    return;
-                }
+                throw new UnauthorizedAccessException("You do not have permission to access this content");
             }
 
-            throw new UnauthorizedAccessException("You do not have permission to access this content");
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
+            {
+                throw new UnauthorizedAccessException("You do not have permission to create ad creatives for this content");
+            }
         }
 
         private string? GetImageUrl(Content content)
@@ -222,16 +238,12 @@ namespace AISAM.Services.Service
 
         private async Task<User?> GetUserByIdAsync(Guid userId)
         {
-            // This would typically use IUserRepository
-            // For now, return null to avoid circular dependency
-            return null;
+            return await _userRepository.GetByIdAsync(userId);
         }
 
         private async Task<TeamMember?> GetTeamMemberByUserAndBrandAsync(Guid userId, Guid brandId)
         {
-            // This would typically use ITeamMemberRepository
-            // For now, return null to avoid circular dependency
-            return null;
+            return await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
         }
 
         private async Task SendNotificationAsync(Guid userId, string title, string message, Guid targetId, string targetType)

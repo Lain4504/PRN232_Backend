@@ -9,36 +9,36 @@ namespace AISAM.Services.IServices
     public interface IApprovalService
     {
         // Content approval flow additions
-        Task<ApprovalResponseDto> SubmitForApprovalAsync(Guid contentId, Guid actorProfileId);
+        Task<ApprovalResponseDto> SubmitForApprovalAsync(Guid contentId, Guid actorUserId);
         
         /// <summary>
         /// Get pending approvals assigned to a user with pagination
         /// </summary>
-        Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorProfileId);
+        Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorUserId);
         /// <summary>
         /// Create new approval request
         /// </summary>
-        Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request, Guid actorProfileId);
+        Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request, Guid actorUserId);
         
         /// <summary>
         /// Update approval status and notes
         /// </summary>
-        Task<ApprovalResponseDto> UpdateApprovalAsync(Guid approvalId, UpdateApprovalRequest request, Guid actorProfileId);
+        Task<ApprovalResponseDto> UpdateApprovalAsync(Guid approvalId, UpdateApprovalRequest request, Guid actorUserId);
         
         /// <summary>
         /// Get approval by ID
         /// </summary>
-        Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId, Guid profileId);
+        Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId, Guid userId);
         
         /// <summary>
         /// Get all approvals for a content
         /// </summary>
-        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId, Guid profileId);
+        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId, Guid userId);
         
         /// <summary>
         /// Get all approvals assigned to an approver
         /// </summary>
-        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId, Guid profileId);
+        Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId, Guid userId);
         
         /// <summary>
         /// Get paged approvals with filters
@@ -49,27 +49,27 @@ namespace AISAM.Services.IServices
             Guid? contentId = null,
             Guid? approverId = null,
             bool onlyDeleted = false,
-            Guid? filterByProfileId = null);
+            Guid? filterByUserId = null);
         
         /// <summary>
         /// Approve content
         /// </summary>
-        Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, Guid actorProfileId, string? notes = null);
+        Task<ApprovalResponseDto> ApproveAsync(Guid approvalId, Guid actorUserId, string? notes = null);
         
         /// <summary>
         /// Reject content
         /// </summary>
-        Task<ApprovalResponseDto> RejectAsync(Guid approvalId, Guid actorProfileId, string? notes = null);
+        Task<ApprovalResponseDto> RejectAsync(Guid approvalId, Guid actorUserId, string? notes = null);
         
         /// <summary>
         /// Soft delete approval
         /// </summary>
-        Task<bool> SoftDeleteAsync(Guid approvalId, Guid profileId);
+        Task<bool> SoftDeleteAsync(Guid approvalId, Guid userId);
         
         /// <summary>
         /// Restore soft-deleted approval
         /// </summary>
-        Task<bool> RestoreAsync(Guid approvalId, Guid profileId);
+        Task<bool> RestoreAsync(Guid approvalId, Guid userId);
         
         /// <summary>
         /// Check if content has pending approval

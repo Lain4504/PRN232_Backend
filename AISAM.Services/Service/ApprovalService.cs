@@ -16,6 +16,8 @@ namespace AISAM.Services.Service
         private readonly IContentRepository _contentRepository;
         private readonly IUserRepository _userRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IBrandRepository _brandRepository;
+        private readonly IProfileRepository _profileRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ApprovalService> _logger;
 
@@ -24,6 +26,8 @@ namespace AISAM.Services.Service
             IContentRepository contentRepository,
             IUserRepository userRepository,
             ITeamMemberRepository teamMemberRepository,
+            IBrandRepository brandRepository,
+            IProfileRepository profileRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<ApprovalService> logger)
         {
@@ -31,6 +35,8 @@ namespace AISAM.Services.Service
             _contentRepository = contentRepository;
             _userRepository = userRepository;
             _teamMemberRepository = teamMemberRepository;
+            _brandRepository = brandRepository;
+            _profileRepository = profileRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
@@ -45,7 +51,7 @@ namespace AISAM.Services.Service
             }
 
             // Check if user has permission to submit for approval
-            var canSubmit = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL");
+            var canSubmit = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL", content.BrandId);
             if (!canSubmit)
             {
                 throw new UnauthorizedAccessException("You are not allowed to submit content for approval");
@@ -154,7 +160,7 @@ namespace AISAM.Services.Service
         public async Task<PagedResult<ApprovalResponseDto>> GetPendingApprovalsAsync(PaginationRequest request, Guid actorUserId)
         {
             // Check if user has permission to view approvals
-            var canView = await CanUserPerformActionAsync(actorUserId, "VIEW_APPROVALS");
+            var canView = await CanUserPerformActionAsync(actorUserId, "VIEW_APPROVALS", null);
             if (!canView)
             {
                 throw new UnauthorizedAccessException("You are not allowed to view approvals");
@@ -173,18 +179,18 @@ namespace AISAM.Services.Service
         }
         public async Task<ApprovalResponseDto> CreateApprovalAsync(CreateApprovalRequest request, Guid actorUserId)
         {
-            // Check if user has permission to manage approvals
-            var canManage = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL");
-            if (!canManage)
-            {
-                throw new UnauthorizedAccessException("You are not allowed to create approvals");
-            }
-
             // Validate content exists
             var content = await _contentRepository.GetByIdAsync(request.ContentId);
             if (content == null)
             {
                 throw new ArgumentException("Content not found");
+            }
+
+            // Check if user has permission to manage approvals
+            var canManage = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL", content.BrandId);
+            if (!canManage)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to create approvals");
             }
 
             if (content.Status != ContentStatusEnum.Draft)
@@ -199,7 +205,7 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Approver not found");
             }
 
-            var canApproverApprove = await CanUserPerformActionAsync(request.ApproverId, "APPROVE_CONTENT");
+            var canApproverApprove = await CanUserPerformActionAsync(request.ApproverId, "APPROVE_CONTENT", content.BrandId);
             if (!canApproverApprove)
             {
                 throw new ArgumentException("Selected approver does not have permission to approve content");
@@ -234,8 +240,15 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Approval not found");
             }
 
+            // Get content to get brandId for permission check
+            var content = await _contentRepository.GetByIdAsync(approval.ContentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
             // Check if user has permission to update this approval
-            var canUpdate = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
+            var canUpdate = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT", content.BrandId);
             if (!canUpdate)
             {
                 throw new UnauthorizedAccessException("You are not allowed to update this approval");
@@ -252,11 +265,11 @@ namespace AISAM.Services.Service
             await _approvalRepository.UpdateAsync(approval);
 
             // Update content status
-            var content = await _contentRepository.GetByIdAsync(approval.ContentId);
-            if (content != null)
+            var contentToUpdate = await _contentRepository.GetByIdAsync(approval.ContentId);
+            if (contentToUpdate != null)
             {
-                content.Status = request.Status;
-                await _contentRepository.UpdateAsync(content);
+                contentToUpdate.Status = request.Status;
+                await _contentRepository.UpdateAsync(contentToUpdate);
             }
 
             _logger.LogInformation("Updated approval {ApprovalId} status to {Status}", 
@@ -268,7 +281,7 @@ namespace AISAM.Services.Service
         public async Task<ApprovalResponseDto?> GetApprovalByIdAsync(Guid approvalId, Guid userId)
         {
             // Check if user has permission to view approvals
-            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS");
+            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS", null);
             if (!canView)
             {
                 throw new UnauthorizedAccessException("You are not allowed to view approvals");
@@ -280,8 +293,15 @@ namespace AISAM.Services.Service
 
         public async Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByContentIdAsync(Guid contentId, Guid userId)
         {
+            // Get content to get brandId for permission check
+            var content = await _contentRepository.GetByIdAsync(contentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
             // Check if user has permission to view approvals
-            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS");
+            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS", content.BrandId);
             if (!canView)
             {
                 throw new UnauthorizedAccessException("You are not allowed to view approvals");
@@ -294,7 +314,7 @@ namespace AISAM.Services.Service
         public async Task<IEnumerable<ApprovalResponseDto>> GetApprovalsByApproverIdAsync(Guid approverId, Guid userId)
         {
             // Check if user has permission to view approvals or is the approver themselves
-            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS");
+            var canView = await CanUserPerformActionAsync(userId, "VIEW_APPROVALS", null);
             var isApprover = userId == approverId;
             
             if (!canView && !isApprover)
@@ -317,7 +337,7 @@ namespace AISAM.Services.Service
             // Check if user has permission to view approvals
             if (filterByUserId.HasValue)
             {
-                var canView = await CanUserPerformActionAsync(filterByUserId.Value, "VIEW_APPROVALS");
+                var canView = await CanUserPerformActionAsync(filterByUserId.Value, "VIEW_APPROVALS", null);
                 if (!canView)
                 {
                     throw new UnauthorizedAccessException("You are not allowed to view approvals");
@@ -349,8 +369,15 @@ namespace AISAM.Services.Service
             // validate permissions: actor must be the approver or have APPROVE_CONTENT permission
             var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
             
+            // Get content to get brandId for permission check
+            var content = await _contentRepository.GetByIdAsync(approval.ContentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
             // Check if user is the assigned approver or has permission to approve
-            var canApprove = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT");
+            var canApprove = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT", content.BrandId);
             if (!canApprove)
             {
                 throw new UnauthorizedAccessException("You are not allowed to approve this item");
@@ -375,8 +402,15 @@ namespace AISAM.Services.Service
             // validate permissions: actor must be the approver or have REJECT_CONTENT permission
             var approval = await _approvalRepository.GetByIdAsync(approvalId) ?? throw new ArgumentException("Approval not found");
             
+            // Get content to get brandId for permission check
+            var content = await _contentRepository.GetByIdAsync(approval.ContentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
             // Check if user is the assigned approver or has permission to reject
-            var canReject = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "REJECT_CONTENT");
+            var canReject = approval.ApproverProfileId == actorUserId || await CanUserPerformActionAsync(actorUserId, "REJECT_CONTENT", content.BrandId);
             if (!canReject)
             {
                 throw new UnauthorizedAccessException("You are not allowed to reject this item");
@@ -402,7 +436,7 @@ namespace AISAM.Services.Service
                     throw new UnauthorizedAccessException("User not found");
                 }
 
-                var canManage = user.Role == UserRoleEnum.Admin || await CanUserPerformActionAsync(userId, "APPROVE_CONTENT");
+                var canManage = user.Role == UserRoleEnum.Admin || await CanUserPerformActionAsync(userId, "APPROVE_CONTENT", null);
                 if (!canManage)
                 {
                     throw new UnauthorizedAccessException("You are not allowed to delete approvals");
@@ -430,7 +464,7 @@ namespace AISAM.Services.Service
                     throw new UnauthorizedAccessException("User not found");
                 }
 
-                var canManage = user.Role == UserRoleEnum.Admin || await CanUserPerformActionAsync(userId, "APPROVE_CONTENT");
+                var canManage = user.Role == UserRoleEnum.Admin || await CanUserPerformActionAsync(userId, "APPROVE_CONTENT", null);
                 if (!canManage)
                 {
                     throw new UnauthorizedAccessException("You are not allowed to restore approvals");
@@ -468,9 +502,17 @@ namespace AISAM.Services.Service
                 Notes = approval.Notes,
                 ApprovedAt = approval.ApprovedAt,
                 CreatedAt = approval.CreatedAt,
+                // Flattened convenience properties
+                ContentTitle = approval.Content?.Title,
+                BrandName = approval.Content?.Brand?.Name,
+                BrandId = approval.Content?.BrandId,
+                ApproverEmail = approval.ApproverProfile?.User?.Email,
+                ApproverName = approval.ApproverProfile?.Name,
+                // Navigation properties (kept for backward compatibility)
                 Content = approval.Content != null ? new ContentResponseDto
                 {
                     Id = approval.Content.Id,
+                    ProfileId = approval.Content.ProfileId,
                     BrandId = approval.Content.BrandId,
                     ProductId = approval.Content.ProductId,
                     AdType = approval.Content.AdType.ToString(),
@@ -501,23 +543,43 @@ namespace AISAM.Services.Service
         /// <summary>
         /// Validate if a user can perform an approval action
         /// </summary>
-        private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission)
+        private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission, Guid? brandId = null)
         {
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
 
-            // Admin users have all permissions
-            if (user.Role == UserRoleEnum.Admin)
+            // If brandId is provided, check if user is brand owner or team member
+            if (brandId.HasValue)
             {
-                return true;
+                var brand = await _brandRepository.GetByIdAsync(brandId.Value);
+                if (brand == null) return false;
+
+                // Check direct ownership through user's profiles
+                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
+                if (userProfiles?.Any(p => p.Id == brand.ProfileId) == true)
+                {
+                    return true; // User owns this brand directly
+                }
+
+                // If brand's profile is Free type, only owner can access
+                var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+                if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+                {
+                    return false; // Free profiles don't have team features
+                }
+
+                // For Basic/Pro profiles: check team member access
+                var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
+                if (teamMember == null) return false;
+
+                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
             }
 
-            // Check team member's actual permissions (not role-based)
-            var teamMember = await _teamMemberRepository.GetByUserIdAsync(userId);
-            if (teamMember != null)
+            // Fallback: check if user has permission in any team membership
+            var userTeamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+            if (userTeamMembers != null && userTeamMembers.Any())
             {
-                // Only check the actual permissions assigned to this team member
-                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
+                return userTeamMembers.Any(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, permission));
             }
 
             return false;

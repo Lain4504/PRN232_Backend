@@ -3,6 +3,7 @@ using AISAM.Common.Dtos.Response;
 using AISAM.Data.Model;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
+using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 
 namespace AISAM.Services.Service
@@ -14,6 +15,10 @@ namespace AISAM.Services.Service
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
         private readonly IFacebookMarketingApiService _facebookApiService;
         private readonly INotificationRepository _notificationRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<AdSetService> _logger;
 
         public AdSetService(
@@ -22,6 +27,10 @@ namespace AISAM.Services.Service
             ISocialIntegrationRepository socialIntegrationRepository,
             IFacebookMarketingApiService facebookApiService,
             INotificationRepository notificationRepository,
+            IUserRepository userRepository,
+            IProfileRepository profileRepository,
+            ITeamMemberRepository teamMemberRepository,
+            RolePermissionConfig rolePermissionConfig,
             ILogger<AdSetService> logger)
         {
             _adSetRepository = adSetRepository;
@@ -29,6 +38,10 @@ namespace AISAM.Services.Service
             _socialIntegrationRepository = socialIntegrationRepository;
             _facebookApiService = facebookApiService;
             _notificationRepository = notificationRepository;
+            _userRepository = userRepository;
+            _profileRepository = profileRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
@@ -164,46 +177,43 @@ namespace AISAM.Services.Service
 
         private async Task ValidateCampaignAccessAsync(Guid userId, AdCampaign campaign)
         {
-            // Check if user owns the brand
-            if (campaign.Brand.ProfileId == userId)
+            var brand = campaign.Brand;
+            
+            // Check if user directly owns the brand
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
             {
                 return;
             }
 
-            // Check if user is admin
-            var user = await GetUserByIdAsync(userId);
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Admin)
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
             {
-                return;
+                throw new UnauthorizedAccessException("You do not have permission to access this campaign");
             }
 
-            // Check if user is vendor with team access
-            if (user?.Role == Data.Enumeration.UserRoleEnum.Vendor)
+            // For Basic/Pro profiles: check team member access
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, campaign.BrandId);
+            if (teamMember == null)
             {
-                // This would typically check team membership and permissions
-                // For now, we'll implement a basic check
-                var teamMember = await GetTeamMemberByUserAndBrandAsync(userId, campaign.BrandId);
-                if (teamMember != null && teamMember.Permissions.Contains("can_create_ad"))
-                {
-                    return;
-                }
+                throw new UnauthorizedAccessException("You do not have permission to access this campaign");
             }
 
-            throw new UnauthorizedAccessException("You do not have permission to access this campaign");
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this campaign");
+            }
         }
 
         private async Task<User?> GetUserByIdAsync(Guid userId)
         {
-            // This would typically use IUserRepository
-            // For now, return null to avoid circular dependency
-            return null;
+            return await _userRepository.GetByIdAsync(userId);
         }
 
         private async Task<TeamMember?> GetTeamMemberByUserAndBrandAsync(Guid userId, Guid brandId)
         {
-            // This would typically use ITeamMemberRepository
-            // For now, return null to avoid circular dependency
-            return null;
+            return await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
         }
 
         private async Task SendNotificationAsync(Guid userId, string title, string message, Guid targetId, string targetType)
