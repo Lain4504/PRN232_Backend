@@ -23,6 +23,7 @@ namespace AISAM.Services.Service
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ContentService> _logger;
         private readonly Dictionary<string, IProviderService> _providers;
+        private readonly IAuditLogService _auditLogService;
 
         public ContentService(
             IContentRepository contentRepository,
@@ -34,7 +35,8 @@ namespace AISAM.Services.Service
             IProfileRepository profileRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<ContentService> logger,
-            IEnumerable<IProviderService> providers)
+            IEnumerable<IProviderService> providers,
+            IAuditLogService auditLogService)
         {
             _contentRepository = contentRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
@@ -46,6 +48,7 @@ namespace AISAM.Services.Service
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
+            _auditLogService = auditLogService;
         }
 
         public async Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request, Guid userId)
@@ -82,6 +85,21 @@ namespace AISAM.Services.Service
 
             await _contentRepository.CreateAsync(content);
 
+            // Log content creation
+            await _auditLogService.LogContentActionAsync(
+                content.Id, 
+                userId, 
+                "CREATE", 
+                null, 
+                new { 
+                    BrandId = content.BrandId,
+                    Title = content.Title,
+                    AdType = content.AdType.ToString(),
+                    Status = content.Status.ToString()
+                }, 
+                "Content created"
+            );
+
             PublishResultDto? publishResult = null;
 
             // If publish immediately, publish to specified integration
@@ -90,14 +108,26 @@ namespace AISAM.Services.Service
                 publishResult = await PublishContentAsync(content.Id, request.IntegrationId.Value, userId);
                 if (publishResult.Success)
                 {
+                    var oldStatus = content.Status;
                     content.Status = ContentStatusEnum.Published;
                     await _contentRepository.UpdateAsync(content);
+                    
+                    // Log publish success
+                    await _auditLogService.LogContentActionAsync(
+                        content.Id, 
+                        userId, 
+                        "PUBLISH", 
+                        new { Status = oldStatus.ToString() }, 
+                        new { Status = content.Status.ToString(), IntegrationId = request.IntegrationId }, 
+                        "Content published successfully"
+                    );
                     
                     _logger.LogInformation("Content {ContentId} published successfully to integration {IntegrationId}", 
                         content.Id, request.IntegrationId);
                 }
                 else
                 {
+                    var oldStatus = content.Status;
                     content.Status = ContentStatusEnum.Rejected;
                     await _contentRepository.UpdateAsync(content);
                     
@@ -111,6 +141,16 @@ namespace AISAM.Services.Service
 						Status = ContentStatusEnum.Rejected
 					};
 					await _postRepository.CreateAsync(failedPost);
+
+                    // Log publish failure
+                    await _auditLogService.LogContentActionAsync(
+                        content.Id, 
+                        userId, 
+                        "PUBLISH_FAILED", 
+                        new { Status = oldStatus.ToString() }, 
+                        new { Status = content.Status.ToString(), Error = publishResult.ErrorMessage }, 
+                        $"Content publish failed: {publishResult.ErrorMessage}"
+                    );
 					
                     _logger.LogError("Failed to publish content {ContentId}: {Error}", 
                         content.Id, publishResult.ErrorMessage);
@@ -242,17 +282,45 @@ namespace AISAM.Services.Service
                     };
                     await _postRepository.CreateAsync(post);
 
+                    var oldStatus = content.Status;
                     // Update content status to published
                     content.Status = ContentStatusEnum.Published;
                     await _contentRepository.UpdateAsync(content);
 
-                    // Removed audit logging per latest requirement
+                    // Log successful publish
+                    await _auditLogService.LogContentActionAsync(
+                        content.Id, 
+                        userId, 
+                        "PUBLISH", 
+                        new { Status = oldStatus.ToString() }, 
+                        new { 
+                            Status = content.Status.ToString(), 
+                            IntegrationId = integration.Id,
+                            Platform = platformName,
+                            ExternalPostId = result.ProviderPostId
+                        }, 
+                        $"Content published to {platformName}"
+                    );
 
                     _logger.LogInformation("Successfully published content {ContentId} to {Platform}", 
                         contentId, platformName);
                 }
                 else
                 {
+                    // Log failed publish attempt
+                    await _auditLogService.LogContentActionAsync(
+                        content.Id, 
+                        userId, 
+                        "PUBLISH_FAILED", 
+                        null, 
+                        new { 
+                            IntegrationId = integration.Id,
+                            Platform = platformName,
+                            Error = result.ErrorMessage
+                        }, 
+                        $"Failed to publish to {platformName}: {result.ErrorMessage}"
+                    );
+
                     _logger.LogError("Failed to publish content {ContentId} to {Platform}: {Error}", 
                         contentId, platformName, result.ErrorMessage);
                 }
@@ -284,6 +352,20 @@ namespace AISAM.Services.Service
             {
                 throw new UnauthorizedAccessException("You are not allowed to view this content");
             }
+
+            // Log content view
+            await _auditLogService.LogContentActionAsync(
+                contentId, 
+                userId, 
+                "VIEW", 
+                null, 
+                new { 
+                    ContentId = contentId,
+                    Title = content.Title,
+                    Status = content.Status.ToString()
+                }, 
+                "Content viewed"
+            );
 
             return MapToDto(content, null);
         }
@@ -321,18 +403,36 @@ namespace AISAM.Services.Service
             };
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid contentId)
+        public async Task<bool> SoftDeleteAsync(Guid contentId, Guid userId)
         {
             var existing = await _contentRepository.GetByIdAsync(contentId);
             if (existing == null)
             {
                 return false;
             }
+
+            // Store old values for audit log
+            var oldValues = new {
+                Status = existing.Status.ToString(),
+                IsDeleted = false
+            };
+
             await _contentRepository.DeleteAsync(contentId);
+
+            // Log soft delete
+            await _auditLogService.LogContentActionAsync(
+                contentId, 
+                userId,
+                "SOFT_DELETE", 
+                oldValues, 
+                new { IsDeleted = true }, 
+                "Content soft deleted"
+            );
+
             return true;
         }
 
-        public async Task<bool> RestoreAsync(Guid contentId)
+        public async Task<bool> RestoreAsync(Guid contentId, Guid userId)
         {
             var existing = await _contentRepository.GetByIdIncludingDeletedAsync(contentId);
             if (existing == null || !existing.IsDeleted)
@@ -340,10 +440,29 @@ namespace AISAM.Services.Service
                 return false;
             }
 
+            var oldValues = new {
+                Status = existing.Status.ToString(),
+                IsDeleted = true
+            };
+
             // Restore then reset status to Draft
             await _contentRepository.RestoreAsync(contentId);
             existing.Status = ContentStatusEnum.Draft;
             await _contentRepository.UpdateAsync(existing);
+
+            // Log restore action
+            await _auditLogService.LogContentActionAsync(
+                contentId, 
+                userId,
+                "RESTORE", 
+                oldValues, 
+                new { 
+                    Status = existing.Status.ToString(),
+                    IsDeleted = false
+                }, 
+                "Content restored and status reset to Draft"
+            );
+
             return true;
         }
 

@@ -158,6 +158,7 @@ builder.Services.AddScoped<IAdCreativeRepository, AdCreativeRepository>();
 builder.Services.AddScoped<IAdRepository, AdRepository>();
 builder.Services.AddScoped<IPerformanceReportRepository, PerformanceReportRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -185,6 +186,7 @@ builder.Services.AddScoped<IAdCreativeService, AdCreativeService>();
 builder.Services.AddScoped<IAdService, AdService>();
 builder.Services.AddScoped<IAdQuotaService, AdQuotaService>();
 builder.Services.AddScoped<IFacebookMarketingApiService, FacebookMarketingApiService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 

@@ -127,7 +127,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var ok = await _contentService.SoftDeleteAsync(contentId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var ok = await _contentService.SoftDeleteAsync(contentId, userId);
                 if (!ok)
                 {
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung hoặc đã bị xóa"));
@@ -150,7 +151,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var ok = await _contentService.RestoreAsync(contentId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var ok = await _contentService.RestoreAsync(contentId, userId);
                 if (!ok)
                 {
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung hoặc không ở trạng thái đã xóa"));

@@ -37,12 +37,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Soft delete content
         /// </summary>
-        Task<bool> SoftDeleteAsync(Guid contentId);
+        Task<bool> SoftDeleteAsync(Guid contentId, Guid userId);
 
         /// <summary>
         /// Restore soft-deleted content; set status to Draft
         /// </summary>
-        Task<bool> RestoreAsync(Guid contentId);
+        Task<bool> RestoreAsync(Guid contentId, Guid userId);
 
     }
 }
