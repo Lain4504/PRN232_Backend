@@ -6,6 +6,7 @@ using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Services.Helper;
+using Microsoft.Extensions.Logging;
 namespace AISAM.Services.Service
 {
     public class TeamService : ITeamService
@@ -17,8 +18,9 @@ namespace AISAM.Services.Service
         private readonly IBrandRepository _brandRepository;
         private readonly ITeamBrandRepository _teamBrandRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
+        private readonly ILogger<TeamService> _logger;
 
-        public TeamService(ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IUserRepository userRepository, IProfileRepository profileRepository, IBrandRepository brandRepository, ITeamBrandRepository teamBrandRepository, RolePermissionConfig rolePermissionConfig)
+        public TeamService(ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IUserRepository userRepository, IProfileRepository profileRepository, IBrandRepository brandRepository, ITeamBrandRepository teamBrandRepository, RolePermissionConfig rolePermissionConfig, ILogger<TeamService> logger)
         {
             _teamMemberRepository = teamMemberRepository;
             _teamRepository = teamRepository;
@@ -27,6 +29,7 @@ namespace AISAM.Services.Service
             _brandRepository = brandRepository;
             _teamBrandRepository = teamBrandRepository;
             _rolePermissionConfig = rolePermissionConfig;
+            _logger = logger;
         }
 
         public async Task<GenericResponse<TeamResponse>> CreateTeamAsync(CreateTeamRequest request, Guid profileId)
@@ -99,6 +102,8 @@ namespace AISAM.Services.Service
                     Description = createdTeam.Description,
                     CreatedAt = createdTeam.CreatedAt,
                     VendorEmail = profile?.User?.Email ?? "",
+                    Status = createdTeam.Status,
+                    MembersCount = 1 // Vendor is automatically added as first member
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Tạo team thành công");
@@ -113,19 +118,40 @@ namespace AISAM.Services.Service
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền xem thông tin team.");
-
-                // Lấy thông tin team theo ID
+                // Lấy thông tin team theo ID trước để kiểm tra vendor
                 var team = await _teamRepository.GetByIdAsync(id);
                 if (team == null)
                 {
                     return GenericResponse<TeamResponse>.CreateError("Không tìm thấy team với ID được cung cấp.");
                 }
 
+                // Kiểm tra quyền: user phải là vendor của team đó hoặc có quyền xem team
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng.");
+                }
+
+                // Nếu user là vendor của team đó, cho phép xem
+                if (user.Role == UserRoleEnum.Vendor && team.ProfileId == userId)
+                {
+                    // Vendor có thể xem team của chính mình
+                }
+                else
+                {
+                    // Kiểm tra quyền team member nếu không phải vendor của team đó
+                    var currentUserPermissions = await GetPermissionsByUserId(userId);
+                    if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
+                        throw new UnauthorizedAccessException("Bạn không có quyền xem thông tin team.");
+                }
+
                 // Lấy thông tin vendor để có email
                 var profile = await _profileRepository.GetByIdAsync(team.ProfileId);
+                var vendor = await _userRepository.GetByIdAsync(profile.UserId);
+                
+                // Lấy số lượng members
+                var membersCount = await _teamMemberRepository.GetByTeamIdAsync(team.Id);
+                
                 var response = new TeamResponse
                 {
                     Id = team.Id,
@@ -133,7 +159,9 @@ namespace AISAM.Services.Service
                     Name = team.Name,
                     Description = team.Description,
                     CreatedAt = team.CreatedAt,
-                    VendorEmail = profile?.User?.Email ?? "",
+                    VendorEmail = vendor?.Email ?? "",
+                    Status = team.Status,
+                    MembersCount = membersCount.Count()
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Lấy thông tin team thành công");
@@ -144,24 +172,69 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid userId)
+        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByProfileAsync(Guid profileId, Guid authenticatedProfileId)
         {
             try
             {
-                var currentUserPermissions = await GetPermissionsByUserId(userId);
-                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
-                    throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách team.");
+                // Validate that the authenticated profile can access this profile's teams
+                if (profileId != authenticatedProfileId)
+                {
+                    // Check if the authenticated profile is a team member of any teams owned by the requested profile
+                    var isTeamMember = await _teamMemberRepository.IsUserMemberOfProfileTeamsAsync(authenticatedProfileId, profileId);
+                    if (!isTeamMember)
+                    {
+                        return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không có quyền truy cập teams của profile này");
+                    }
+                }
+
+                var teams = await _teamRepository.GetTeamsByProfileAsync(profileId);
+                var teamResponses = teams.Select(MapToResponse).ToList();
+                return GenericResponse<IEnumerable<TeamResponse>>.CreateSuccess(teamResponses, "Lấy danh sách teams thành công");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting teams by profile {ProfileId}", profileId);
+                return GenericResponse<IEnumerable<TeamResponse>>.CreateError($"Lỗi khi lấy danh sách teams: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<IEnumerable<TeamResponse>>> GetTeamsByVendorAsync(Guid vendorId, Guid userId)
+        {
+            try
+            {
+                // Kiểm tra quyền: user phải là vendor của teams đó hoặc có quyền xem teams
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng.");
+                }
+
+                // Nếu user là vendor của teams đó, cho phép xem
+                if (user.Role == UserRoleEnum.Vendor && vendorId == userId)
+                {
+                    // Vendor có thể xem teams của chính mình
+                }
+                else
+                {
+                    // Kiểm tra quyền team member nếu không phải vendor của teams đó
+                    var currentUserPermissions = await GetPermissionsByUserId(userId);
+                    if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "VIEW_TEAM_MEMBERS"))
+                        throw new UnauthorizedAccessException("Bạn không có quyền xem danh sách team.");
+                }
 
                 // Lấy danh sách teams theo profile
-                var teams = await _teamRepository.GetByProfileIdAsync(profileId, userId);
+                var teams = await _teamRepository.GetByProfileIdAsync(vendorId, userId);
 
                 // Lấy thông tin profile để có email
-                var profile = await _profileRepository.GetByIdAsync(profileId);
+                var profile = await _profileRepository.GetByIdAsync(vendorId);
 
                 // Chuyển đổi sang TeamResponse với thông tin đầy đủ
                 var teamResponses = new List<TeamResponse>();
                 foreach (var team in teams)
                 {
+                    // Lấy số lượng members cho mỗi team
+                    var membersCount = await _teamMemberRepository.GetByTeamIdAsync(team.Id);
+                    
                     teamResponses.Add(new TeamResponse
                     {
                         Id = team.Id,
@@ -170,6 +243,8 @@ namespace AISAM.Services.Service
                         Description = team.Description,
                         CreatedAt = team.CreatedAt,
                         VendorEmail = profile?.User?.Email ?? "",
+                        Status = team.Status,
+                        MembersCount = membersCount.Count()
                     });
                 }
 
@@ -345,60 +420,137 @@ namespace AISAM.Services.Service
                     return GenericResponse<bool>.CreateError("Không thể cập nhật brand của team đã bị xóa.");
                 }
 
-                // Kiểm tra quyền sở hữu brand
+                // Validate brand IDs
+                if (request.BrandIds == null || !request.BrandIds.Any())
+                {
+                    return GenericResponse<bool>.CreateError("Danh sách brand IDs không được trống.");
+                }
+
+                var assignedCount = 0;
+                var errors = new List<string>();
+
+                foreach (var brandId in request.BrandIds)
+                {
+                    try
+                    {
+                        // Kiểm tra quyền sở hữu brand
+                        var brand = await _brandRepository.GetByIdAsync(brandId);
+                        if (brand == null)
+                        {
+                            errors.Add($"Không tìm thấy brand với ID: {brandId}");
+                            continue;
+                        }
+
+                if (brand.ProfileId != existingTeam.ProfileId)
+                {
+                    return GenericResponse<bool>.CreateError("Brand không thuộc về vendor của team.");
+                }
+                        if (brand.ProfileId != existingTeam.ProfileId)
+                        {
+                            errors.Add($"Brand {brand.Name} không thuộc về vendor của team.");
+                            continue;
+                        }
+
+                        // Kiểm tra brand đã bị xóa mềm chưa
+                        if (brand.IsDeleted)
+                        {
+                            errors.Add($"Không thể assign brand {brand.Name} đã bị xóa.");
+                            continue;
+                        }
+
+                        // Kiểm tra brand đã được assign cho team chưa
+                        var existingAssociation = await _teamBrandRepository.GetByTeamAndBrandAsync(id, brandId);
+                        if (existingAssociation != null && existingAssociation.IsActive)
+                        {
+                            errors.Add($"Brand {brand.Name} đã được assign cho team.");
+                            continue;
+                        }
+
+                        // Assign brand cho team
+                        var teamBrand = new TeamBrand
+                        {
+                            TeamId = id,
+                            BrandId = brandId,
+                            IsActive = true
+                        };
+                        await _teamBrandRepository.AddAsync(teamBrand);
+                        assignedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Lỗi khi assign brand {brandId}: {ex.Message}");
+                    }
+                }
+
+                if (assignedCount == 0)
+                {
+                    return GenericResponse<bool>.CreateError($"Không thể assign brand nào. Lỗi: {string.Join("; ", errors)}");
+                }
+
+                var message = $"Đã assign thành công {assignedCount}/{request.BrandIds.Count} brands cho team.";
+                if (errors.Any())
+                {
+                    message += $" Một số lỗi: {string.Join("; ", errors.Take(3))}";
+                }
+
+                return GenericResponse<bool>.CreateSuccess(true, message);
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<bool>.CreateError($"Lỗi khi assign brands cho team: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<bool>> UnassignBrandFromTeamAsync(Guid teamId, UnassignBrandFromTeamRequest request, Guid userId)
+        {
+            try
+            {
+                var currentUserPermissions = await GetPermissionsByUserId(userId);
+                if (!_rolePermissionConfig.HasCustomPermission(currentUserPermissions, "UPDATE_TEAM"))
+                    throw new UnauthorizedAccessException("Bạn không có quyền cập nhật team.");
+
+                // Lấy thông tin team hiện tại
+                var existingTeam = await _teamRepository.GetByIdAsync(teamId);
+                if (existingTeam == null)
+                {
+                    return GenericResponse<bool>.CreateError("Không tìm thấy team.");
+                }
+
+                // Kiểm tra team đã bị xóa mềm chưa
+                if (existingTeam.IsDeleted)
+                {
+                    return GenericResponse<bool>.CreateError("Không thể cập nhật brand của team đã bị xóa.");
+                }
+
+                // Kiểm tra brand tồn tại
                 var brand = await _brandRepository.GetByIdAsync(request.BrandId);
                 if (brand == null)
                 {
                     return GenericResponse<bool>.CreateError("Không tìm thấy brand với ID được cung cấp.");
                 }
 
+                // Kiểm tra brand có thuộc về vendor của team không
                 if (brand.ProfileId != existingTeam.ProfileId)
                 {
                     return GenericResponse<bool>.CreateError("Brand không thuộc về vendor của team.");
                 }
 
-                // Kiểm tra brand đã bị xóa mềm chưa
-                if (brand.IsDeleted)
+                // Tìm association hiện tại
+                var existingAssociation = await _teamBrandRepository.GetByTeamAndBrandAsync(teamId, request.BrandId);
+                if (existingAssociation == null || !existingAssociation.IsActive)
                 {
-                    return GenericResponse<bool>.CreateError("Không thể assign brand đã bị xóa.");
+                    return GenericResponse<bool>.CreateError("Brand chưa được assign cho team.");
                 }
 
-                if (request.Assign)
-                {
-                    // Kiểm tra brand đã được assign cho team chưa
-                    var existingAssociation = await _teamBrandRepository.GetByTeamAndBrandAsync(id, request.BrandId);
-                    if (existingAssociation != null && existingAssociation.IsActive)
-                    {
-                        return GenericResponse<bool>.CreateError("Brand đã được assign cho team.");
-                    }
+                // Unassign brand khỏi team (soft delete)
+                existingAssociation.IsActive = false;
+                await _teamBrandRepository.UpdateAsync(existingAssociation);
 
-                    // Assign brand cho team
-                    var teamBrand = new TeamBrand
-                    {
-                        TeamId = id,
-                        BrandId = request.BrandId,
-                        IsActive = true
-                    };
-                    await _teamBrandRepository.AddAsync(teamBrand);
-                }
-                else
-                {
-                    // Unassign brand khỏi team (soft delete)
-                    var existingAssociation = await _teamBrandRepository.GetByTeamAndBrandAsync(id, request.BrandId);
-                    if (existingAssociation == null || !existingAssociation.IsActive)
-                    {
-                        return GenericResponse<bool>.CreateError("Brand chưa được assign cho team.");
-                    }
-
-                    existingAssociation.IsActive = false;
-                    await _teamBrandRepository.UpdateAsync(existingAssociation);
-                }
-
-                return GenericResponse<bool>.CreateSuccess(true, $"{(request.Assign ? "Assign" : "Unassign")} brand cho team thành công");
+                return GenericResponse<bool>.CreateSuccess(true, $"Đã unassign brand {brand.Name} khỏi team thành công");
             }
             catch (Exception ex)
             {
-                return GenericResponse<bool>.CreateError($"Lỗi khi {(request.Assign ? "assign" : "unassign")} brand cho team: {ex.Message}");
+                return GenericResponse<bool>.CreateError($"Lỗi khi unassign brand khỏi team: {ex.Message}");
             }
         }
 
@@ -488,6 +640,20 @@ namespace AISAM.Services.Service
             if (member == null || member.Permissions == null || member.Permissions.Count == 0)
                 return new List<string> {}; // default permissions
             return member.Permissions;
+        }
+
+        private static TeamResponse MapToResponse(Team team)
+        {
+            return new TeamResponse
+            {
+                Id = team.Id,
+                ProfileId = team.ProfileId,
+                Name = team.Name,
+                Description = team.Description,
+                CreatedAt = team.CreatedAt,
+                Status = team.Status,
+                MembersCount = team.TeamMembers?.Count ?? 0
+            };
         }
     }
 }

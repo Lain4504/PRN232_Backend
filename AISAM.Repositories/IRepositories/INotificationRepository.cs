@@ -13,6 +13,7 @@ namespace AISAM.Repositories.IRepositories
         Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid profileId);
         Task<PagedResult<NotificationListDto>> GetPagedNotificationsAsync(Guid profileId, PaginationRequest request, bool unreadOnly = false);
         Task<int> GetUnreadCountAsync(Guid profileId);
+        Task<int> MarkAllAsReadAsync(Guid profileId);
         Task<bool> DeleteAsync(Guid id);
         Task<int> DeleteOldNotificationsAsync(int daysOld = 30);
     }

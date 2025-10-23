@@ -19,6 +19,10 @@ namespace AISAM.Data.Model
         [Column("name")]
         public string Name { get; set; } = string.Empty;
 
+        [MaxLength(255)]
+        [Column("facebook_ad_set_id")]
+        public string? FacebookAdSetId { get; set; } // Facebook Ad Set ID from Marketing API
+
         [Column("targeting", TypeName = "jsonb")]
         public string? Targeting { get; set; } // JSON targeting configuration
 

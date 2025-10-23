@@ -7,6 +7,8 @@ namespace AISAM.Repositories.IRepositories
         Task<SocialIntegration?> GetByIdAsync(Guid id);
         Task<SocialIntegration?> GetByExternalIdAsync(string externalId);
         Task<IEnumerable<SocialIntegration>> GetBySocialAccountIdAsync(Guid socialAccountId);
+        Task<IEnumerable<SocialIntegration>> GetByUserIdAsync(Guid userId);
+        Task<SocialIntegration?> GetByBrandIdAsync(Guid brandId);
         Task<IEnumerable<SocialIntegration>> GetByProfileIdAsync(Guid profileId);
         Task<SocialIntegration> CreateAsync(SocialIntegration integration);
         Task UpdateAsync(SocialIntegration integration);

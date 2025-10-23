@@ -75,5 +75,10 @@ namespace AISAM.Services.IServices
         /// Check if content has pending approval
         /// </summary>
         Task<bool> HasPendingApprovalAsync(Guid contentId);
+        
+        /// <summary>
+        /// Get count of pending approvals for a user
+        /// </summary>
+        Task<int> GetPendingCountAsync(Guid approverId);
     }
 }

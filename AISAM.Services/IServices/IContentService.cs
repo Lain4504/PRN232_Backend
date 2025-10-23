@@ -11,7 +11,7 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Create content and optionally publish it to social media
         /// </summary>
-        Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request);
+        Task<ContentResponseDto> CreateContentAsync(CreateContentRequest request, Guid userId);
         
         /// <summary>
         /// Publish existing content to social integration
@@ -37,12 +37,12 @@ namespace AISAM.Services.IServices
         /// <summary>
         /// Soft delete content
         /// </summary>
-        Task<bool> SoftDeleteAsync(Guid contentId);
+        Task<bool> SoftDeleteAsync(Guid contentId, Guid userId);
 
         /// <summary>
         /// Restore soft-deleted content; set status to Draft
         /// </summary>
-        Task<bool> RestoreAsync(Guid contentId);
+        Task<bool> RestoreAsync(Guid contentId, Guid userId);
 
     }
 }

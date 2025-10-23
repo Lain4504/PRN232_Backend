@@ -45,13 +45,15 @@ namespace AISAM.Services.Service
             return await _notificationRepository.MarkAsReadAsync(id);
         }
 
-        public async Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid userId)
+        public async Task<int> MarkAsReadBulkAsync(IEnumerable<Guid> ids, Guid profileId)
         {
-            if (ids == null) return 0;
-            var idList = ids.Distinct().ToList();
-            if (idList.Count == 0) return 0;
+            return await _notificationRepository.MarkAsReadBulkAsync(ids, profileId);
+        }
 
-            return await _notificationRepository.MarkAsReadBulkAsync(idList, userId);
+
+        public async Task<int> MarkAllAsReadAsync(Guid userId)
+        {
+            return await _notificationRepository.MarkAllAsReadAsync(userId);
         }
         public async Task<NotificationResponseDto> CreateAsync(CreateNotificationRequest request)
         {

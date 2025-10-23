@@ -11,6 +11,8 @@ using Microsoft.OpenApi.Models;
 using AISAM.API.Filters;
 using AISAM.Repositories.Repositories;
 using AISAM.Services.Helper;
+using AISAM.API.Validators;
+using AISAM.Common.Dtos.Request;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
@@ -53,6 +55,19 @@ var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
 if (!string.IsNullOrEmpty(frontendBaseUrl))
 {
     builder.Configuration["FrontendSettings:BaseUrl"] = frontendBaseUrl;
+}
+
+// Facebook sandbox configuration override
+var facebookUseSandbox = Environment.GetEnvironmentVariable("FACEBOOK_USE_SANDBOX");
+if (!string.IsNullOrEmpty(facebookUseSandbox))
+{
+    builder.Configuration["FacebookSettings:UseSandbox"] = facebookUseSandbox;
+}
+
+var facebookSandboxAccessToken = Environment.GetEnvironmentVariable("FACEBOOK_SANDBOX_ACCESS_TOKEN");
+if (!string.IsNullOrEmpty(facebookSandboxAccessToken))
+{
+    builder.Configuration["FacebookSettings:Sandbox:AccessToken"] = facebookSandboxAccessToken;
 }
 
 // Add services to the container.
@@ -136,7 +151,14 @@ builder.Services.AddScoped<IApprovalRepository, ApprovalRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamBrandRepository, TeamBrandRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<IAdCampaignRepository, AdCampaignRepository>();
+builder.Services.AddScoped<IAdSetRepository, AdSetRepository>();
+builder.Services.AddScoped<IAdCreativeRepository, AdCreativeRepository>();
+builder.Services.AddScoped<IAdRepository, AdRepository>();
+builder.Services.AddScoped<IPerformanceReportRepository, PerformanceReportRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -158,10 +180,25 @@ builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IScheduledPostingService, ScheduledPostingService>();
 builder.Services.AddHostedService<ScheduledPostingBackgroundService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAdCampaignService, AdCampaignService>();
+builder.Services.AddScoped<IAdSetService, AdSetService>();
+builder.Services.AddScoped<IAdCreativeService, AdCreativeService>();
+builder.Services.AddScoped<IAdService, AdService>();
+builder.Services.AddScoped<IAdQuotaService, AdQuotaService>();
+builder.Services.AddScoped<IFacebookMarketingApiService, FacebookMarketingApiService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
+
+// Add validators
+builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCampaignRequest>, CreateAdCampaignRequestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<CreateAdSetRequest>, CreateAdSetRequestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCreativeRequest>, CreateAdCreativeRequestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<CreateAdRequest>, CreateAdRequestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<UpdateAdStatusRequest>, UpdateAdStatusRequestValidator>();
+builder.Services.AddScoped<PublishRequestValidator>();
 
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 

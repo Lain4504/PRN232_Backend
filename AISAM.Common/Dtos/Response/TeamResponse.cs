@@ -1,3 +1,5 @@
+using AISAM.Data.Enumeration;
+
 namespace AISAM.Common.Dtos.Response
 {
     public class TeamResponse
@@ -8,5 +10,7 @@ namespace AISAM.Common.Dtos.Response
         public string? Description { get; set; }
         public DateTime CreatedAt { get; set; }
         public string VendorEmail { get; set; } = string.Empty;
+        public TeamStatusEnum Status { get; set; } = TeamStatusEnum.Active;
+        public int MembersCount { get; set; } = 0;
     }
 }

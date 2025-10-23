@@ -196,5 +196,13 @@ namespace AISAM.Repositories.Repository
                               a.Status == ContentStatusEnum.PendingApproval && 
                               !a.IsDeleted);
         }
+
+        public async Task<int> GetPendingCountAsync(Guid approverProfileId)
+        {
+            return await _context.Approvals
+                .CountAsync(a => a.ApproverProfileId == approverProfileId && 
+                               a.Status == ContentStatusEnum.PendingApproval && 
+                               !a.IsDeleted);
+        }
     }
 }

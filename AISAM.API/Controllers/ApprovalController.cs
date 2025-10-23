@@ -373,5 +373,31 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<bool>.CreateError("Lỗi hệ thống"));
             }
         }
+
+        /// <summary>
+        /// Get count of pending approvals for current user
+        /// </summary>
+        [HttpGet("pending/count")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<int>>> GetPendingCount()
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var count = await _approvalService.GetPendingCountAsync(userId);
+                return Ok(GenericResponse<int>.CreateSuccess(count, $"Có {count} yêu cầu phê duyệt đang chờ"));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(GenericResponse<int>.CreateError("Token không hợp lệ"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pending approval count");
+                return StatusCode(500, GenericResponse<int>.CreateError(
+                    "Đã xảy ra lỗi khi lấy số lượng yêu cầu phê duyệt đang chờ"
+                ));
+            }
+        }
     }
 }

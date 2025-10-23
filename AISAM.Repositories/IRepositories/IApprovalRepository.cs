@@ -28,5 +28,6 @@ namespace AISAM.Repositories.IRepositories
         Task RestoreAsync(Guid id);
         Task<bool> ExistsAsync(Guid id);
         Task<bool> HasPendingApprovalAsync(Guid contentId);
+        Task<int> GetPendingCountAsync(Guid approverId);
     }
 }

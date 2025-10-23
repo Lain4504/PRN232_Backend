@@ -34,8 +34,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-
-                var result = await _contentService.CreateContentAsync(request);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.CreateContentAsync(request, userId);
                 
                 var message = request.PublishImmediately
                     ? "Tạo và đăng bài thành công" 
@@ -99,8 +99,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var result = await _contentService.PublishContentAsync(contentId, integrationId, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.PublishContentAsync(contentId, integrationId, userId);
                 
                 var message = result.Success 
                     ? "Đăng bài thành công" 
@@ -127,7 +127,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var ok = await _contentService.SoftDeleteAsync(contentId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var ok = await _contentService.SoftDeleteAsync(contentId, userId);
                 if (!ok)
                 {
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung hoặc đã bị xóa"));
@@ -150,7 +151,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var ok = await _contentService.RestoreAsync(contentId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var ok = await _contentService.RestoreAsync(contentId, userId);
                 if (!ok)
                 {
                     return NotFound(GenericResponse<object>.CreateError("Không tìm thấy nội dung hoặc không ở trạng thái đã xóa"));
@@ -173,8 +175,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
-                var content = await _contentService.GetContentByIdAsync(contentId, profileId);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var content = await _contentService.GetContentByIdAsync(contentId, userId);
                 
                 if (content == null)
                 {

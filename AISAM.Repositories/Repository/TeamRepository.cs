@@ -38,6 +38,16 @@ namespace AISAM.Repositories.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Team>> GetTeamsByProfileAsync(Guid profileId)
+        {
+            return await _context.Teams
+                .Include(t => t.Profile)
+                .Include(t => t.TeamMembers)
+                .Where(t => t.ProfileId == profileId && !t.IsDeleted)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<bool> ExistsByNameAndProfileAsync(string name, Guid profileId)
         {
             return await _context.Teams

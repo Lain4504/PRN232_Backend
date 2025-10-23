@@ -12,6 +12,10 @@ namespace AISAM.Data.Model
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
+        [Column("user_id")]
+        public Guid UserId { get; set; }
+
+        [Required]
         [Column("brand_id")]
         public Guid BrandId { get; set; }
 
