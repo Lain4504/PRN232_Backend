@@ -57,6 +57,24 @@ if (!string.IsNullOrEmpty(frontendBaseUrl))
     builder.Configuration["FrontendSettings:BaseUrl"] = frontendBaseUrl;
 }
 
+var stripeSecretKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
+if (!string.IsNullOrEmpty(stripeSecretKey))
+{
+    builder.Configuration["Stripe:SecretKey"] = stripeSecretKey;
+}
+
+var stripePublishableKey = Environment.GetEnvironmentVariable("STRIPE_PUBLISHABLE_KEY");
+if (!string.IsNullOrEmpty(stripePublishableKey))
+{
+    builder.Configuration["Stripe:PublishableKey"] = stripePublishableKey;
+}
+
+var stripeWebhookSecret = Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
+if (!string.IsNullOrEmpty(stripeWebhookSecret))
+{
+    builder.Configuration["Stripe:WebhookSecret"] = stripeWebhookSecret;
+}
+
 // Facebook sandbox configuration override
 var facebookUseSandbox = Environment.GetEnvironmentVariable("FACEBOOK_USE_SANDBOX");
 if (!string.IsNullOrEmpty(facebookUseSandbox))
@@ -201,6 +219,9 @@ builder.Services.AddScoped<FluentValidation.IValidator<CreateAdRequest>, CreateA
 builder.Services.AddScoped<FluentValidation.IValidator<UpdateAdStatusRequest>, UpdateAdStatusRequestValidator>();
 builder.Services.AddScoped<PublishRequestValidator>();
 
+// Add subscription validation service
+builder.Services.AddScoped<ISubscriptionValidationService, SubscriptionValidationService>();
+
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 
 // Fetch JWKS 1 lần khi app start
@@ -330,6 +351,9 @@ app.UseSwaggerUI();
 
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
+
+// Add subscription validation middleware
+app.UseMiddleware<SubscriptionMiddleware>();
 
 // Authorization logging middleware removed
 
