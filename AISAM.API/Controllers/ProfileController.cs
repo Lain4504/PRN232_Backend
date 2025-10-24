@@ -67,11 +67,11 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Create a new profile for a specific user
+        /// Create a new profile for a specific user (Form data)
         /// </summary>
         [HttpPost("user/{userId}")]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> CreateProfile(Guid userId, [FromForm] CreateProfileRequest request, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<GenericResponse<ProfileResponseDto>>> CreateProfileForm(Guid userId, [FromForm] CreateProfileRequest request, CancellationToken cancellationToken = default)
         {
             try
             {

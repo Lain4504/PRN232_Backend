@@ -24,75 +24,75 @@ namespace AISAM.Services.Service
             _logger = logger;
         }
 
-        public async Task<bool> CheckCampaignQuotaAsync(Guid userId)
+        public async Task<bool> CheckCampaignQuotaAsync(Guid profileId)
         {
             try
             {
-                var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+                var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
                 if (subscription == null)
                 {
-                    _logger.LogWarning("No active subscription found for user {UserId}", userId);
+                    _logger.LogWarning("No active subscription found for profile {ProfileId}", profileId);
                     return false;
                 }
 
-                var activeCampaigns = await _adCampaignRepository.CountActiveByUserIdAsync(userId);
+                var activeCampaigns = await _adCampaignRepository.CountActiveByProfileIdAsync(profileId);
                 var canCreate = activeCampaigns < subscription.QuotaAdCampaigns;
 
-                _logger.LogInformation("User {UserId} campaign quota: {Active}/{Max}", 
-                    userId, activeCampaigns, subscription.QuotaAdCampaigns);
+                _logger.LogInformation("Profile {ProfileId} campaign quota: {Active}/{Max}", 
+                    profileId, activeCampaigns, subscription.QuotaAdCampaigns);
 
                 return canCreate;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking campaign quota for user {UserId}", userId);
+                _logger.LogError(ex, "Error checking campaign quota for profile {ProfileId}", profileId);
                 return false;
             }
         }
 
-        public async Task<bool> CheckBudgetQuotaAsync(Guid userId, decimal requestedBudget)
+        public async Task<bool> CheckBudgetQuotaAsync(Guid profileId, decimal requestedBudget)
         {
             try
             {
-                var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+                var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
                 if (subscription == null)
                 {
-                    _logger.LogWarning("No active subscription found for user {UserId}", userId);
+                    _logger.LogWarning("No active subscription found for profile {ProfileId}", profileId);
                     return false;
                 }
 
                 var currentMonthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
                 var currentMonthEnd = currentMonthStart.AddMonths(1).AddDays(-1);
 
-                var currentMonthSpend = await _performanceReportRepository.GetTotalSpendByUserIdAsync(userId, currentMonthStart, currentMonthEnd);
+                var currentMonthSpend = await _performanceReportRepository.GetTotalSpendByProfileIdAsync(profileId, currentMonthStart, currentMonthEnd);
                 var totalAfterRequest = currentMonthSpend + requestedBudget;
 
                 var canSpend = totalAfterRequest <= subscription.QuotaAdBudgetMonthly;
 
-                _logger.LogInformation("User {UserId} budget quota: {Current} + {Requested} = {Total}/{Max}", 
-                    userId, currentMonthSpend, requestedBudget, totalAfterRequest, subscription.QuotaAdBudgetMonthly);
+                _logger.LogInformation("Profile {ProfileId} budget quota: {Current} + {Requested} = {Total}/{Max}", 
+                    profileId, currentMonthSpend, requestedBudget, totalAfterRequest, subscription.QuotaAdBudgetMonthly);
 
                 return canSpend;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking budget quota for user {UserId}", userId);
+                _logger.LogError(ex, "Error checking budget quota for profile {ProfileId}", profileId);
                 return false;
             }
         }
 
-        public async Task<(bool canCreate, string? errorMessage)> ValidateQuotaAsync(Guid userId, decimal budget)
+        public async Task<(bool canCreate, string? errorMessage)> ValidateQuotaAsync(Guid profileId, decimal budget)
         {
             try
             {
-                var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+                var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
                 if (subscription == null)
                 {
                     return (false, "No active subscription found");
                 }
 
                 // Check campaign quota
-                var activeCampaigns = await _adCampaignRepository.CountActiveByUserIdAsync(userId);
+                var activeCampaigns = await _adCampaignRepository.CountActiveByProfileIdAsync(profileId);
                 if (activeCampaigns >= subscription.QuotaAdCampaigns)
                 {
                     return (false, $"Campaign limit reached ({activeCampaigns}/{subscription.QuotaAdCampaigns})");
@@ -101,7 +101,7 @@ namespace AISAM.Services.Service
                 // Check budget quota
                 var currentMonthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
                 var currentMonthEnd = currentMonthStart.AddMonths(1).AddDays(-1);
-                var currentMonthSpend = await _performanceReportRepository.GetTotalSpendByUserIdAsync(userId, currentMonthStart, currentMonthEnd);
+                var currentMonthSpend = await _performanceReportRepository.GetTotalSpendByProfileIdAsync(profileId, currentMonthStart, currentMonthEnd);
                 var totalAfterRequest = currentMonthSpend + budget;
 
                 if (totalAfterRequest > subscription.QuotaAdBudgetMonthly)
@@ -114,19 +114,19 @@ namespace AISAM.Services.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating quota for user {UserId}", userId);
+                _logger.LogError(ex, "Error validating quota for profile {ProfileId}", profileId);
                 return (false, "Error validating quota");
             }
         }
 
-        public async Task<AdQuotaInfo> GetRemainingQuotaAsync(Guid userId)
+        public async Task<AdQuotaInfo> GetRemainingQuotaAsync(Guid profileId)
         {
             try
             {
-                var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+                var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
                 if (subscription == null)
                 {
-                    _logger.LogWarning("No active subscription found for user {UserId}", userId);
+                    _logger.LogWarning("No active subscription found for profile {ProfileId}", profileId);
                     return new AdQuotaInfo
                     {
                         ActiveCampaigns = 0,
@@ -136,11 +136,11 @@ namespace AISAM.Services.Service
                     };
                 }
 
-                var activeCampaigns = await _adCampaignRepository.CountActiveByUserIdAsync(userId);
+                var activeCampaigns = await _adCampaignRepository.CountActiveByProfileIdAsync(profileId);
                 
                 var currentMonthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
                 var currentMonthEnd = currentMonthStart.AddMonths(1).AddDays(-1);
-                var currentMonthSpend = await _performanceReportRepository.GetTotalSpendByUserIdAsync(userId, currentMonthStart, currentMonthEnd);
+                var currentMonthSpend = await _performanceReportRepository.GetTotalSpendByProfileIdAsync(profileId, currentMonthStart, currentMonthEnd);
 
                 return new AdQuotaInfo
                 {
@@ -152,7 +152,7 @@ namespace AISAM.Services.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting remaining quota for user {UserId}", userId);
+                _logger.LogError(ex, "Error getting remaining quota for profile {ProfileId}", profileId);
                 return new AdQuotaInfo
                 {
                     ActiveCampaigns = 0,

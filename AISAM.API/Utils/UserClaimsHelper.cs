@@ -25,13 +25,6 @@ namespace AISAM.API.Utils
                 return userId;
             }
 
-            // Try alternative claim names for Supabase JWT
-            var subClaim = user?.FindFirst("sub")?.Value;
-            if (!string.IsNullOrEmpty(subClaim) && Guid.TryParse(subClaim, out var parsedUserId))
-            {
-                return parsedUserId;
-            }
-
             throw new UnauthorizedAccessException("Invalid user context: missing or invalid userId (sub).");
         }
 
@@ -55,5 +48,3 @@ namespace AISAM.API.Utils
 
     }
 }
-
-

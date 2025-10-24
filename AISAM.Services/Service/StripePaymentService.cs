@@ -17,22 +17,25 @@ namespace AISAM.Services.Service
         private readonly IPaymentRepository _paymentRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProfileRepository _profileRepository;
 
         public StripePaymentService(
             IConfiguration configuration,
             IPaymentRepository paymentRepository,
             ISubscriptionRepository subscriptionRepository,
-            IUserRepository userRepository)
+            IUserRepository userRepository,
+            IProfileRepository profileRepository)
         {
             _configuration = configuration;
             _paymentRepository = paymentRepository;
             _subscriptionRepository = subscriptionRepository;
             _userRepository = userRepository;
+            _profileRepository = profileRepository;
 
             StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
         }
 
-        public async Task<GenericResponse<CreatePaymentIntentResponse>> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, Guid userId)
+        public async Task<GenericResponse<CreatePaymentIntentResponse>> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, Guid userId, Guid profileId)
         {
             try
             {
@@ -50,6 +53,7 @@ namespace AISAM.Services.Service
                     Metadata = new Dictionary<string, string>
                     {
                         { "user_id", userId.ToString() },
+                        { "profile_id", profileId.ToString() },
                         { "subscription_plan", request.SubscriptionPlanId.ToString() }
                     }
                 };
@@ -136,15 +140,75 @@ namespace AISAM.Services.Service
                     return GenericResponse<SubscriptionResponseDto>.CreateError("User not found");
                 }
 
-                // Check if user already has an active subscription
-                var existingSubscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
-                if (existingSubscription != null)
+                // Validate that the user owns the profile
+                var profile = await _profileRepository.GetByIdAsync(request.ProfileId);
+                if (profile == null || profile.UserId != userId)
                 {
-                    return GenericResponse<SubscriptionResponseDto>.CreateError("User already has an active subscription");
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Profile not found or access denied");
                 }
 
-                // Get subscription plan details
+                // Check if profile already has an active subscription
+                var existingSubscription = await _subscriptionRepository.GetActiveByProfileIdAsync(request.ProfileId);
+                if (existingSubscription != null)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Profile already has an active subscription");
+                }
+
+                // Handle Free plan (no Stripe integration needed)
+                if (request.Plan == SubscriptionPlanEnum.Free)
+                {
+                    var (freeQuotaPosts, freeQuotaStorage, _, _) = GetPlanDetails(request.Plan);
+                    
+                    // Create free subscription in database
+                    var freeSubscription = new Data.Model.Subscription
+                    {
+                        Id = Guid.NewGuid(),
+                        ProfileId = request.ProfileId,
+                        Plan = request.Plan,
+                        QuotaPostsPerMonth = freeQuotaPosts,
+                        QuotaStorageGb = freeQuotaStorage,
+                        StartDate = DateTime.UtcNow.Date,
+                        EndDate = null, // Free plan has no end date
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    var freeCreatedSubscription = await _subscriptionRepository.CreateAsync(freeSubscription);
+
+                    // Update profile status to Active and set ProfileType
+                    var freeProfile = await _profileRepository.GetByIdAsync(request.ProfileId);
+                    if (freeProfile != null)
+                    {
+                        freeProfile.Status = ProfileStatusEnum.Active;
+                        freeProfile.SubscriptionId = freeCreatedSubscription.Id;
+                        freeProfile.ProfileType = ProfileTypeEnum.Free; // Set ProfileType for Free plan
+                        await _profileRepository.UpdateAsync(freeProfile);
+                    }
+
+                    var freeResponse = new SubscriptionResponseDto
+                    {
+                        Id = freeCreatedSubscription.Id,
+                        ProfileId = freeCreatedSubscription.ProfileId,
+                        Plan = freeCreatedSubscription.Plan,
+                        QuotaPostsPerMonth = freeCreatedSubscription.QuotaPostsPerMonth,
+                        QuotaStorageGb = freeCreatedSubscription.QuotaStorageGb,
+                        StartDate = freeCreatedSubscription.StartDate,
+                        EndDate = freeCreatedSubscription.EndDate,
+                        IsActive = freeCreatedSubscription.IsActive,
+                        CreatedAt = freeCreatedSubscription.CreatedAt
+                    };
+
+                    return GenericResponse<SubscriptionResponseDto>.CreateSuccess(freeResponse, "Free subscription created successfully");
+                }
+
+                // Get subscription plan details for paid plans
                 var (quotaPosts, quotaStorage, priceId, durationMonths) = GetPlanDetails(request.Plan);
+
+                // Validate payment method for paid plans
+                if (string.IsNullOrEmpty(request.PaymentMethodId))
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Payment method is required for paid subscription plans");
+                }
 
                 // Create Stripe customer if not exists
                 var customerService = new CustomerService();
@@ -169,6 +233,16 @@ namespace AISAM.Services.Service
                     customerId = customers.Data[0].Id;
                 }
 
+                // Attach payment method to customer if provided
+                if (!string.IsNullOrEmpty(request.PaymentMethodId))
+                {
+                    var paymentMethodService = new PaymentMethodService();
+                    var paymentMethod = await paymentMethodService.AttachAsync(request.PaymentMethodId, new PaymentMethodAttachOptions
+                    {
+                        Customer = customerId
+                    });
+                }
+
                 // Create subscription in Stripe
                 var subscriptionOptions = new SubscriptionCreateOptions
                 {
@@ -183,9 +257,16 @@ namespace AISAM.Services.Service
                     Metadata = new Dictionary<string, string>
                     {
                         { "user_id", userId.ToString() },
+                        { "profile_id", request.ProfileId.ToString() },
                         { "plan", ((int)request.Plan).ToString() }
                     }
                 };
+
+                // Set default payment method if provided
+                if (!string.IsNullOrEmpty(request.PaymentMethodId))
+                {
+                    subscriptionOptions.DefaultPaymentMethod = request.PaymentMethodId;
+                }
 
                 var subscriptionService = new Stripe.SubscriptionService();
                 var stripeSubscription = await subscriptionService.CreateAsync(subscriptionOptions);
@@ -194,22 +275,50 @@ namespace AISAM.Services.Service
                 var subscription = new Data.Model.Subscription
                 {
                     Id = Guid.NewGuid(),
-                    UserId = userId,
+                    ProfileId = request.ProfileId,
                     Plan = request.Plan,
                     QuotaPostsPerMonth = quotaPosts,
                     QuotaStorageGb = quotaStorage,
                     StartDate = DateTime.UtcNow.Date,
                     EndDate = request.IsRecurring ? null : DateTime.UtcNow.AddMonths(durationMonths).Date,
                     IsActive = stripeSubscription.Status == "active",
+                    StripeSubscriptionId = stripeSubscription.Id,
+                    StripeCustomerId = customerId,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 var createdSubscription = await _subscriptionRepository.CreateAsync(subscription);
 
+                // Create payment record for the subscription
+                var payment = new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    SubscriptionId = createdSubscription.Id,
+                    Amount = GetPlanPrice(request.Plan),
+                    Currency = "USD",
+                    Status = PaymentStatusEnum.Success,
+                    TransactionId = stripeSubscription.LatestInvoiceId,
+                    PaymentMethod = "stripe",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _paymentRepository.CreateAsync(payment);
+
+                // Update profile status to Active and set correct ProfileType
+                var paidProfile = await _profileRepository.GetByIdAsync(request.ProfileId);
+                if (paidProfile != null)
+                {
+                    paidProfile.Status = ProfileStatusEnum.Active;
+                    paidProfile.SubscriptionId = createdSubscription.Id;
+                    paidProfile.ProfileType = (ProfileTypeEnum)(int)request.Plan; // Map SubscriptionPlan to ProfileType
+                    await _profileRepository.UpdateAsync(paidProfile);
+                }
+
                 var response = new SubscriptionResponseDto
                 {
                     Id = createdSubscription.Id,
-                    UserId = createdSubscription.UserId,
+                    ProfileId = createdSubscription.ProfileId,
                     Plan = createdSubscription.Plan,
                     QuotaPostsPerMonth = createdSubscription.QuotaPostsPerMonth,
                     QuotaStorageGb = createdSubscription.QuotaStorageGb,
@@ -238,13 +347,24 @@ namespace AISAM.Services.Service
             try
             {
                 var subscription = await _subscriptionRepository.GetByIdAsync(subscriptionId);
-                if (subscription == null || subscription.UserId != userId)
+                if (subscription == null)
                 {
-                    return GenericResponse<bool>.CreateError("Subscription not found or access denied");
+                    return GenericResponse<bool>.CreateError("Subscription not found");
                 }
 
-                // Cancel in Stripe (you'll need to store Stripe subscription ID)
-                // This is a simplified version - in production you'd store the Stripe subscription ID
+                // Verify user owns the profile that owns the subscription
+                var profile = await _profileRepository.GetByIdAsync(subscription.ProfileId);
+                if (profile == null || profile.UserId != userId)
+                {
+                    return GenericResponse<bool>.CreateError("Access denied");
+                }
+
+                // Cancel in Stripe if we have the subscription ID
+                if (!string.IsNullOrEmpty(subscription.StripeSubscriptionId))
+                {
+                    var subscriptionService = new Stripe.SubscriptionService();
+                    await subscriptionService.CancelAsync(subscription.StripeSubscriptionId);
+                }
 
                 // Update database
                 subscription.IsActive = false;
@@ -264,22 +384,31 @@ namespace AISAM.Services.Service
             try
             {
                 var subscription = await _subscriptionRepository.GetByIdAsync(subscriptionId);
-                if (subscription == null || subscription.UserId != userId)
+                if (subscription == null)
                 {
-                    return GenericResponse<SubscriptionResponseDto>.CreateError("Subscription not found or access denied");
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Subscription not found");
+                }
+
+                // Verify user owns the profile that owns the subscription
+                var profile = await _profileRepository.GetByIdAsync(subscription.ProfileId);
+                if (profile == null || profile.UserId != userId)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Access denied");
                 }
 
                 var response = new SubscriptionResponseDto
                 {
                     Id = subscription.Id,
-                    UserId = subscription.UserId,
+                    ProfileId = subscription.ProfileId,
                     Plan = subscription.Plan,
                     QuotaPostsPerMonth = subscription.QuotaPostsPerMonth,
                     QuotaStorageGb = subscription.QuotaStorageGb,
                     StartDate = subscription.StartDate,
                     EndDate = subscription.EndDate,
                     IsActive = subscription.IsActive,
-                    CreatedAt = subscription.CreatedAt
+                    CreatedAt = subscription.CreatedAt,
+                    StripeSubscriptionId = subscription.StripeSubscriptionId,
+                    StripeCustomerId = subscription.StripeCustomerId
                 };
 
                 return GenericResponse<SubscriptionResponseDto>.CreateSuccess(response, "Subscription retrieved successfully");
@@ -299,14 +428,16 @@ namespace AISAM.Services.Service
                 var responses = subscriptions.Select(subscription => new SubscriptionResponseDto
                 {
                     Id = subscription.Id,
-                    UserId = subscription.UserId,
+                    ProfileId = subscription.ProfileId,
                     Plan = subscription.Plan,
                     QuotaPostsPerMonth = subscription.QuotaPostsPerMonth,
                     QuotaStorageGb = subscription.QuotaStorageGb,
                     StartDate = subscription.StartDate,
                     EndDate = subscription.EndDate,
                     IsActive = subscription.IsActive,
-                    CreatedAt = subscription.CreatedAt
+                    CreatedAt = subscription.CreatedAt,
+                    StripeSubscriptionId = subscription.StripeSubscriptionId,
+                    StripeCustomerId = subscription.StripeCustomerId
                 });
 
                 return GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateSuccess(responses, "Subscriptions retrieved successfully");
@@ -377,30 +508,24 @@ namespace AISAM.Services.Service
 
         private async Task HandleSubscriptionUpdated(Stripe.Subscription stripeSubscription)
         {
-            if (stripeSubscription.Metadata.TryGetValue("user_id", out var userIdStr) &&
-                Guid.TryParse(userIdStr, out var userId))
+            // Find subscription by Stripe subscription ID first (most reliable)
+            var subscription = await _subscriptionRepository.GetByStripeSubscriptionIdAsync(stripeSubscription.Id);
+            if (subscription != null)
             {
-                var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
-                if (subscription != null)
-                {
-                    subscription.IsActive = stripeSubscription.Status == "active";
-                    await _subscriptionRepository.UpdateAsync(subscription);
-                }
+                subscription.IsActive = stripeSubscription.Status == "active";
+                await _subscriptionRepository.UpdateAsync(subscription);
             }
         }
 
         private async Task HandleSubscriptionCancelled(Stripe.Subscription stripeSubscription)
         {
-            if (stripeSubscription.Metadata.TryGetValue("user_id", out var userIdStr) &&
-                Guid.TryParse(userIdStr, out var userId))
+            // Find subscription by Stripe subscription ID first (most reliable)
+            var subscription = await _subscriptionRepository.GetByStripeSubscriptionIdAsync(stripeSubscription.Id);
+            if (subscription != null)
             {
-                var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
-                if (subscription != null)
-                {
-                    subscription.IsActive = false;
-                    subscription.EndDate = DateTime.UtcNow.Date;
-                    await _subscriptionRepository.UpdateAsync(subscription);
-                }
+                subscription.IsActive = false;
+                subscription.EndDate = DateTime.UtcNow.Date;
+                await _subscriptionRepository.UpdateAsync(subscription);
             }
         }
 
@@ -409,9 +534,20 @@ namespace AISAM.Services.Service
             return plan switch
             {
                 SubscriptionPlanEnum.Free => (100, 5, "price_free", 0),
-                SubscriptionPlanEnum.Basic => (300, 25, "price_1SKhFVBQwyx2lNBeKBWdPKPqy0Ie0FryNNMbSEwUTjmdD2TOJXRjTapF64ThjUJJhcvbFwnnt77JUijDKHlkURYG00BOWqriQd", 1),
-                SubscriptionPlanEnum.Pro => (-1, 100, "price_pro", 3),
+                SubscriptionPlanEnum.Basic => (300, 25, "price_1SM3lZQzPon4zlatFv8vIvsi", 1),
+                SubscriptionPlanEnum.Pro => (-1, 100, "price_1SM3mfQzPon4zlat0ffUKMpU", 3),
                 _ => (100, 5, "price_free", 0)
+            };
+        }
+
+        private decimal GetPlanPrice(SubscriptionPlanEnum plan)
+        {
+            return plan switch
+            {
+                SubscriptionPlanEnum.Free => 0,
+                SubscriptionPlanEnum.Basic => 29,
+                SubscriptionPlanEnum.Pro => 99,
+                _ => 0
             };
         }
     }
