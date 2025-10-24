@@ -158,6 +158,8 @@ builder.Services.AddScoped<IAdCreativeRepository, AdCreativeRepository>();
 builder.Services.AddScoped<IAdRepository, AdRepository>();
 builder.Services.AddScoped<IPerformanceReportRepository, PerformanceReportRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -187,6 +189,7 @@ builder.Services.AddScoped<IAdQuotaService, AdQuotaService>();
 builder.Services.AddScoped<IFacebookMarketingApiService, FacebookMarketingApiService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
+builder.Services.AddScoped<IPaymentService, StripePaymentService>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
 
