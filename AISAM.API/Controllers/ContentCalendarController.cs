@@ -6,6 +6,7 @@ using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Services.Helper;
 using Microsoft.AspNetCore.Mvc;
+using AISAM.API.Middleware;
 
 namespace AISAM.API.Controllers
 {

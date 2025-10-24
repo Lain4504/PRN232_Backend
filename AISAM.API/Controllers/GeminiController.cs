@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using AISAM.Common;
 using AISAM.Common.Dtos.Response;
 using AISAM.Common.Models;
+using AISAM.API.Middleware;
+using AISAM.Data.Enumeration;
 
 namespace AISAM.API.Controllers
 {
@@ -24,6 +26,7 @@ namespace AISAM.API.Controllers
         /// Create a draft content and generate AI content for it
         /// </summary>
         [HttpPost("generate-draft")]
+        [PremiumFeature("ai_content_generation", SubscriptionPlanEnum.Basic)]
         public async Task<ActionResult<GenericResponse<AiGenerationResponse>>> GenerateContentForDraft([FromBody] CreateDraftRequest request)
         {
             try
@@ -47,6 +50,7 @@ namespace AISAM.API.Controllers
         /// Improve existing content and save as new AI generation
         /// </summary>
         [HttpPost("improve/{contentId}")]
+        [PremiumFeature("ai_content_generation", SubscriptionPlanEnum.Basic)]
         public async Task<ActionResult<GenericResponse<AiGenerationResponse>>> ImproveContent(Guid contentId, [FromBody] ImproveContentRequest request)
         {
             try
@@ -116,6 +120,7 @@ namespace AISAM.API.Controllers
         /// Chat with AI to create content based on selected brand and product
         /// </summary>
         [HttpPost("chat")]
+        [PremiumFeature("ai_content_generation", SubscriptionPlanEnum.Basic)]
         public async Task<ActionResult<GenericResponse<ChatResponse>>> ChatWithAI([FromBody] ChatRequest request)
         {
             try
