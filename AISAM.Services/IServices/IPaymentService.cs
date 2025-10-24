@@ -6,7 +6,7 @@ namespace AISAM.Services.IServices
 {
     public interface IPaymentService
     {
-        Task<GenericResponse<CreatePaymentIntentResponse>> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, Guid userId);
+        Task<GenericResponse<CreatePaymentIntentResponse>> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, Guid userId, Guid profileId);
         Task<GenericResponse<PaymentResponseDto>> ConfirmPaymentAsync(string paymentIntentId, Guid userId);
         Task<GenericResponse<SubscriptionResponseDto>> CreateSubscriptionAsync(CreateSubscriptionRequest request, Guid userId);
         Task<GenericResponse<bool>> CancelSubscriptionAsync(Guid subscriptionId, Guid userId);

@@ -5,7 +5,7 @@ namespace AISAM.Common.Dtos.Response
     public class SubscriptionResponseDto
     {
         public Guid Id { get; set; }
-        public Guid UserId { get; set; }
+        public Guid ProfileId { get; set; }
         public SubscriptionPlanEnum Plan { get; set; }
         public int QuotaPostsPerMonth { get; set; }
         public int QuotaStorageGb { get; set; }

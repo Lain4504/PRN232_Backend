@@ -38,8 +38,11 @@ namespace AISAM.Data.Model
         [Column("avatar_url")]
         public string? AvatarUrl { get; set; }
 
-        [Column("is_deleted")]
-        public bool IsDeleted { get; set; } = false;
+        [Column("status")]
+        public ProfileStatusEnum Status { get; set; } = ProfileStatusEnum.Pending;
+
+        // Computed property for backward compatibility
+        public bool IsDeleted => Status == ProfileStatusEnum.Cancelled;
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

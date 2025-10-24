@@ -352,11 +352,6 @@ app.UseSwaggerUI();
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
-// Add subscription validation middleware
-app.UseMiddleware<SubscriptionMiddleware>();
-
-// Authorization logging middleware removed
-
 app.UseHttpsRedirection();
 
 app.UseCors("CorsPolicy");

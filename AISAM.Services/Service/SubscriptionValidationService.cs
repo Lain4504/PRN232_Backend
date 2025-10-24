@@ -13,23 +13,23 @@ namespace AISAM.Services.Service
             _subscriptionRepository = subscriptionRepository;
         }
 
-        public async Task<bool> HasActiveSubscriptionAsync(Guid userId)
+        public async Task<bool> HasActiveSubscriptionAsync(Guid profileId)
         {
-            var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+            var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
             return subscription != null;
         }
 
-        public async Task<bool> HasRequiredPlanAsync(Guid userId, SubscriptionPlanEnum minimumPlan)
+        public async Task<bool> HasRequiredPlanAsync(Guid profileId, SubscriptionPlanEnum minimumPlan)
         {
-            var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+            var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
             if (subscription == null) return false;
 
             return (int)subscription.Plan >= (int)minimumPlan;
         }
 
-        public async Task<bool> CanUseFeatureAsync(Guid userId, string featureName)
+        public async Task<bool> CanUseFeatureAsync(Guid profileId, string featureName)
         {
-            var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+            var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
 
             // Free features (available to all users)
             var freeFeatures = new[] { "basic_content_creation", "facebook_posting", "basic_analytics" };
@@ -46,15 +46,15 @@ namespace AISAM.Services.Service
             return true;
         }
 
-        public async Task<SubscriptionPlanEnum> GetUserPlanAsync(Guid userId)
+        public async Task<SubscriptionPlanEnum> GetUserPlanAsync(Guid profileId)
         {
-            var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+            var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
             return subscription?.Plan ?? SubscriptionPlanEnum.Free;
         }
 
-        public async Task<int> GetRemainingQuotaAsync(Guid userId, string quotaType)
+        public async Task<int> GetRemainingQuotaAsync(Guid profileId, string quotaType)
         {
-            var subscription = await _subscriptionRepository.GetActiveByUserIdAsync(userId);
+            var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
 
             if (subscription == null)
             {
@@ -79,11 +79,11 @@ namespace AISAM.Services.Service
             };
         }
 
-        public async Task<bool> CheckAndDecrementQuotaAsync(Guid userId, string quotaType, int amount = 1)
+        public async Task<bool> CheckAndDecrementQuotaAsync(Guid profileId, string quotaType, int amount = 1)
         {
             // For now, just check if user has quota remaining
             // In production, you'd decrement actual usage counters
-            var remaining = await GetRemainingQuotaAsync(userId, quotaType);
+            var remaining = await GetRemainingQuotaAsync(profileId, quotaType);
 
             // -1 means unlimited (Pro plan)
             if (remaining == -1) return true;

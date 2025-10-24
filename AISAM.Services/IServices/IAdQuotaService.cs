@@ -2,10 +2,10 @@ namespace AISAM.Services.IServices
 {
     public interface IAdQuotaService
     {
-        Task<bool> CheckCampaignQuotaAsync(Guid userId);
-        Task<bool> CheckBudgetQuotaAsync(Guid userId, decimal requestedBudget);
-        Task<(bool canCreate, string? errorMessage)> ValidateQuotaAsync(Guid userId, decimal budget);
-        Task<AdQuotaInfo> GetRemainingQuotaAsync(Guid userId);
+        Task<bool> CheckCampaignQuotaAsync(Guid profileId);
+        Task<bool> CheckBudgetQuotaAsync(Guid profileId, decimal requestedBudget);
+        Task<(bool canCreate, string? errorMessage)> ValidateQuotaAsync(Guid profileId, decimal budget);
+        Task<AdQuotaInfo> GetRemainingQuotaAsync(Guid profileId);
     }
 
     public class AdQuotaInfo

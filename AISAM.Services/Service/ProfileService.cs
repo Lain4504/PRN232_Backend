@@ -224,12 +224,12 @@ namespace AISAM.Services.Service
                     return GenericResponse<bool>.CreateError("Không tìm thấy hồ sơ", HttpStatusCode.NotFound);
                 }
 
-                if (!profile.IsDeleted)
+                if (profile.Status != ProfileStatusEnum.Cancelled)
                 {
                     return GenericResponse<bool>.CreateError("Hồ sơ chưa bị xóa, không thể khôi phục", HttpStatusCode.BadRequest);
                 }
 
-                profile.IsDeleted = false;
+                profile.Status = ProfileStatusEnum.Pending; // Restore to pending status
                 profile.UpdatedAt = DateTime.UtcNow;
 
                 await _profileRepository.UpdateAsync(profile, cancellationToken);
@@ -253,6 +253,7 @@ namespace AISAM.Services.Service
                 CompanyName = profile.CompanyName,
                 Bio = profile.Bio,
                 AvatarUrl = profile.AvatarUrl,
+                Status = profile.Status,
                 CreatedAt = profile.CreatedAt,
                 UpdatedAt = profile.UpdatedAt
             };

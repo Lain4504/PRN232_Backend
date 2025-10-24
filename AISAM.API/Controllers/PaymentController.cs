@@ -32,7 +32,9 @@ namespace AISAM.API.Controllers
                 return Unauthorized(GenericResponse<CreatePaymentIntentResponse>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _paymentService.CreatePaymentIntentAsync(request, userId);
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+
+            var result = await _paymentService.CreatePaymentIntentAsync(request, userId, profileId);
 
             if (result.Success)
             {
