@@ -19,7 +19,7 @@ namespace AISAM.Repositories.Repository
             return await _context.Profiles
                 .Include(p => p.User)
                 .Include(p => p.Brands)
-                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
+                .FirstOrDefaultAsync(p => p.Id == id && p.Status != ProfileStatusEnum.Cancelled, cancellationToken);
         }
 
         public async Task<Profile?> GetByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default)
@@ -35,17 +35,18 @@ namespace AISAM.Repositories.Repository
             return await _context.Profiles
                 .Include(p => p.User)
                 .Include(p => p.Brands)
-                .Where(p => p.UserId == userId && !p.IsDeleted)
+                .Where(p => p.UserId == userId && p.Status != ProfileStatusEnum.Cancelled)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
 
         public async Task<IEnumerable<Profile>> GetByUserIdIncludingDeletedAsync(Guid userId, bool isDeleted, CancellationToken cancellationToken = default)
         {
+            var statusFilter = isDeleted ? ProfileStatusEnum.Cancelled : ProfileStatusEnum.Pending;
             return await _context.Profiles
                 .Include(p => p.User)
                 .Include(p => p.Brands)
-                .Where(p => p.UserId == userId && p.IsDeleted == isDeleted)
+                .Where(p => p.UserId == userId && p.Status == statusFilter)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
@@ -71,11 +72,11 @@ namespace AISAM.Repositories.Repository
         public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
             var profile = await _context.Profiles
-                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
+                .FirstOrDefaultAsync(p => p.Id == id && p.Status != ProfileStatusEnum.Cancelled, cancellationToken);
 
             if (profile != null)
             {
-                profile.IsDeleted = true;
+                profile.Status = ProfileStatusEnum.Cancelled;
                 profile.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(cancellationToken);
                 return true;
@@ -86,11 +87,11 @@ namespace AISAM.Repositories.Repository
         public async Task RestoreAsync(Guid id, CancellationToken cancellationToken = default)
         {
             var profile = await _context.Profiles
-                .FirstOrDefaultAsync(p => p.Id == id && p.IsDeleted, cancellationToken);
+                .FirstOrDefaultAsync(p => p.Id == id && p.Status == ProfileStatusEnum.Cancelled, cancellationToken);
 
             if (profile != null)
             {
-                profile.IsDeleted = false;
+                profile.Status = ProfileStatusEnum.Pending; // Restore to pending status
                 profile.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(cancellationToken);
             }
@@ -99,7 +100,7 @@ namespace AISAM.Repositories.Repository
         public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Profiles
-                .AnyAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
+                .AnyAsync(p => p.Id == id && p.Status != ProfileStatusEnum.Cancelled, cancellationToken);
         }
 
         public async Task<IEnumerable<Profile>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, bool? isDeleted = null, CancellationToken cancellationToken = default)
@@ -109,15 +110,16 @@ namespace AISAM.Repositories.Repository
                 .Include(p => p.Brands)
                 .Where(p => p.UserId == userId);
 
-            // Apply isDeleted filter
+            // Apply isDeleted filter (backward compatibility)
             if (isDeleted.HasValue)
             {
-                query = query.Where(p => p.IsDeleted == isDeleted.Value);
+                var statusFilter = isDeleted.Value ? ProfileStatusEnum.Cancelled : ProfileStatusEnum.Pending;
+                query = query.Where(p => p.Status == statusFilter);
             }
             else
             {
                 // Default behavior: only get non-deleted profiles
-                query = query.Where(p => !p.IsDeleted);
+                query = query.Where(p => p.Status != ProfileStatusEnum.Cancelled);
             }
 
             // Apply search filter if provided

@@ -1,0 +1,61 @@
+{
+  "features": {
+    "basic_content_creation": {
+      "name": "Basic Content Creation",
+      "description": "Create and publish basic social media content",
+      "required_plan": "Free"
+    },
+    "facebook_posting": {
+      "name": "Facebook Posting",
+      "description": "Post content to Facebook pages and groups",
+      "required_plan": "Free"
+    },
+    "basic_analytics": {
+      "name": "Basic Analytics",
+      "description": "View basic post performance metrics",
+      "required_plan": "Free"
+    },
+    "ai_content_generation": {
+      "name": "AI Content Generation",
+      "description": "Generate content using AI assistance",
+      "required_plan": "Basic"
+    }
+  },
+  "plans": {
+    "Basic": {
+      "name": "Basic Plan",
+      "price": 10.00,
+      "currency": "USD",
+      "interval": "month",
+      "duration_months": 1,
+      "features": ["ai_content_generation"],
+      "description": "Access to AI content generation for 1 month"
+    },
+    "Pro": {
+      "name": "Pro Plan",
+      "price": 40.00,
+      "currency": "USD",
+      "interval": "month",
+      "duration_months": 3,
+      "features": ["ai_content_generation"],
+      "description": "All Basic features plus advanced capabilities for 3 months"
+    }
+  },
+  "quotas": {
+    "Free": {
+      "posts_per_month": 100,
+      "ai_generations_per_month": 10,
+      "storage_gb": 5
+    },
+    "Basic": {
+      "posts_per_month": 300,
+      "ai_generations_per_month": 100,
+      "storage_gb": 25
+    },
+    "Pro": {
+      "posts_per_month": -1,
+      "ai_generations_per_month": 1000,
+      "storage_gb": 100
+    }
+  }
+}

@@ -50,6 +50,14 @@ namespace AISAM.Data.Model
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        [MaxLength(255)]
+        [Column("stripe_subscription_id")]
+        public string? StripeSubscriptionId { get; set; }
+
+        [MaxLength(255)]
+        [Column("stripe_customer_id")]
+        public string? StripeCustomerId { get; set; }
+
         // Navigation properties
         [ForeignKey("ProfileId")]
         public virtual Profile Profile { get; set; } = null!;

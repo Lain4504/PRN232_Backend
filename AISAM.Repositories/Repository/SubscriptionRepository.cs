@@ -32,17 +32,13 @@ namespace AISAM.Repositories.Repository
                                         (s.EndDate == null || s.EndDate >= now));
         }
 
-        public async Task<Subscription?> GetActiveByUserIdAsync(Guid userId)
+        public async Task<List<Subscription>> GetByUserIdAsync(Guid userId)
         {
-            var now = DateTime.UtcNow.Date;
             return await _context.Subscriptions
                 .Include(s => s.Profile)
-                .Where(s => s.Profile.UserId == userId && 
-                           s.IsActive && 
-                           !s.IsDeleted &&
-                           s.StartDate <= now &&
-                           (s.EndDate == null || s.EndDate >= now))
-                .FirstOrDefaultAsync();
+                .Where(s => s.Profile.UserId == userId && !s.IsDeleted)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
         }
 
         public async Task<List<Subscription>> GetByProfileIdAsync(Guid profileId)
@@ -52,6 +48,13 @@ namespace AISAM.Repositories.Repository
                 .Where(s => s.ProfileId == profileId && !s.IsDeleted)
                 .OrderByDescending(s => s.CreatedAt)
                 .ToListAsync();
+        }
+
+        public async Task<Subscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId)
+        {
+            return await _context.Subscriptions
+                .Include(s => s.Profile)
+                .FirstOrDefaultAsync(s => s.StripeSubscriptionId == stripeSubscriptionId && !s.IsDeleted);
         }
 
         public async Task<Subscription> CreateAsync(Subscription subscription)

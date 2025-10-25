@@ -12,6 +12,7 @@ namespace AISAM.Common.Dtos.Response
         public string? CompanyName { get; set; }
         public string? Bio { get; set; }
         public string? AvatarUrl { get; set; }
+        public ProfileStatusEnum Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

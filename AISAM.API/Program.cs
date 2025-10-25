@@ -57,6 +57,24 @@ if (!string.IsNullOrEmpty(frontendBaseUrl))
     builder.Configuration["FrontendSettings:BaseUrl"] = frontendBaseUrl;
 }
 
+var stripeSecretKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
+if (!string.IsNullOrEmpty(stripeSecretKey))
+{
+    builder.Configuration["Stripe:SecretKey"] = stripeSecretKey;
+}
+
+var stripePublishableKey = Environment.GetEnvironmentVariable("STRIPE_PUBLISHABLE_KEY");
+if (!string.IsNullOrEmpty(stripePublishableKey))
+{
+    builder.Configuration["Stripe:PublishableKey"] = stripePublishableKey;
+}
+
+var stripeWebhookSecret = Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
+if (!string.IsNullOrEmpty(stripeWebhookSecret))
+{
+    builder.Configuration["Stripe:WebhookSecret"] = stripeWebhookSecret;
+}
+
 // Facebook sandbox configuration override
 var facebookUseSandbox = Environment.GetEnvironmentVariable("FACEBOOK_USE_SANDBOX");
 if (!string.IsNullOrEmpty(facebookUseSandbox))
@@ -158,6 +176,8 @@ builder.Services.AddScoped<IAdCreativeRepository, AdCreativeRepository>();
 builder.Services.AddScoped<IAdRepository, AdRepository>();
 builder.Services.AddScoped<IPerformanceReportRepository, PerformanceReportRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 // Add services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -187,6 +207,7 @@ builder.Services.AddScoped<IAdQuotaService, AdQuotaService>();
 builder.Services.AddScoped<IFacebookMarketingApiService, FacebookMarketingApiService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
+builder.Services.AddScoped<IPaymentService, StripePaymentService>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
 
@@ -197,6 +218,9 @@ builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCreativeRequest>,
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdRequest>, CreateAdRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<UpdateAdStatusRequest>, UpdateAdStatusRequestValidator>();
 builder.Services.AddScoped<PublishRequestValidator>();
+
+// Add subscription validation service
+builder.Services.AddScoped<ISubscriptionValidationService, SubscriptionValidationService>();
 
 var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
 
@@ -327,8 +351,6 @@ app.UseSwaggerUI();
 
 // Add global exception handling middleware
 app.UseMiddleware<ExceptionHandlerMiddleware>();
-
-// Authorization logging middleware removed
 
 app.UseHttpsRedirection();
 
