@@ -75,6 +75,15 @@ namespace AISAM.Repositories.Repository
                 .FirstOrDefaultAsync(si => si.BrandId == brandId && si.IsActive && !si.IsDeleted);
         }
 
+        public async Task<SocialIntegration?> GetByAdAccountIdAsync(string adAccountId)
+        {
+            return await _context.SocialIntegrations
+                .Include(si => si.SocialAccount)
+                .Include(si => si.Profile)
+                .Include(si => si.Brand)
+                .FirstOrDefaultAsync(si => si.AdAccountId == adAccountId && si.IsActive && !si.IsDeleted);
+        }
+
         public async Task<SocialIntegration> CreateAsync(SocialIntegration integration)
         {
             integration.CreatedAt = DateTime.UtcNow;

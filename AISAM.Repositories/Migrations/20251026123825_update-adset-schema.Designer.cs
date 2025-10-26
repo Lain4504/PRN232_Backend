@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AISAM.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AISAM.Repositories.Migrations
 {
     [DbContext(typeof(AisamContext))]
-    partial class AisamContextModelSnapshot : ModelSnapshot
+    [Migration("20251026123825_update-adset-schema")]
+    partial class updateadsetschema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -159,7 +162,7 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("call_to_action");
 
-                    b.Property<Guid?>("ContentId")
+                    b.Property<Guid>("ContentId")
                         .HasColumnType("uuid")
                         .HasColumnName("content_id");
 
@@ -171,11 +174,6 @@ namespace AISAM.Repositories.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("creative_id");
-
-                    b.Property<string>("FacebookPostId")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("facebook_post_id");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -1619,7 +1617,8 @@ namespace AISAM.Repositories.Migrations
                     b.HasOne("AISAM.Data.Model.Content", "Content")
                         .WithMany("AdCreatives")
                         .HasForeignKey("ContentId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Content");
                 });

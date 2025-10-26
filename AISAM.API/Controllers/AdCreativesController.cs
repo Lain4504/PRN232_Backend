@@ -26,6 +26,7 @@ namespace AISAM.API.Controllers
         }
 
         [HttpPost]
+        [Obsolete("This endpoint is deprecated. Use /from-content or /from-facebook-post instead.")]
         public async Task<ActionResult<GenericResponse<AdCreativeResponse>>> CreateAdCreative([FromBody] CreateAdCreativeRequest request)
         {
             try
@@ -45,6 +46,54 @@ namespace AISAM.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating ad creative");
+                return StatusCode(500, GenericResponse<AdCreativeResponse>.CreateError("Internal server error"));
+            }
+        }
+
+        [HttpPost("from-content")]
+        public async Task<ActionResult<GenericResponse<AdCreativeResponse>>> CreateAdCreativeFromContent([FromBody] CreateAdCreativeFromContentRequest request)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _adCreativeService.CreateAdCreativeFromContentAsync(userId, request);
+                return Ok(GenericResponse<AdCreativeResponse>.CreateSuccess(result, "Ad creative created successfully from content"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(GenericResponse<AdCreativeResponse>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating ad creative from content");
+                return StatusCode(500, GenericResponse<AdCreativeResponse>.CreateError("Internal server error"));
+            }
+        }
+
+        [HttpPost("from-facebook-post")]
+        public async Task<ActionResult<GenericResponse<AdCreativeResponse>>> CreateAdCreativeFromFacebookPost([FromBody] CreateAdCreativeFromFacebookPostRequest request)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _adCreativeService.CreateAdCreativeFromFacebookPostAsync(userId, request);
+                return Ok(GenericResponse<AdCreativeResponse>.CreateSuccess(result, "Ad creative created successfully from Facebook post"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(GenericResponse<AdCreativeResponse>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating ad creative from Facebook post");
                 return StatusCode(500, GenericResponse<AdCreativeResponse>.CreateError("Internal server error"));
             }
         }

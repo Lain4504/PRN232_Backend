@@ -102,5 +102,74 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<AdSetResponse>.CreateError("Internal server error"));
             }
         }
+
+        [HttpPut("{adSetId}/status")]
+        public async Task<ActionResult<GenericResponse<object>>> UpdateAdSetStatus(Guid adSetId, [FromBody] UpdateAdSetStatusRequest request)
+        {
+            try
+            {
+                if (adSetId != request.AdSetId)
+                {
+                    return BadRequest(GenericResponse<object>.CreateError("Ad Set ID mismatch"));
+                }
+
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _adSetService.UpdateAdSetStatusAsync(userId, request);
+                
+                if (!result)
+                {
+                    return NotFound(GenericResponse<object>.CreateError("Ad set not found"));
+                }
+
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Ad set status updated successfully"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(GenericResponse<object>.CreateError(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(GenericResponse<object>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating ad set status for ad set {AdSetId}", adSetId);
+                return StatusCode(500, GenericResponse<object>.CreateError("Internal server error"));
+            }
+        }
+
+        [HttpDelete("{adSetId}")]
+        public async Task<ActionResult<GenericResponse<object>>> DeleteAdSet(Guid adSetId)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _adSetService.DeleteAdSetAsync(userId, adSetId);
+                
+                if (!result)
+                {
+                    return NotFound(GenericResponse<object>.CreateError("Ad set not found"));
+                }
+
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Ad set deleted successfully"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(GenericResponse<object>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting ad set {AdSetId}", adSetId);
+                return StatusCode(500, GenericResponse<object>.CreateError("Internal server error"));
+            }
+        }
     }
 }

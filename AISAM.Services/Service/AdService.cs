@@ -107,11 +107,22 @@ namespace AISAM.Services.Service
                     throw new UnauthorizedAccessException("Facebook access token has expired. Please reconnect your account.");
                 }
 
+                // Validate Facebook IDs exist
+                if (string.IsNullOrEmpty(adSet.FacebookAdSetId))
+                {
+                    throw new ArgumentException("Ad set does not have a Facebook Ad Set ID. Please ensure the ad set was created successfully on Facebook.");
+                }
+
+                if (string.IsNullOrEmpty(creative.CreativeId))
+                {
+                    throw new ArgumentException("Ad creative does not have a Facebook Creative ID. Please ensure the creative was created successfully on Facebook.");
+                }
+
                 // Create ad on Facebook
                 var facebookAdId = await _facebookApiService.CreateAdAsync(
                     socialIntegration.AdAccountId,
-                    adSet.Id.ToString(), // Using ad set ID as reference
-                    creative.CreativeId!,
+                    adSet.FacebookAdSetId, // Use Facebook Ad Set ID, not internal GUID
+                    creative.CreativeId,
                     request.Status,
                     socialIntegration.AccessToken);
 
@@ -132,7 +143,7 @@ namespace AISAM.Services.Service
                     ? $"Your ad is now running with ad set '{adSet.Name}'."
                     : $"Your ad has been created successfully with ad set '{adSet.Name}'.";
 
-                await SendNotificationAsync(userId, notificationTitle, notificationMessage, createdAd.Id, "ad");
+                await SendNotificationAsync(adSet.Campaign.ProfileId, notificationTitle, notificationMessage, createdAd.Id, "ad");
 
                 _logger.LogInformation("User {UserId} created ad {AdId} with Facebook ID {FacebookAdId}", 
                     userId, createdAd.Id, facebookAdId);
@@ -269,7 +280,7 @@ namespace AISAM.Services.Service
                         ? $"Your ad has been resumed and is now running."
                         : $"Your ad has been paused.";
 
-                    await SendNotificationAsync(userId, notificationTitle, notificationMessage, ad.Id, "ad");
+                    await SendNotificationAsync(ad.AdSet.Campaign.ProfileId, notificationTitle, notificationMessage, ad.Id, "ad");
 
                     _logger.LogInformation("User {UserId} updated ad {AdId} status to {Status}", userId, ad.Id, request.Status);
                 }
@@ -314,7 +325,7 @@ namespace AISAM.Services.Service
                 var deleted = await _adRepository.SoftDeleteAsync(adId);
                 if (deleted)
                 {
-                    await SendNotificationAsync(userId, "Ad Deleted", 
+                    await SendNotificationAsync(ad.AdSet.Campaign.ProfileId, "Ad Deleted", 
                         $"Your ad has been deleted successfully.", 
                         adId, "ad");
 
@@ -457,7 +468,24 @@ namespace AISAM.Services.Service
 
         private async Task ValidateCreativeAccessAsync(Guid userId, AdCreative creative)
         {
-            await ValidateContentAccessAsync(userId, creative.Content);
+            // If creative is from Facebook post (ContentId is null), validate through brand
+            if (creative.ContentId.HasValue && creative.Content != null)
+            {
+                await ValidateContentAccessAsync(userId, creative.Content);
+            }
+            else
+            {
+                // For Facebook post creatives, validate through brand via social integration
+                var socialIntegration = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
+                if (socialIntegration != null)
+                {
+                    var brand = await _brandRepository.GetByIdAsync(socialIntegration.BrandId);
+                    if (brand != null)
+                    {
+                        await ValidateBrandAccessAsync(userId, brand);
+                    }
+                }
+            }
         }
 
         private async Task ValidateAdAccessAsync(Guid userId, Ad ad)
@@ -606,13 +634,13 @@ namespace AISAM.Services.Service
             };
         }
 
-        private async Task SendNotificationAsync(Guid userId, string title, string message, Guid targetId, string targetType)
+        private async Task SendNotificationAsync(Guid profileId, string title, string message, Guid targetId, string targetType)
         {
             try
             {
                 var notification = new Notification
                 {
-                    ProfileId = userId,
+                    ProfileId = profileId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,
@@ -624,7 +652,7 @@ namespace AISAM.Services.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send notification to user {UserId}", userId);
+                _logger.LogError(ex, "Failed to send notification to profile {ProfileId}", profileId);
             }
         }
 

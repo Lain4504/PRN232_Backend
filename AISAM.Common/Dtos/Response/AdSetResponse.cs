@@ -12,6 +12,7 @@ namespace AISAM.Common.Dtos.Response
         public decimal? DailyBudget { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        public string? Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public AdSetMetrics? Metrics { get; set; }
         public List<AdResponse> Ads { get; set; } = new();

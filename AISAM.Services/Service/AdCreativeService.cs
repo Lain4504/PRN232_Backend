@@ -19,6 +19,7 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly IProfileRepository _profileRepository;
         private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly IBrandRepository _brandRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<AdCreativeService> _logger;
 
@@ -31,6 +32,7 @@ namespace AISAM.Services.Service
             IUserRepository userRepository,
             IProfileRepository profileRepository,
             ITeamMemberRepository teamMemberRepository,
+            IBrandRepository brandRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<AdCreativeService> logger)
         {
@@ -42,11 +44,26 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
             _profileRepository = profileRepository;
             _teamMemberRepository = teamMemberRepository;
+            _brandRepository = brandRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
 
+        // Legacy method - will be deprecated
         public async Task<AdCreativeResponse> CreateAdCreativeAsync(Guid userId, CreateAdCreativeRequest request)
+        {
+            // Convert legacy request to new format
+            var newRequest = new CreateAdCreativeFromContentRequest
+            {
+                ContentId = request.ContentId,
+                AdAccountId = request.AdAccountId,
+                CallToAction = request.CallToAction
+            };
+
+            return await CreateAdCreativeFromContentAsync(userId, newRequest);
+        }
+
+        public async Task<AdCreativeResponse> CreateAdCreativeFromContentAsync(Guid userId, CreateAdCreativeFromContentRequest request)
         {
             try
             {
@@ -102,6 +119,8 @@ namespace AISAM.Services.Service
                 var imageUrl = GetImageUrl(content);
                 var videoUrl = content.VideoUrl;
                 var callToAction = request.CallToAction?.ToUpper();
+                var linkUrl = request.LinkUrl ?? GetLinkUrl(content); // Use provided link or default
+                var adName = request.AdName ?? content.Title ?? "Ad Creative"; // Use provided name or content title
 
                 // Create ad creative on Facebook
                 var facebookCreativeId = await _facebookApiService.CreateAdCreativeAsync(
@@ -111,7 +130,9 @@ namespace AISAM.Services.Service
                     imageUrl,
                     videoUrl,
                     callToAction,
-                    socialIntegration.AccessToken);
+                    socialIntegration.AccessToken,
+                    linkUrl,
+                    adName);
 
                 // Save to database
                 var adCreative = new AdCreative
@@ -124,19 +145,129 @@ namespace AISAM.Services.Service
 
                 var createdCreative = await _adCreativeRepository.CreateAsync(adCreative);
 
+                // Validate that CreativeId was properly stored
+                if (string.IsNullOrEmpty(createdCreative.CreativeId))
+                {
+                    throw new Exception("Failed to store Facebook Creative ID. Please try again.");
+                }
+
+                // Validate that CreativeId is a numeric string (Facebook ID format)
+                if (!long.TryParse(createdCreative.CreativeId, out _))
+                {
+                    throw new Exception("Facebook Creative ID is not in valid format. Please try again.");
+                }
+
                 // Send notification
-                await SendNotificationAsync(userId, "Ad Creative Created", 
+                await SendNotificationAsync(content.ProfileId, "Ad Creative Created", 
                     $"Ad creative has been created successfully from content '{content.Title}'.", 
                     createdCreative.Id, "ad_creative");
 
-                _logger.LogInformation("User {UserId} created ad creative {CreativeId} with Facebook ID {FacebookCreativeId}", 
+                _logger.LogInformation("User {UserId} created ad creative {CreativeId} with Facebook ID {FacebookCreativeId} from content", 
                     userId, createdCreative.Id, facebookCreativeId);
 
                 return MapToResponse(createdCreative, content);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating ad creative for user {UserId}", userId);
+                _logger.LogError(ex, "Error creating ad creative from content for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<AdCreativeResponse> CreateAdCreativeFromFacebookPostAsync(Guid userId, CreateAdCreativeFromFacebookPostRequest request)
+        {
+            try
+            {
+                // Validate brand exists and user has access
+                var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+                if (brand == null)
+                {
+                    throw new ArgumentException("Brand not found");
+                }
+
+                // Validate user has access to the brand
+                await ValidateBrandAccessAsync(userId, brand);
+
+                // Get social integration for Facebook API calls
+                var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(request.BrandId);
+                if (socialIntegration == null || !socialIntegration.IsActive || string.IsNullOrEmpty(socialIntegration.AdAccountId))
+                {
+                    throw new ArgumentException("No active social integration found for this brand");
+                }
+
+                if (socialIntegration.AdAccountId != request.AdAccountId)
+                {
+                    throw new ArgumentException("Ad account ID does not match the brand's social integration");
+                }
+
+                // Check token validity
+                var isTokenValid = await _facebookApiService.CheckTokenExpiryAsync(socialIntegration.AccessToken);
+                if (!isTokenValid)
+                {
+                    throw new UnauthorizedAccessException("Facebook access token has expired. Please reconnect your account.");
+                }
+
+                // Validate call to action
+                var validCallToActions = new[] { "SHOP_NOW", "LEARN_MORE", "SIGN_UP", "DOWNLOAD", "BOOK_TRAVEL", "GET_QUOTE" };
+                if (!string.IsNullOrEmpty(request.CallToAction) && !validCallToActions.Contains(request.CallToAction.ToUpper()))
+                {
+                    throw new ArgumentException($"Invalid call to action. Valid options: {string.Join(", ", validCallToActions)}");
+                }
+
+                // Create ad creative directly from existing Facebook post using object_story_id
+                // According to Facebook Marketing API docs, we should use object_story_id instead of getting post details
+                var pageId = socialIntegration.ExternalId; // Facebook Page ID
+                if (string.IsNullOrEmpty(pageId))
+                {
+                    throw new ArgumentException("Page ID not found in social integration");
+                }
+
+                var adName = request.AdName ?? $"Ad from Post {request.FacebookPostId}";
+
+                // Create ad creative using object_story_id (existing post)
+                var facebookCreativeId = await _facebookApiService.CreateAdCreativeFromPostAsync(
+                    socialIntegration.AdAccountId,
+                    request.FacebookPostId,
+                    socialIntegration.AccessToken,
+                    adName);
+
+                // Save to database (without ContentId since it's from Facebook post)
+                var adCreative = new AdCreative
+                {
+                    ContentId = null, // No content ID for Facebook post creatives
+                    AdAccountId = request.AdAccountId,
+                    CreativeId = facebookCreativeId,
+                    CallToAction = request.CallToAction?.ToUpper(),
+                    FacebookPostId = request.FacebookPostId // Store the original Facebook post ID
+                };
+
+                var createdCreative = await _adCreativeRepository.CreateAsync(adCreative);
+
+                // Validate that CreativeId was properly stored
+                if (string.IsNullOrEmpty(createdCreative.CreativeId))
+                {
+                    throw new Exception("Failed to store Facebook Creative ID. Please try again.");
+                }
+
+                // Validate that CreativeId is a numeric string (Facebook ID format)
+                if (!long.TryParse(createdCreative.CreativeId, out _))
+                {
+                    throw new Exception("Facebook Creative ID is not in valid format. Please try again.");
+                }
+
+                // Send notification
+                await SendNotificationAsync(brand.ProfileId, "Ad Creative Created", 
+                    $"Ad creative has been created successfully from Facebook post.", 
+                    createdCreative.Id, "ad_creative");
+
+                _logger.LogInformation("User {UserId} created ad creative {CreativeId} with Facebook ID {FacebookCreativeId} from Facebook post {PostId}", 
+                    userId, createdCreative.Id, facebookCreativeId, request.FacebookPostId);
+
+                return MapToResponseFromFacebookPost(createdCreative);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating ad creative from Facebook post for user {UserId}", userId);
                 throw;
             }
         }
@@ -148,10 +279,27 @@ namespace AISAM.Services.Service
                 var creative = await _adCreativeRepository.GetByIdWithDetailsAsync(creativeId);
                 if (creative == null) return null;
 
-                // Validate access through content
-                await ValidateContentAccessAsync(userId, creative.Content);
-
-                return MapToResponse(creative, creative.Content);
+                // Validate access - if ContentId is null, validate through brand
+                if (creative.ContentId.HasValue && creative.Content != null)
+                {
+                    await ValidateContentAccessAsync(userId, creative.Content);
+                    return MapToResponse(creative, creative.Content);
+                }
+                else
+                {
+                    // For Facebook post creatives, we need to find the brand through social integration
+                    var socialIntegration = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
+                    if (socialIntegration != null)
+                    {
+                        var brand = await _brandRepository.GetByIdAsync(socialIntegration.BrandId);
+                        if (brand != null)
+                        {
+                            await ValidateBrandAccessAsync(userId, brand);
+                        }
+                    }
+                    
+                    return MapToResponseFromFacebookPost(creative);
+                }
             }
             catch (Exception ex)
             {
@@ -236,6 +384,14 @@ namespace AISAM.Services.Service
             }
         }
 
+        private string? GetLinkUrl(Content content)
+        {
+            // For now, return a default link - in a real implementation, 
+            // you might want to add a LinkUrl field to the Content model or Product model
+            // The Product model doesn't currently have a LinkUrl property
+            return "https://www.facebook.com";
+        }
+
         private async Task<User?> GetUserByIdAsync(Guid userId)
         {
             return await _userRepository.GetByIdAsync(userId);
@@ -246,13 +402,13 @@ namespace AISAM.Services.Service
             return await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId);
         }
 
-        private async Task SendNotificationAsync(Guid userId, string title, string message, Guid targetId, string targetType)
+        private async Task SendNotificationAsync(Guid profileId, string title, string message, Guid targetId, string targetType)
         {
             try
             {
                 var notification = new Notification
                 {
-                    ProfileId = userId,
+                    ProfileId = profileId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,
@@ -264,7 +420,36 @@ namespace AISAM.Services.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send notification to user {UserId}", userId);
+                _logger.LogError(ex, "Failed to send notification to profile {ProfileId}", profileId);
+            }
+        }
+
+        private async Task ValidateBrandAccessAsync(Guid userId, Brand brand)
+        {
+            // Check if user directly owns the brand
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            if (profiles.Any(p => p.Id == brand.ProfileId))
+            {
+                return;
+            }
+
+            // If brand's profile is Free type, only owner can access
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == Data.Enumeration.ProfileTypeEnum.Free)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
+            }
+
+            // For Basic/Pro profiles: check team member access
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brand.Id);
+            if (teamMember == null)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access this brand");
+            }
+
+            if (!_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "can_create_ad"))
+            {
+                throw new UnauthorizedAccessException("You do not have permission to create ad creatives for this brand");
             }
         }
 
@@ -277,6 +462,7 @@ namespace AISAM.Services.Service
                 AdAccountId = creative.AdAccountId,
                 CreativeId = creative.CreativeId,
                 CallToAction = creative.CallToAction,
+                FacebookPostId = creative.FacebookPostId,
                 CreatedAt = creative.CreatedAt,
                 ContentPreview = new AdCreativePreview
                 {
@@ -285,6 +471,28 @@ namespace AISAM.Services.Service
                     ImageUrl = GetImageUrl(content),
                     VideoUrl = content.VideoUrl,
                     AdType = content.AdType.ToString()
+                }
+            };
+        }
+
+        private AdCreativeResponse MapToResponseFromFacebookPost(AdCreative creative)
+        {
+            return new AdCreativeResponse
+            {
+                Id = creative.Id,
+                ContentId = creative.ContentId, // Will be null for Facebook post creatives
+                AdAccountId = creative.AdAccountId,
+                CreativeId = creative.CreativeId,
+                CallToAction = creative.CallToAction,
+                FacebookPostId = creative.FacebookPostId,
+                CreatedAt = creative.CreatedAt,
+                ContentPreview = new AdCreativePreview
+                {
+                    Title = "Facebook Post Ad",
+                    TextContent = $"Ad creative created from Facebook post {creative.FacebookPostId}",
+                    ImageUrl = null,
+                    VideoUrl = null,
+                    AdType = "FACEBOOK_POST"
                 }
             };
         }

@@ -50,6 +50,16 @@ namespace AISAM.Repositories.Repository
             await _context.SaveChangesAsync();
         }
 
+        public async Task<bool> UpdateStatusAsync(Guid id, string status)
+        {
+            var adSet = await _context.AdSets.FindAsync(id);
+            if (adSet == null) return false;
+
+            adSet.Status = status;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<bool> SoftDeleteAsync(Guid id)
         {
             var adSet = await _context.AdSets.FindAsync(id);

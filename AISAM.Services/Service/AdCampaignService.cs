@@ -84,10 +84,17 @@ namespace AISAM.Services.Service
                     request.Budget, 
                     socialIntegration.AccessToken);
 
+                // Get the brand to get the correct ProfileId
+                var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+                if (brand == null)
+                {
+                    throw new ArgumentException("Brand not found");
+                }
+
                 // Save to database
                 var adCampaign = new AdCampaign
                 {
-                    ProfileId = userId, // This should be profileId, not userId
+                    ProfileId = brand.ProfileId, // Use the brand's ProfileId, not userId
                     BrandId = request.BrandId,
                     AdAccountId = cleanAdAccountId,
                     FacebookCampaignId = facebookCampaignId, // Store Facebook Campaign ID
@@ -102,7 +109,7 @@ namespace AISAM.Services.Service
                 var createdCampaign = await _adCampaignRepository.CreateAsync(adCampaign);
 
                 // Send notification
-                await SendNotificationAsync(userId, "Ad Campaign Created", 
+                await SendNotificationAsync(brand.ProfileId, "Ad Campaign Created", 
                     $"Your campaign '{request.Name}' has been created successfully.", 
                     createdCampaign.Id, "ad_campaign");
 
@@ -249,7 +256,7 @@ namespace AISAM.Services.Service
                         ? $"Campaign '{campaign.Name}' has been deleted from Facebook and database."
                         : $"Campaign '{campaign.Name}' has been deleted from database. Facebook deletion may have failed.";
 
-                    await SendNotificationAsync(userId, "Ad Campaign Deleted", message, campaignId, "ad_campaign");
+                    await SendNotificationAsync(campaign.ProfileId, "Ad Campaign Deleted", message, campaignId, "ad_campaign");
 
                     _logger.LogInformation("User {UserId} deleted ad campaign {CampaignId} - Facebook: {FacebookDeleted}, Database: {DatabaseDeleted}", 
                         userId, campaignId, facebookDeleted, deleted);
@@ -361,13 +368,13 @@ namespace AISAM.Services.Service
             return false;
         }
 
-        private async Task SendNotificationAsync(Guid userId, string title, string message, Guid targetId, string targetType)
+        private async Task SendNotificationAsync(Guid profileId, string title, string message, Guid targetId, string targetType)
         {
             try
             {
                 var notification = new Notification
                 {
-                    ProfileId = userId,
+                    ProfileId = profileId,
                     Title = title,
                     Message = message,
                     Type = Data.Enumeration.NotificationTypeEnum.SystemUpdate,
@@ -379,7 +386,7 @@ namespace AISAM.Services.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send notification to user {UserId}", userId);
+                _logger.LogError(ex, "Failed to send notification to profile {ProfileId}", profileId);
             }
         }
 
@@ -410,6 +417,7 @@ namespace AISAM.Services.Service
                     DailyBudget = ads.DailyBudget,
                     StartDate = ads.StartDate,
                     EndDate = ads.EndDate,
+                    Status = ads.Status,
                     CreatedAt = ads.CreatedAt
                 }).ToList() ?? new List<AdSetResponse>()
             };

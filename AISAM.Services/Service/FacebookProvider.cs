@@ -189,6 +189,64 @@ namespace AISAM.Services.Service
         {
             try
             {
+                // Handle single image with /photos endpoint
+                if (!string.IsNullOrEmpty(post.ImageUrl))
+                {
+                    var photosUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{integration.ExternalId}/photos";
+                    
+                    async Task<(bool ok, string body)> TryPublishPhotoAsync(string accessToken)
+                    {
+                        var postData = new Dictionary<string, string>
+                        {
+                            ["url"] = post.ImageUrl,
+                            ["access_token"] = accessToken
+                        };
+
+                        if (!string.IsNullOrEmpty(post.Message))
+                        {
+                            postData["message"] = post.Message;
+                        }
+
+                        var formContent = new FormUrlEncodedContent(postData);
+                        var response = await _httpClient.PostAsync(photosUrl, formContent);
+                        var body = await response.Content.ReadAsStringAsync();
+                        return (response.IsSuccessStatusCode, body);
+                    }
+
+                    // Try with existing token first
+                    var photoInitialToken = integration.AccessToken ?? account.UserAccessToken;
+                    var (photoOk, photoBody) = await TryPublishPhotoAsync(photoInitialToken);
+                    if (photoOk)
+                    {
+                        var photoResponseData = JsonSerializer.Deserialize<FacebookPostResponse>(photoBody);
+                        return new PublishResultDto
+                        {
+                            Success = true,
+                            ProviderPostId = photoResponseData?.Id,
+                            PostedAt = DateTime.UtcNow
+                        };
+                    }
+
+                    // If failed, try with fresh page token
+                    var photoTokenMap = await GetTargetAccessTokensAsync(account.UserAccessToken, new[] { integration.ExternalId ?? "" });
+                    if (!photoTokenMap.TryGetValue(integration.ExternalId ?? "", out var photoFreshPageToken))
+                    {
+                        _logger.LogError("Could not refresh page access token for page {PageId}", integration.ExternalId);
+                        return new PublishResultDto { Success = false, ErrorMessage = "Unable to refresh page access token" };
+                    }
+
+                    var (photoOk2, photoBody2) = await TryPublishPhotoAsync(photoFreshPageToken);
+                    if (!photoOk2)
+                    {
+                        _logger.LogError("Facebook photo upload error after refresh: {Error}", photoBody2);
+                        return new PublishResultDto { Success = false, ErrorMessage = $"Facebook photo upload error: {photoBody2}" };
+                    }
+
+                    var photoResponseData2 = JsonSerializer.Deserialize<FacebookPostResponse>(photoBody2);
+                    return new PublishResultDto { Success = true, ProviderPostId = photoResponseData2?.Id, PostedAt = DateTime.UtcNow, RefreshedTargetAccessToken = photoFreshPageToken };
+                }
+
+                // Handle text-only or link posts with /feed endpoint
                 var publishUrl = $"{_settings.BaseUrl}/{_settings.GraphApiVersion}/{integration.ExternalId}/feed";
 
                 async Task<(bool ok, string body)> TryPublishAsync(string accessToken)
@@ -203,8 +261,6 @@ namespace AISAM.Services.Service
                     {
                         postData["link"] = post.LinkUrl;
                     }
-
-                    // For single image, Facebook allows 'picture' on feed with link, but for multiple images we need attached_media
 
                     var formContent = new FormUrlEncodedContent(postData);
                     var response = await _httpClient.PostAsync(publishUrl, formContent);

@@ -215,6 +215,8 @@ builder.Services.AddSingleton<RolePermissionConfig>();
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCampaignRequest>, CreateAdCampaignRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdSetRequest>, CreateAdSetRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCreativeRequest>, CreateAdCreativeRequestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCreativeFromContentRequest>, CreateAdCreativeFromContentRequestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<CreateAdCreativeFromFacebookPostRequest>, CreateAdCreativeFromFacebookPostRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<CreateAdRequest>, CreateAdRequestValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<UpdateAdStatusRequest>, UpdateAdStatusRequestValidator>();
 builder.Services.AddScoped<PublishRequestValidator>();

@@ -9,6 +9,7 @@ namespace AISAM.Repositories.IRepositories
         Task<List<AdSet>> GetByCampaignIdAsync(Guid campaignId);
         Task<AdSet> CreateAsync(AdSet adSet);
         Task UpdateAsync(AdSet adSet);
+        Task<bool> UpdateStatusAsync(Guid id, string status);
         Task<bool> SoftDeleteAsync(Guid id);
     }
 }

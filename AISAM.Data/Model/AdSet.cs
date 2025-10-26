@@ -35,6 +35,10 @@ namespace AISAM.Data.Model
         [Column("end_date", TypeName = "date")]
         public DateTime? EndDate { get; set; }
 
+        [MaxLength(50)]
+        [Column("status")]
+        public string? Status { get; set; } = "PAUSED";
+
         [Column("is_deleted")]
         public bool IsDeleted { get; set; } = false;
 

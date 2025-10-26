@@ -23,7 +23,7 @@ namespace AISAM.Common.Models
         public string AppId { get; set; } = "1128719149388470";
         public string AccessToken { get; set; } = string.Empty;
         public string AdAccountId { get; set; } = "4005413613009650";
-        public string PageId { get; set; } = "61582203080746";
+        public string PageId { get; set; } = "782432448291254";
         public string UserId { get; set; } = "122099098875073436";
         public string Currency { get; set; } = "VND"; // Vietnamese Dong
         public string Timezone { get; set; } = "America/Los_Angeles"; // Ad account timezone

@@ -87,7 +87,7 @@ namespace AISAM.Services.Service
                 AdType = request.AdType,
                 Title = request.Title,
                 TextContent = request.TextContent,
-                ImageUrl = request.ImageUrl,
+                ImageUrl = FormatImageUrlForJsonb(request.ImageUrl),
                 VideoUrl = request.VideoUrl,
                 StyleDescription = request.StyleDescription,
                 ContextDescription = request.ContextDescription,
@@ -224,7 +224,18 @@ namespace AISAM.Services.Service
                         try
                         {
                             var urls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(raw) ?? new List<string>();
-                            postDto.ImageUrls = urls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+                            var validUrls = urls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+                            
+                            if (validUrls.Count == 1)
+                            {
+                                // Single image - use ImageUrl for /photos endpoint
+                                postDto.ImageUrl = validUrls[0];
+                            }
+                            else if (validUrls.Count > 1)
+                            {
+                                // Multiple images - use ImageUrls for /feed with attached_media
+                                postDto.ImageUrls = validUrls;
+                            }
                         }
                         catch
                         {
@@ -407,7 +418,7 @@ namespace AISAM.Services.Service
 
             if (!string.IsNullOrEmpty(request.ImageUrl))
             {
-                content.ImageUrl = request.ImageUrl;
+                content.ImageUrl = FormatImageUrlForJsonb(request.ImageUrl);
             }
 
             if (!string.IsNullOrEmpty(request.VideoUrl))
@@ -508,6 +519,28 @@ namespace AISAM.Services.Service
             // return quotaCheck;
 
             return true; // Temporary: allow all for now
+        }
+
+        /// <summary>
+        /// Format ImageUrl for jsonb column - convert single URL to JSON string or keep JSON array as is
+        /// </summary>
+        private string? FormatImageUrlForJsonb(string? imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                return null;
+            }
+
+            var trimmed = imageUrl.Trim();
+            
+            // If it's already a JSON array, return as is
+            if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
+            {
+                return trimmed;
+            }
+            
+            // If it's a single URL, wrap it in a JSON array
+            return System.Text.Json.JsonSerializer.Serialize(new[] { trimmed });
         }
 
         private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult)

@@ -103,7 +103,7 @@ namespace AISAM.Services.Service
                 AdType = request.AdType,
                 Title = request.Title,
                 TextContent = "", // Will be filled by AI
-                ImageUrl = request.ImageUrl,
+                ImageUrl = FormatImageUrlForJsonb(request.ImageUrl),
                 VideoUrl = request.VideoUrl,
                 Status = ContentStatusEnum.Draft
             };
@@ -654,6 +654,28 @@ namespace AISAM.Services.Service
                 ExternalPostId = publishResult?.ProviderPostId,
                 PublishedAt = publishResult?.PostedAt
             };
+        }
+
+        /// <summary>
+        /// Format ImageUrl for jsonb column - convert single URL to JSON string or keep JSON array as is
+        /// </summary>
+        private string? FormatImageUrlForJsonb(string? imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                return null;
+            }
+
+            var trimmed = imageUrl.Trim();
+            
+            // If it's already a JSON array, return as is
+            if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
+            {
+                return trimmed;
+            }
+            
+            // If it's a single URL, wrap it in a JSON array
+            return System.Text.Json.JsonSerializer.Serialize(new[] { trimmed });
         }
     }
 }

@@ -10,9 +10,8 @@ namespace AISAM.Data.Model
         [Column("id")]
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        [Required]
         [Column("content_id")]
-        public Guid ContentId { get; set; }
+        public Guid? ContentId { get; set; }
 
         [Required]
         [MaxLength(255)]
@@ -27,6 +26,10 @@ namespace AISAM.Data.Model
         [Column("call_to_action")]
         public string? CallToAction { get; set; }
 
+        [MaxLength(255)]
+        [Column("facebook_post_id")]
+        public string? FacebookPostId { get; set; }
+
         [Column("is_deleted")]
         public bool IsDeleted { get; set; } = false;
 
@@ -35,7 +38,7 @@ namespace AISAM.Data.Model
 
         // Navigation properties
         [ForeignKey("ContentId")]
-        public virtual Content Content { get; set; } = null!;
+        public virtual Content? Content { get; set; }
 
         public virtual ICollection<Ad> Ads { get; set; } = new List<Ad>();
     }
