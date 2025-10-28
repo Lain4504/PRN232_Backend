@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AISAM.Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -292,11 +292,60 @@ namespace AISAM.Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "chat_messages",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    conversation_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sender_type = table.Column<int>(type: "integer", nullable: false),
+                    message = table.Column<string>(type: "text", nullable: false),
+                    ai_generation_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_chat_messages", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_chat_messages_ai_generations_ai_generation_id",
+                        column: x => x.ai_generation_id,
+                        principalTable: "ai_generations",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "content_calendar",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    scheduled_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    scheduled_time = table.Column<TimeSpan>(type: "interval", nullable: true),
+                    timezone = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    repeat_type = table.Column<int>(type: "integer", nullable: false),
+                    repeat_interval = table.Column<int>(type: "integer", nullable: false),
+                    repeat_until = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    next_scheduled_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    integration_ids = table.Column<string>(type: "text", nullable: true),
+                    profile_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_content_calendar", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "contents",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    profile_id = table.Column<Guid>(type: "uuid", nullable: false),
                     brand_id = table.Column<Guid>(type: "uuid", nullable: false),
                     product_id = table.Column<Guid>(type: "uuid", nullable: true),
                     ad_type = table.Column<int>(type: "integer", nullable: false),
@@ -327,67 +376,6 @@ namespace AISAM.Repositories.Migrations
                         principalTable: "products",
                         principalColumn: "id",
                         onDelete: ReferentialAction.SetNull);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "chat_messages",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    conversation_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    sender_type = table.Column<int>(type: "integer", nullable: false),
-                    message = table.Column<string>(type: "text", nullable: false),
-                    ai_generation_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    content_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_chat_messages", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_chat_messages_ai_generations_ai_generation_id",
-                        column: x => x.ai_generation_id,
-                        principalTable: "ai_generations",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_chat_messages_contents_content_id",
-                        column: x => x.content_id,
-                        principalTable: "contents",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.SetNull);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "content_calendar",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    content_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    scheduled_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    scheduled_time = table.Column<TimeSpan>(type: "interval", nullable: true),
-                    timezone = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    repeat_type = table.Column<int>(type: "integer", nullable: false),
-                    repeat_interval = table.Column<int>(type: "integer", nullable: false),
-                    repeat_until = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    next_scheduled_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    integration_ids = table.Column<string>(type: "text", nullable: true),
-                    profile_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    is_active = table.Column<bool>(type: "boolean", nullable: false),
-                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_content_calendar", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_content_calendar_contents_content_id",
-                        column: x => x.content_id,
-                        principalTable: "contents",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -532,7 +520,7 @@ namespace AISAM.Repositories.Migrations
                     company_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     bio = table.Column<string>(type: "text", nullable: true),
                     avatar_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -590,7 +578,9 @@ namespace AISAM.Repositories.Migrations
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    stripe_subscription_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    stripe_customer_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -881,6 +871,11 @@ namespace AISAM.Repositories.Migrations
                 column: "product_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_contents_profile_id",
+                table: "contents",
+                column: "profile_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_contents_status",
                 table: "contents",
                 column: "status");
@@ -1157,6 +1152,14 @@ namespace AISAM.Repositories.Migrations
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
+                name: "FK_chat_messages_contents_content_id",
+                table: "chat_messages",
+                column: "content_id",
+                principalTable: "contents",
+                principalColumn: "id",
+                onDelete: ReferentialAction.SetNull);
+
+            migrationBuilder.AddForeignKey(
                 name: "FK_chat_messages_conversations_conversation_id",
                 table: "chat_messages",
                 column: "conversation_id",
@@ -1165,8 +1168,24 @@ namespace AISAM.Repositories.Migrations
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
+                name: "FK_content_calendar_contents_content_id",
+                table: "content_calendar",
+                column: "content_id",
+                principalTable: "contents",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
                 name: "FK_content_calendar_profiles_profile_id",
                 table: "content_calendar",
+                column: "profile_id",
+                principalTable: "profiles",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_contents_profiles_profile_id",
+                table: "contents",
                 column: "profile_id",
                 principalTable: "profiles",
                 principalColumn: "id",
