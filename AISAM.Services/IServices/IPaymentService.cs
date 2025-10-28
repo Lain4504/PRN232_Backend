@@ -12,6 +12,7 @@ namespace AISAM.Services.IServices
         Task<GenericResponse<bool>> CancelSubscriptionAsync(Guid subscriptionId, Guid userId);
         Task<GenericResponse<SubscriptionResponseDto>> GetSubscriptionAsync(Guid subscriptionId, Guid userId);
         Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetUserSubscriptionsAsync(Guid userId);
+        Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetUserPaymentHistoryAsync(Guid userId);
         Task<GenericResponse<bool>> HandleWebhookAsync(string json, string stripeSignature);
     }
 }

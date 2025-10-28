@@ -6,6 +6,7 @@ namespace AISAM.Common.Dtos.Response
     {
         public Guid Id { get; set; }
         public Guid CampaignId { get; set; }
+        public string? CampaignName { get; set; }
         public string? FacebookAdSetId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Targeting { get; set; }

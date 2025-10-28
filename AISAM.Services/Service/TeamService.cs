@@ -359,7 +359,8 @@ namespace AISAM.Services.Service
                         Permissions = member.Permissions ?? new List<string>(),
                         JoinedAt = member.JoinedAt,
                         IsActive = member.IsActive,
-                        UserEmail = user?.Email ?? ""
+                        UserEmail = user?.Email ?? "",
+                        CanApproveContent = (member.Permissions ?? new List<string>()).Contains("APPROVE_CONTENT")
                     });
                 }
 
@@ -368,6 +369,23 @@ namespace AISAM.Services.Service
             catch (Exception ex)
             {
                 return GenericResponse<IEnumerable<TeamMemberResponseDto>>.CreateError($"Lỗi khi lấy danh sách thành viên: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<IEnumerable<string>>> GetMyPermissionsAsync(Guid teamId, Guid userId)
+        {
+            try
+            {
+                var member = await _teamMemberRepository.GetByTeamAndUserAsync(teamId, userId);
+                if (member == null || !member.IsActive)
+                {
+                    return GenericResponse<IEnumerable<string>>.CreateError("Bạn không phải là thành viên của team này.");
+                }
+                return GenericResponse<IEnumerable<string>>.CreateSuccess(member.Permissions ?? new List<string>(), "Lấy danh sách quyền thành công");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<IEnumerable<string>>.CreateError($"Lỗi khi lấy quyền: {ex.Message}");
             }
         }
 

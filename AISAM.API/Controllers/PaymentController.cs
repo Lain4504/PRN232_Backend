@@ -155,6 +155,28 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Get user's payment history
+        /// </summary>
+        [HttpGet("history")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<PaymentResponseDto>>>> GetUserPaymentHistory()
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _paymentService.GetUserPaymentHistoryAsync(userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
         /// Handle Stripe webhooks
         /// </summary>
         [HttpPost("webhook")]

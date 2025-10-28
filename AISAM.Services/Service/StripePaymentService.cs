@@ -448,6 +448,34 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetUserPaymentHistoryAsync(Guid userId)
+        {
+            try
+            {
+                var payments = await _paymentRepository.GetUserPaymentHistoryAsync(userId);
+
+                var responses = payments.Select(payment => new PaymentResponseDto
+                {
+                    Id = payment.Id,
+                    UserId = payment.UserId,
+                    SubscriptionId = payment.SubscriptionId,
+                    Amount = payment.Amount,
+                    Currency = payment.Currency,
+                    Status = payment.Status,
+                    PaymentMethod = payment.PaymentMethod,
+                    TransactionId = payment.TransactionId,
+                    InvoiceUrl = payment.InvoiceUrl,
+                    CreatedAt = payment.CreatedAt
+                });
+
+                return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(responses, "Payment history retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError($"Error retrieving payment history: {ex.Message}");
+            }
+        }
+
         public async Task<GenericResponse<bool>> HandleWebhookAsync(string json, string stripeSignature)
         {
             try

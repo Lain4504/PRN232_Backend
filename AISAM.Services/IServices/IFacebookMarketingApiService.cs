@@ -18,5 +18,10 @@ namespace AISAM.Services.IServices
         Task<string> BuildTargetingJson(int? minAge, int? maxAge, string? gender, string? country, string[]? interests);
         Task<FacebookPostDetails?> GetPostDetailsAsync(string postId, string accessToken);
         Task<string> CreateAdCreativeFromPostAsync(string adAccountId, string postId, string accessToken, string? adName = null);
+
+        // Previews (v24.0): https://developers.facebook.com/docs/marketing-api/generatepreview/v24.0
+        Task<string?> GetAdCreativePreviewHtmlAsync(string creativeId, string adFormat, string accessToken);
+        Task<string?> GeneratePreviewBySpecAsync(string adAccountId, object creativeSpec, string adFormat, string accessToken);
+        Task<string?> GetAdPreviewHtmlAsync(string adId, string adFormat, string accessToken);
     }
 }

@@ -229,6 +229,50 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<string> GetAdPreviewHtmlAsync(Guid userId, Guid adId, string adFormat)
+        {
+            try
+            {
+                var ad = await _adRepository.GetByIdWithDetailsAsync(adId);
+                if (ad == null)
+                {
+                    throw new ArgumentException("Ad not found");
+                }
+
+                await ValidateAdAccessAsync(userId, ad);
+
+                if (string.IsNullOrEmpty(ad.AdId))
+                {
+                    throw new ArgumentException("Ad does not have a Facebook ID");
+                }
+
+                var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(ad.AdSet.Campaign.BrandId);
+                if (socialIntegration == null || !socialIntegration.IsActive)
+                {
+                    throw new ArgumentException("No active social integration found");
+                }
+
+                // Per Facebook docs, previews require a User access token, not a Page token
+                var userAccessToken = socialIntegration.SocialAccount?.UserAccessToken;
+                if (string.IsNullOrWhiteSpace(userAccessToken))
+                {
+                    throw new ArgumentException("No valid user access token found for the connected social account");
+                }
+
+                var html = await _facebookApiService.GetAdPreviewHtmlAsync(ad.AdId, adFormat, userAccessToken);
+                if (string.IsNullOrEmpty(html))
+                {
+                    throw new Exception("Failed to generate ad preview from Facebook");
+                }
+                return html;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating ad preview for ad {AdId}", adId);
+                throw;
+            }
+        }
+
         public async Task<bool> UpdateAdStatusAsync(Guid userId, UpdateAdStatusRequest request)
         {
             try
@@ -495,11 +539,26 @@ namespace AISAM.Services.Service
 
         private async Task ValidateCampaignAccessAsync(Guid userId, AdCampaign campaign)
         {
+            if (campaign == null)
+            {
+                throw new UnauthorizedAccessException("Invalid campaign reference");
+            }
+
+            // Ensure brand is loaded
             var brand = campaign.Brand;
+            if (brand == null)
+            {
+                brand = await _brandRepository.GetByIdAsync(campaign.BrandId);
+                if (brand == null)
+                {
+                    throw new UnauthorizedAccessException("Brand not found for campaign");
+                }
+            }
             
             // Check if user directly owns the brand
-            var profiles = await _profileRepository.GetByUserIdAsync(userId);
-            if (profiles.Any(p => p.Id == brand.ProfileId))
+            var profiles = await _profileRepository.GetByUserIdAsync(userId) 
+                           ?? Enumerable.Empty<Profile>();
+            if (profiles.Any(p => p != null && p.Id == brand.ProfileId))
             {
                 return;
             }
@@ -512,7 +571,7 @@ namespace AISAM.Services.Service
             }
 
             // For Basic/Pro profiles: check team member access
-            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, campaign.BrandId);
+            var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brand.Id);
             if (teamMember == null)
             {
                 throw new UnauthorizedAccessException("You do not have permission to access this campaign");
@@ -665,6 +724,8 @@ namespace AISAM.Services.Service
                 CreativeId = ad.CreativeId,
                 AdId = ad.AdId,
                 Status = ad.Status,
+                Name = !string.IsNullOrEmpty(ad.AdId) ? ad.AdId : null,
+                AdSetName = ad.AdSet?.Name,
                 CreatedAt = ad.CreatedAt
             };
         }

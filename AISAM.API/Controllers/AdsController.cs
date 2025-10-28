@@ -107,6 +107,30 @@ namespace AISAM.API.Controllers
             }
         }
 
+        [HttpGet("{adId}/previews")]
+        public async Task<ActionResult<GenericResponse<string>>> GetAdPreview(Guid adId, [FromQuery] string adFormat = "DESKTOP_FEED_STANDARD")
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var html = await _adService.GetAdPreviewHtmlAsync(userId, adId, adFormat);
+                return Ok(GenericResponse<string>.CreateSuccess(html, "Ad preview generated"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(GenericResponse<string>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating preview for ad {AdId}", adId);
+                return StatusCode(500, GenericResponse<string>.CreateError("Internal server error"));
+            }
+        }
+
         [HttpPut("{adId}/status")]
         public async Task<ActionResult<GenericResponse<object>>> UpdateAdStatus(Guid adId, [FromBody] UpdateAdStatusRequest request)
         {

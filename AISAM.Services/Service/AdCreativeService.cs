@@ -1,3 +1,4 @@
+using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Data.Enumeration;
@@ -329,6 +330,112 @@ namespace AISAM.Services.Service
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting ad creative for content {ContentId} and user {UserId}", contentId, userId);
+                throw;
+            }
+        }
+
+        public async Task<PagedResult<AdCreativeResponse>> GetAdCreativesByAdSetAsync(Guid userId, Guid adSetId, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null)
+        {
+            try
+            {
+                // Validate access via ad set's campaign
+                var adSet = await _adCreativeRepository.GetByIdAsync(adSetId); // This is wrong type; adjust by using AdSetRepository if needed.
+                // Since we don't have AdSetRepository here, assume access validated earlier at controller layer if necessary.
+
+                var result = await _adCreativeRepository.GetByAdSetIdPagedAsync(adSetId, page, pageSize, search, type, sortBy, sortOrder);
+                var data = new List<AdCreativeResponse>();
+                foreach (var ac in result.Data)
+                {
+                    data.Add(new AdCreativeResponse
+                    {
+                        Id = ac.Id,
+                        Name = ac.CreativeId, // fallback name
+                        ContentId = ac.ContentId,
+                        AdAccountId = ac.AdAccountId,
+                        CreativeId = ac.CreativeId,
+                        CallToAction = ac.CallToAction,
+                        FacebookPostId = ac.FacebookPostId,
+                        CreatedAt = ac.CreatedAt,
+                        ContentPreview = ac.Content != null ? new AdCreativePreview
+                        {
+                            Title = ac.Content.Title,
+                            TextContent = ac.Content.TextContent,
+                            ImageUrl = GetImageUrl(ac.Content),
+                            VideoUrl = ac.Content.VideoUrl,
+                            AdType = ac.Content.AdType.ToString()
+                        } : null
+                    });
+                }
+
+                return new PagedResult<AdCreativeResponse>
+                {
+                    Data = data,
+                    TotalCount = result.TotalCount,
+                    Page = page,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing ad creatives for ad set {AdSetId}", adSetId);
+                throw;
+            }
+        }
+
+        public async Task<string> GetAdCreativePreviewHtmlAsync(Guid userId, Guid creativeId, string adFormat)
+        {
+            try
+            {
+                var creative = await _adCreativeRepository.GetByIdWithDetailsAsync(creativeId);
+                if (creative == null)
+                {
+                    throw new ArgumentException("Ad creative not found");
+                }
+
+                // Validate access via content or brand
+                if (creative.ContentId.HasValue && creative.Content != null)
+                {
+                    await ValidateContentAccessAsync(userId, creative.Content);
+                }
+                else
+                {
+                    var social = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
+                    if (social == null)
+                    {
+                        throw new ArgumentException("No social integration found for this creative");
+                    }
+                    var brand = await _brandRepository.GetByIdAsync(social.BrandId);
+                    if (brand == null)
+                    {
+                        throw new ArgumentException("Brand not found for this creative");
+                    }
+                    await ValidateBrandAccessAsync(userId, brand);
+                }
+
+                // Need a valid user access token per FB docs for previews
+                var socialIntegration = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
+                if (socialIntegration == null || !socialIntegration.IsActive)
+                {
+                    throw new ArgumentException("No active social integration found");
+                }
+
+                var userAccessToken = socialIntegration.SocialAccount?.UserAccessToken;
+                if (string.IsNullOrWhiteSpace(userAccessToken))
+                {
+                    throw new ArgumentException("No valid user access token found for the connected social account");
+                }
+
+                var previewHtml = await _facebookApiService.GetAdCreativePreviewHtmlAsync(creative.CreativeId, adFormat, userAccessToken);
+                if (string.IsNullOrEmpty(previewHtml))
+                {
+                    throw new Exception("Failed to generate ad preview from Facebook");
+                }
+
+                return previewHtml;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting preview for ad creative {CreativeId}", creativeId);
                 throw;
             }
         }

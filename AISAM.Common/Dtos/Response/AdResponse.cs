@@ -9,6 +9,8 @@ namespace AISAM.Common.Dtos.Response
         public Guid CreativeId { get; set; }
         public string? AdId { get; set; }
         public string? Status { get; set; }
+        public string? Name { get; set; }
+        public string? AdSetName { get; set; }
         public DateTime CreatedAt { get; set; }
         public AdMetrics? Metrics { get; set; }
     }

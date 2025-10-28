@@ -372,10 +372,11 @@ namespace AISAM.Services.Service
 
         private static AdSetResponse MapToResponse(AdSet adSet)
         {
-            return new AdSetResponse
+                return new AdSetResponse
             {
                 Id = adSet.Id,
                 CampaignId = adSet.CampaignId,
+                    CampaignName = adSet.Campaign?.Name,
                 FacebookAdSetId = adSet.FacebookAdSetId,
                 Name = adSet.Name,
                 Targeting = adSet.Targeting,
@@ -391,6 +392,8 @@ namespace AISAM.Services.Service
                     CreativeId = a.CreativeId,
                     AdId = a.AdId,
                     Status = a.Status,
+                    Name = !string.IsNullOrEmpty(a.AdId) ? a.AdId : null,
+                    AdSetName = adSet.Name,
                     CreatedAt = a.CreatedAt
                 }).ToList() ?? new List<AdResponse>()
             };

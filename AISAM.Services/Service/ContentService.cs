@@ -132,7 +132,7 @@ namespace AISAM.Services.Service
                 }
             }
 
-            return MapToDto(content, publishResult);
+            return MapToDto(content, publishResult, brand.Name);
         }
 
         public async Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId, Guid userId)
@@ -311,7 +311,8 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to view this content");
             }
 
-            return MapToDto(content, null);
+            var brand = await _brandRepository.GetByIdAsync(content.BrandId);
+            return MapToDto(content, null, brand?.Name);
         }
 
         
@@ -338,9 +339,11 @@ namespace AISAM.Services.Service
                 status
             );
 
+            // Prefetch brand name once for this brand scope
+            var brand = await _brandRepository.GetByIdAsync(brandId);
             return new PagedResult<ContentResponseDto>
             {
-                Data = items.Select(c => MapToDto(c, null)).ToList(),
+                Data = items.Select(c => MapToDto(c, null, brand?.Name)).ToList(),
                 TotalCount = total,
                 Page = page,
                 PageSize = pageSize
@@ -446,7 +449,8 @@ namespace AISAM.Services.Service
 
             _logger.LogInformation("Updated content {ContentId} by user {UserId}", contentId, userId);
 
-            return MapToDto(content, null);
+            var brand = await _brandRepository.GetByIdAsync(content.BrandId);
+            return MapToDto(content, null, brand?.Name);
         }
 
         /// <summary>
@@ -543,13 +547,14 @@ namespace AISAM.Services.Service
             return System.Text.Json.JsonSerializer.Serialize(new[] { trimmed });
         }
 
-        private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult)
+        private ContentResponseDto MapToDto(Content content, PublishResultDto? publishResult, string? brandName = null)
         {
             return new ContentResponseDto
             {
                 Id = content.Id,
                 ProfileId = content.ProfileId,
                 BrandId = content.BrandId,
+                BrandName = brandName,
                 ProductId = content.ProductId,
                 AdType = content.AdType.ToString(),
                 Title = content.Title,

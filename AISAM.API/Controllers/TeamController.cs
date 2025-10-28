@@ -175,6 +175,26 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Lấy danh sách quyền của user hiện tại trong team
+        /// </summary>
+        [HttpGet("{teamId}/me/permissions")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<string>>>> GetMyPermissions(Guid teamId)
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<string>>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var result = await _teamService.GetMyPermissionsAsync(teamId, userId);
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+
+        /// <summary>
         /// Assign brands cho team
         /// </summary>
         [HttpPost("{id}/brands")]

@@ -10,5 +10,6 @@ namespace AISAM.Common.Dtos.Response
         public DateTime JoinedAt { get; set; }
         public bool IsActive { get; set; }
         public string UserEmail { get; set; } = string.Empty;
+        public bool CanApproveContent { get; set; }
     }
 }

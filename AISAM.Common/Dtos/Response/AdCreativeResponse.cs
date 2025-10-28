@@ -3,6 +3,7 @@ namespace AISAM.Common.Dtos.Response
     public class AdCreativeResponse
     {
         public Guid Id { get; set; }
+        public string? Name { get; set; }
         public Guid? ContentId { get; set; }
         public string AdAccountId { get; set; } = string.Empty;
         public string? CreativeId { get; set; }

@@ -157,5 +157,60 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<AdCreativeResponse>.CreateError("Internal server error"));
             }
         }
+
+        [HttpGet]
+        public async Task<ActionResult<GenericResponse<AISAM.Common.Dtos.PagedResult<AdCreativeResponse>>>> ListAdCreatives(
+            [FromQuery] Guid adSetId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? search = null,
+            [FromQuery] string? type = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortOrder = null)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _adCreativeService.GetAdCreativesByAdSetAsync(userId, adSetId, page, pageSize, search, type, sortBy, sortOrder);
+                return Ok(GenericResponse<AISAM.Common.Dtos.PagedResult<AdCreativeResponse>>.CreateSuccess(result, "Ad creatives retrieved successfully"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(GenericResponse<AISAM.Common.Dtos.PagedResult<AdCreativeResponse>>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing ad creatives for ad set {AdSetId}", adSetId);
+                return StatusCode(500, GenericResponse<AISAM.Common.Dtos.PagedResult<AdCreativeResponse>>.CreateError("Internal server error"));
+            }
+        }
+
+        [HttpGet("{creativeId}/previews")]
+        public async Task<ActionResult<GenericResponse<string>>> GetAdCreativePreview(Guid creativeId, [FromQuery] string adFormat = "DESKTOP_FEED_STANDARD")
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var html = await _adCreativeService.GetAdCreativePreviewHtmlAsync(userId, creativeId, adFormat);
+                return Ok(GenericResponse<string>.CreateSuccess(html, "Ad preview generated"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(GenericResponse<string>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating preview for ad creative {CreativeId}", creativeId);
+                return StatusCode(500, GenericResponse<string>.CreateError("Internal server error"));
+            }
+        }
     }
 }

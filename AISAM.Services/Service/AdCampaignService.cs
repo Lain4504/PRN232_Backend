@@ -397,6 +397,7 @@ namespace AISAM.Services.Service
                 Id = campaign.Id,
                 ProfileId = campaign.ProfileId,
                 BrandId = campaign.BrandId,
+                BrandName = campaign.Brand?.Name,
                 AdAccountId = campaign.AdAccountId,
                 FacebookCampaignId = campaign.FacebookCampaignId,
                 Name = campaign.Name,

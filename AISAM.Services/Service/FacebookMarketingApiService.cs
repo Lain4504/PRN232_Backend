@@ -741,6 +741,112 @@ namespace AISAM.Services.Service
             }
         }
 
+        // https://developers.facebook.com/docs/marketing-api/generatepreview/v24.0
+        public async Task<string?> GetAdCreativePreviewHtmlAsync(string creativeId, string adFormat, string accessToken)
+        {
+            try
+            {
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{creativeId}/previews";
+                var parameters = new Dictionary<string, string>
+                {
+                    ["ad_format"] = adFormat,
+                    ["access_token"] = accessToken
+                };
+                var query = string.Join("&", parameters.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+                var fullUrl = $"{url}?{query}";
+
+                var response = await _httpClient.GetAsync(fullUrl);
+                var content = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Failed to get creative preview {Status}: {Body}", response.StatusCode, content);
+                    return null;
+                }
+
+                using var doc = JsonDocument.Parse(content);
+                var data = doc.RootElement.GetProperty("data");
+                if (data.GetArrayLength() == 0) return null;
+                var body = data[0].GetProperty("body").GetString();
+                return body; // iframe HTML
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating ad creative preview for {CreativeId}", creativeId);
+                return null;
+            }
+        }
+
+        public async Task<string?> GeneratePreviewBySpecAsync(string adAccountId, object creativeSpec, string adFormat, string accessToken)
+        {
+            try
+            {
+                var (finalAccessToken, finalAdAccountId, _) = GetSandboxConfig(accessToken, adAccountId);
+                var actId = NormalizeAdAccountId(finalAdAccountId);
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{actId}/generatepreviews";
+
+                var payload = new Dictionary<string, object>
+                {
+                    ["creative"] = creativeSpec,
+                    ["ad_format"] = adFormat,
+                    ["access_token"] = finalAccessToken
+                };
+
+                var json = JsonSerializer.Serialize(payload);
+                var response = await _httpClient.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+                var content = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Failed to generate preview by spec {Status}: {Body}", response.StatusCode, content);
+                    return null;
+                }
+
+                using var doc = JsonDocument.Parse(content);
+                var data = doc.RootElement.GetProperty("data");
+                if (data.GetArrayLength() == 0) return null;
+                var body = data[0].GetProperty("body").GetString();
+                return body;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating preview by spec for ad account {AdAccountId}", adAccountId);
+                return null;
+            }
+        }
+
+        public async Task<string?> GetAdPreviewHtmlAsync(string adId, string adFormat, string accessToken)
+        {
+            try
+            {
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{adId}/previews";
+                var parameters = new Dictionary<string, string>
+                {
+                    ["ad_format"] = adFormat,
+                    ["access_token"] = accessToken
+                };
+                var query = string.Join("&", parameters.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+                var fullUrl = $"{url}?{query}";
+
+                var response = await _httpClient.GetAsync(fullUrl);
+                var content = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Failed to get ad preview {Status}: {Body}", response.StatusCode, content);
+                    return null;
+                }
+
+                using var doc = JsonDocument.Parse(content);
+                var data = doc.RootElement.GetProperty("data");
+                if (data.GetArrayLength() == 0) return null;
+                var body = data[0].GetProperty("body").GetString();
+                return body;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating ad preview for {AdId}", adId);
+                return null;
+            }
+        }
+
         public Task<string> BuildTargetingJson(int? minAge, int? maxAge, string? gender, string? country, string[]? interests)
         {
             var targeting = new Dictionary<string, object>();

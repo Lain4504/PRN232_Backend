@@ -39,6 +39,15 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Payment>> GetUserPaymentHistoryAsync(Guid userId)
+        {
+            return await _context.Payments
+                .Where(p => p.UserId == userId && !p.IsDeleted)
+                .Include(p => p.Subscription)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task UpdateAsync(Payment payment)
         {
             _context.Payments.Update(payment);

@@ -1,5 +1,6 @@
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
+using AISAM.Common.Dtos;
 
 namespace AISAM.Services.IServices
 {
@@ -14,5 +15,11 @@ namespace AISAM.Services.IServices
         
         Task<AdCreativeResponse?> GetAdCreativeByIdAsync(Guid userId, Guid creativeId);
         Task<AdCreativeResponse?> GetAdCreativeByContentAsync(Guid userId, Guid contentId);
+
+        // Preview helpers
+        Task<string> GetAdCreativePreviewHtmlAsync(Guid userId, Guid creativeId, string adFormat);
+
+        // Listing
+        Task<PagedResult<AdCreativeResponse>> GetAdCreativesByAdSetAsync(Guid userId, Guid adSetId, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null);
     }
 }
