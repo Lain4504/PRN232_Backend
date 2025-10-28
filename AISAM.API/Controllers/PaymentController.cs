@@ -133,6 +133,22 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Get all payments (Admin only)
+        /// </summary>
+        [HttpGet("payments")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<PaymentResponseDto>>>> GetAllPayments()
+        {
+            var result = await _paymentService.GetAllPaymentsAsync();
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
         /// Cancel subscription
         /// </summary>
         [HttpDelete("subscription/{id}")]

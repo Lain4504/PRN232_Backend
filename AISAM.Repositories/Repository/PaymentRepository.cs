@@ -39,6 +39,13 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Payment>> GetAllAsync()
+        {
+            return await _context.Payments
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task UpdateAsync(Payment payment)
         {
             _context.Payments.Update(payment);
