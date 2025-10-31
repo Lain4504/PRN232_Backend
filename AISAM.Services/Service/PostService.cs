@@ -81,12 +81,11 @@ namespace AISAM.Services.Service
             }
 
             var posts = await _postRepository.GetPagedAsync(brandId, profileId, page, pageSize, includeDeleted: false, status);
-            return new PagedResult<PostListItemDto>
+
+            var list = new List<PostListItemDto>();
+            foreach (var p in posts.Data)
             {
-                Page = posts.Page,
-                PageSize = posts.PageSize,
-                TotalCount = posts.TotalCount,
-                Data = posts.Data.Select(p => new PostListItemDto
+                var dto = new PostListItemDto
                 {
                     Id = p.Id,
                     ContentId = p.ContentId,
@@ -96,7 +95,46 @@ namespace AISAM.Services.Service
                     Status = p.Status.ToString(),
                     IsDeleted = p.IsDeleted,
                     Link = GeneratePermalink(p.ExternalPostId)
-                }).ToList()
+                };
+
+                try
+                {
+                    var content = await _contentRepository.GetByIdAsync(p.ContentId);
+                    if (content != null)
+                    {
+                        dto.ContentTitle = content.Title;
+                        var brand = await _brandRepository.GetByIdAsync(content.BrandId);
+                        if (brand != null)
+                        {
+                            dto.BrandName = brand.Name;
+                        }
+                    }
+
+                    var integration = await _integrationRepository.GetByIdAsync(p.IntegrationId);
+                    if (integration != null)
+                    {
+                        dto.IntegrationPlatform = integration.Platform.ToString();
+                        var account = await _accountRepository.GetByIdAsync(integration.SocialAccountId);
+                        if (account != null)
+                        {
+                            dto.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                        }
+                    }
+                }
+                catch
+                {
+                    // ignore enrichment errors, keep base fields
+                }
+
+                list.Add(dto);
+            }
+
+            return new PagedResult<PostListItemDto>
+            {
+                Page = posts.Page,
+                PageSize = posts.PageSize,
+                TotalCount = posts.TotalCount,
+                Data = list
             };
         }
 
@@ -118,7 +156,7 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("Bạn không có quyền xem bài viết này");
             }
 
-            return new PostListItemDto
+            var details = new PostListItemDto
             {
                 Id = post.Id,
                 ContentId = post.ContentId,
@@ -129,6 +167,37 @@ namespace AISAM.Services.Service
                 IsDeleted = post.IsDeleted,
                 Link = GeneratePermalink(post.ExternalPostId)
             };
+
+            try
+            {
+                var content = await _contentRepository.GetByIdAsync(post.ContentId);
+                if (content != null)
+                {
+                    details.ContentTitle = content.Title;
+                    var brandEntity = await _brandRepository.GetByIdAsync(content.BrandId);
+                    if (brandEntity != null)
+                    {
+                        details.BrandName = brandEntity.Name;
+                    }
+                }
+
+                var integration = await _integrationRepository.GetByIdAsync(post.IntegrationId);
+                if (integration != null)
+                {
+                    details.IntegrationPlatform = integration.Platform.ToString();
+                    var account = await _accountRepository.GetByIdAsync(integration.SocialAccountId);
+                    if (account != null)
+                    {
+                        details.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                    }
+                }
+            }
+            catch
+            {
+                // ignore enrichment errors
+            }
+
+            return details;
         }
 
         private static string? GeneratePermalink(string? externalPostId)

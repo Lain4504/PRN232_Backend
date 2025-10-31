@@ -10,6 +10,7 @@ namespace AISAM.Common.Models
         public bool IsActive { get; set; }
         public DateTime? ExpiresAt { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public List<SocialTargetDto> Targets { get; set; } = new();
     }
 

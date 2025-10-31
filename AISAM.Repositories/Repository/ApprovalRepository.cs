@@ -20,6 +20,7 @@ namespace AISAM.Repositories.Repository
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
                 .Include(a => a.ApproverProfile)
+                .Include(a => a.ApproverUser)
                 .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
         }
 
@@ -29,6 +30,7 @@ namespace AISAM.Repositories.Repository
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
                 .Include(a => a.ApproverProfile)
+                .Include(a => a.ApproverUser)
                 .FirstOrDefaultAsync(a => a.Id == id);
         }
 
@@ -38,18 +40,20 @@ namespace AISAM.Repositories.Repository
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
                 .Include(a => a.ApproverProfile)
+                .Include(a => a.ApproverUser)
                 .Where(a => a.ContentId == contentId && !a.IsDeleted)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Approval>> GetByApproverProfileIdAsync(Guid approverProfileId)
+        public async Task<IEnumerable<Approval>> GetByApproverUserIdAsync(Guid approverUserId)
         {
             return await _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
                 .Include(a => a.ApproverProfile)
-                .Where(a => a.ApproverProfileId == approverProfileId && !a.IsDeleted)
+                .Include(a => a.ApproverUser)
+                .Where(a => a.ApproverUserId == approverUserId && !a.IsDeleted)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
@@ -62,13 +66,14 @@ namespace AISAM.Repositories.Repository
             bool sortDescending,
             ContentStatusEnum? status,
             Guid? contentId,
-            Guid? approverId,
+            Guid? approverUserId,
             bool onlyDeleted)
         {
             var query = _context.Approvals
                 .Include(a => a.Content)
                     .ThenInclude(c => c.Brand)
                 .Include(a => a.ApproverProfile)
+                .Include(a => a.ApproverUser)
                 .AsQueryable();
 
             query = onlyDeleted ? query.Where(a => a.IsDeleted) : query.Where(a => !a.IsDeleted);
@@ -83,9 +88,9 @@ namespace AISAM.Repositories.Repository
                 query = query.Where(a => a.ContentId == contentId.Value);
             }
 
-            if (approverId.HasValue)
+            if (approverUserId.HasValue)
             {
-                query = query.Where(a => a.ApproverProfileId == approverId.Value);
+                query = query.Where(a => a.ApproverUserId == approverUserId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -94,7 +99,8 @@ namespace AISAM.Repositories.Repository
                 query = query.Where(a =>
                     (a.Notes != null && a.Notes.ToLower().Contains(term)) ||
                     (a.Content.Title != null && a.Content.Title.ToLower().Contains(term)) ||
-                    (a.ApproverProfile.Name != null && a.ApproverProfile.Name.ToLower().Contains(term))
+                    (a.ApproverProfile != null && a.ApproverProfile.Name != null && a.ApproverProfile.Name.ToLower().Contains(term)) ||
+                    (a.ApproverUser.Email != null && a.ApproverUser.Email.ToLower().Contains(term))
                 );
             }
 
@@ -111,7 +117,7 @@ namespace AISAM.Repositories.Repository
                         query = desc ? query.OrderByDescending(a => a.ApprovedAt) : query.OrderBy(a => a.ApprovedAt);
                         break;
                     case "approver":
-                        query = desc ? query.OrderByDescending(a => a.ApproverProfile.Name) : query.OrderBy(a => a.ApproverProfile.Name);
+                        query = desc ? query.OrderByDescending(a => a.ApproverUser.Email) : query.OrderBy(a => a.ApproverUser.Email);
                         break;
                     default:
                         query = desc ? query.OrderByDescending(a => a.CreatedAt) : query.OrderBy(a => a.CreatedAt);
@@ -197,10 +203,10 @@ namespace AISAM.Repositories.Repository
                               !a.IsDeleted);
         }
 
-        public async Task<int> GetPendingCountAsync(Guid approverProfileId)
+        public async Task<int> GetPendingCountAsync(Guid approverUserId)
         {
             return await _context.Approvals
-                .CountAsync(a => a.ApproverProfileId == approverProfileId && 
+                .CountAsync(a => a.ApproverUserId == approverUserId && 
                                a.Status == ContentStatusEnum.PendingApproval && 
                                !a.IsDeleted);
         }

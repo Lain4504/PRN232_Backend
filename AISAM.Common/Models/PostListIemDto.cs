@@ -10,5 +10,10 @@ namespace AISAM.Common.Models
         public string Status { get; set; } = string.Empty;
         public bool IsDeleted { get; set; }
         public string? Link { get; set; }
+        // Friendly fields for UI
+        public string? ContentTitle { get; set; }
+        public string? BrandName { get; set; }
+        public string? IntegrationPlatform { get; set; }
+        public string? IntegrationAccountName { get; set; }
     }
 }

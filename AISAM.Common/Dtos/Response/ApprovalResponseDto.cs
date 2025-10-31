@@ -4,7 +4,8 @@ namespace AISAM.Common.Dtos.Response
     {
         public Guid Id { get; set; }
         public Guid ContentId { get; set; }
-        public Guid ApproverProfileId { get; set; }
+        public Guid? ApproverProfileId { get; set; }
+        public Guid ApproverUserId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? Notes { get; set; }
         public DateTime? ApprovedAt { get; set; }

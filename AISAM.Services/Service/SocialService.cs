@@ -76,12 +76,25 @@ namespace AISAM.Services.Service
             // Must be IDENTICAL to the redirect_uri used in the OAuth dialog
             var accountData = await providerService.ExchangeCodeAsync(request.Code, redirectUri);
 
-            // Check if this specific Facebook account is already linked to this profile
+            // Check if this specific social account is already linked to this profile
             var platform = ParseProviderToEnum(request.Provider);
             var existingAccount = await _socialAccountRepository.GetByProfileIdPlatformAndAccountIdAsync(request.ProfileId, platform, accountData.ProviderUserId);
+            
             if (existingAccount != null)
             {
-                throw new InvalidOperationException("Tài khoản mạng xã hội này đã được liên kết với profile này");
+                // Re-auth: Update token and expiration for existing account
+                _logger.LogInformation("Re-authenticating existing social account {AccountId} for profile {ProfileId}", existingAccount.Id, request.ProfileId);
+                
+                existingAccount.UserAccessToken = accountData.AccessToken;
+                existingAccount.ExpiresAt = accountData.ExpiresAt;
+                existingAccount.IsActive = true; // Re-activate if it was inactive
+                existingAccount.UpdatedAt = DateTime.UtcNow;
+
+                await _socialAccountRepository.UpdateAsync(existingAccount);
+
+                // Reload with integrations to get full data
+                var reloaded = await _socialAccountRepository.GetByIdWithIntegrationsAsync(existingAccount.Id);
+                return MapToDto(reloaded ?? existingAccount);
             }
 
             // Create new social account only (opt-in pages later)
@@ -126,12 +139,84 @@ namespace AISAM.Services.Service
         public async Task<IEnumerable<SocialAccountDto>> GetProfileAccountsAsync(Guid profileId)
         {
             var accounts = await _socialAccountRepository.GetByProfileIdAsync(profileId);
-            return accounts.Select(MapToDto);
+            var result = new List<SocialAccountDto>();
+
+            foreach (var account in accounts)
+            {
+                var dto = MapToDto(account);
+                
+                // For Facebook accounts, enrich targets with real page names
+                if (account.Platform == SocialPlatformEnum.Facebook && 
+                    dto.Targets != null && 
+                    dto.Targets.Count > 0 && 
+                    _providers.TryGetValue("facebook", out var providerService))
+                {
+                    try
+                    {
+                        var availableTargets = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                        var targetMap = availableTargets.ToDictionary(t => t.ProviderTargetId, t => t);
+                        
+                        foreach (var target in dto.Targets)
+                        {
+                            if (targetMap.TryGetValue(target.ProviderTargetId, out var fbTarget))
+                            {
+                                target.Name = fbTarget.Name ?? target.Name;
+                                target.Category = fbTarget.Category;
+                                target.ProfilePictureUrl = fbTarget.ProfilePictureUrl;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch page names from Facebook Graph API for account {AccountId}, using fallback", account.Id);
+                        // Continue with default names if API call fails
+                    }
+                }
+                
+                result.Add(dto);
+            }
+
+            return result;
         }
 
         public async Task<IEnumerable<SocialTargetDto>> GetAccountTargetsAsync(Guid socialAccountId)
         {
             var integrations = await _socialIntegrationRepository.GetBySocialAccountIdAsync(socialAccountId);
+            var account = await _socialAccountRepository.GetByIdAsync(socialAccountId);
+            
+            if (account == null)
+            {
+                return integrations.Select(MapToDtoFromIntegration);
+            }
+
+            // For Facebook, try to get page names from Graph API
+            if (account.Platform == SocialPlatformEnum.Facebook && _providers.TryGetValue("facebook", out var providerService))
+            {
+                try
+                {
+                    var availableTargets = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                    var targetMap = availableTargets.ToDictionary(t => t.ProviderTargetId, t => t);
+                    
+                    return integrations.Select(integration => 
+                    {
+                        var dto = MapToDtoFromIntegration(integration);
+                        // If we found the target in available targets, use its real name
+                        if (integration.ExternalId != null && targetMap.TryGetValue(integration.ExternalId, out var target))
+                        {
+                            dto.Name = target.Name ?? dto.Name;
+                            dto.Category = target.Category;
+                            dto.ProfilePictureUrl = target.ProfilePictureUrl;
+                        }
+                        return dto;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch page names from Facebook Graph API for account {AccountId}, using fallback", socialAccountId);
+                    // Fallback to default mapping if API call fails
+                }
+            }
+
             return integrations.Select(MapToDtoFromIntegration);
         }
 
@@ -332,6 +417,7 @@ namespace AISAM.Services.Service
                 IsActive = account.IsActive,
                 ExpiresAt = account.ExpiresAt,
                 CreatedAt = account.CreatedAt,
+                UpdatedAt = account.UpdatedAt,
                 Targets = account.SocialIntegrations?.Select(MapToDtoFromIntegration).ToList() ?? new List<SocialTargetDto>()
             };
         }

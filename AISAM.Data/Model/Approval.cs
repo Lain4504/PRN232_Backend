@@ -15,9 +15,14 @@ namespace AISAM.Data.Model
         [Column("content_id")]
         public Guid ContentId { get; set; }
 
-        [Required]
+        // Legacy: kept for backward compatibility until migration cleanup
         [Column("approver_profile_id")]
-        public Guid ApproverProfileId { get; set; }
+        public Guid? ApproverProfileId { get; set; }
+
+        // New: approver by userId (team member)
+        [Required]
+        [Column("approver_user_id")]
+        public Guid ApproverUserId { get; set; }
 
         [Required]
         [Column("status")]
@@ -40,6 +45,9 @@ namespace AISAM.Data.Model
         public virtual Content Content { get; set; } = null!;
 
         [ForeignKey("ApproverProfileId")]
-        public virtual Profile ApproverProfile { get; set; } = null!;
+        public virtual Profile? ApproverProfile { get; set; }
+
+        [ForeignKey("ApproverUserId")]
+        public virtual User ApproverUser { get; set; } = null!;
     }
 }

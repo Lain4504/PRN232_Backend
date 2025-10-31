@@ -100,16 +100,27 @@ namespace AISAM.API.Controllers
 
                 var socialAccount = await _socialService.LinkAccountAsync(linkRequest);
                 // Profile information is already validated in SocialService.LinkAccountAsync
+                // LinkAccountAsync will create new account or update existing one (re-auth)
 
-                // Get available targets (pages) for this newly linked account
+                // Get available targets (pages) for this account
                 var availableTargets = await _socialService.ListAvailableTargetsForAccountAsync(socialAccount.Id);
+
+                // Check if account was just created or updated (re-auth)
+                // If UpdatedAt is very close to CreatedAt (within 2 seconds), it's likely a new account
+                // If UpdatedAt is significantly later than CreatedAt, it's a re-auth
+                var timeDiff = socialAccount.UpdatedAt - socialAccount.CreatedAt;
+                var isReAuth = timeDiff.TotalSeconds > 2;
+                var message = isReAuth
+                    ? $"Tài khoản {provider} đã được xác thực lại thành công. Token đã được cập nhật."
+                    : $"Tài khoản {provider} đã được liên kết thành công. Bây giờ bạn có thể chọn các trang để liên kết.";
 
                 return Ok(GenericResponse<object>.CreateSuccess(new
                 {
                     SocialAccount = socialAccount,
                     AvailableTargets = availableTargets,
-                    Message = $"Tài khoản {provider} đã được liên kết thành công. Bây giờ bạn có thể chọn các trang để liên kết."
-                }, $"Tài khoản {provider} đã được liên kết thành công"));
+                    Message = message,
+                    IsReAuth = isReAuth
+                }, isReAuth ? $"Tài khoản {provider} đã được xác thực lại thành công" : $"Tài khoản {provider} đã được liên kết thành công"));
             }
             catch (ArgumentException ex)
             {
