@@ -111,6 +111,30 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Get active subscription for current profile
+        /// </summary>
+        [HttpGet("subscription/active")]
+        public async Task<ActionResult<GenericResponse<SubscriptionResponseDto>>> GetActiveSubscription()
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<SubscriptionResponseDto>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+
+            var result = await _paymentService.GetActiveSubscriptionByProfileIdAsync(profileId, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
         /// Get user's subscriptions
         /// </summary>
         [HttpGet("subscriptions")]
@@ -145,6 +169,30 @@ namespace AISAM.API.Controllers
             }
 
             var result = await _paymentService.CancelSubscriptionAsync(id, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Change subscription plan
+        /// </summary>
+        [HttpPut("subscription/change-plan")]
+        public async Task<ActionResult<GenericResponse<SubscriptionResponseDto>>> ChangePlan([FromBody] ChangePlanRequest request)
+        {
+            var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(GenericResponse<SubscriptionResponseDto>.CreateError("Không thể xác thực người dùng"));
+            }
+
+            var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+
+            var result = await _paymentService.ChangePlanAsync(request, userId, profileId);
 
             if (result.Success)
             {

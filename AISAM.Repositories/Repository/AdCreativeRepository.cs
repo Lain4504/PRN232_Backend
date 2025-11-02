@@ -25,6 +25,9 @@ namespace AISAM.Repositories.Repository
                 .Include(ac => ac.Content)
                     .ThenInclude(c => c.Brand)
                 .Include(ac => ac.Ads.Where(a => !a.IsDeleted))
+                    .ThenInclude(a => a.AdSet)
+                        .ThenInclude(ads => ads.Campaign)
+                            .ThenInclude(c => c.Brand)
                 .FirstOrDefaultAsync(ac => ac.Id == id && !ac.IsDeleted);
         }
 

@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AISAM.Repositories.Migrations
 {
     [DbContext(typeof(AisamContext))]
-    [Migration("20251026123825_update-adset-schema")]
-    partial class updateadsetschema
+    [Migration("20251102025736_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -162,7 +162,7 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("call_to_action");
 
-                    b.Property<Guid>("ContentId")
+                    b.Property<Guid?>("ContentId")
                         .HasColumnType("uuid")
                         .HasColumnName("content_id");
 
@@ -174,6 +174,11 @@ namespace AISAM.Repositories.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("creative_id");
+
+                    b.Property<string>("FacebookPostId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("facebook_post_id");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -321,9 +326,13 @@ namespace AISAM.Repositories.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("approved_at");
 
-                    b.Property<Guid>("ApproverProfileId")
+                    b.Property<Guid?>("ApproverProfileId")
                         .HasColumnType("uuid")
                         .HasColumnName("approver_profile_id");
+
+                    b.Property<Guid>("ApproverUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approver_user_id");
 
                     b.Property<Guid>("ContentId")
                         .HasColumnType("uuid")
@@ -348,6 +357,8 @@ namespace AISAM.Repositories.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApproverProfileId");
+
+                    b.HasIndex("ApproverUserId");
 
                     b.HasIndex("ContentId");
 
@@ -1617,8 +1628,7 @@ namespace AISAM.Repositories.Migrations
                     b.HasOne("AISAM.Data.Model.Content", "Content")
                         .WithMany("AdCreatives")
                         .HasForeignKey("ContentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Content");
                 });
@@ -1654,6 +1664,11 @@ namespace AISAM.Repositories.Migrations
                     b.HasOne("AISAM.Data.Model.Profile", "ApproverProfile")
                         .WithMany("Approvals")
                         .HasForeignKey("ApproverProfileId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("AISAM.Data.Model.User", "ApproverUser")
+                        .WithMany()
+                        .HasForeignKey("ApproverUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1664,6 +1679,8 @@ namespace AISAM.Repositories.Migrations
                         .IsRequired();
 
                     b.Navigation("ApproverProfile");
+
+                    b.Navigation("ApproverUser");
 
                     b.Navigation("Content");
                 });

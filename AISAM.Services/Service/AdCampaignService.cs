@@ -63,8 +63,8 @@ namespace AISAM.Services.Service
                 //     throw new UnauthorizedAccessException(quotaValidation.errorMessage ?? "Quota exceeded");
                 // }
 
-                // Get social integration with ad account
-                var socialIntegration = await GetSocialIntegrationWithAdAccountAsync(request.BrandId, request.AdAccountId);
+                // Get social integration (no need to check ad account ID - it comes from request)
+                var socialIntegration = await GetSocialIntegrationAsync(request.BrandId);
                 
                 // Check token validity
                 var isTokenValid = await _facebookApiService.CheckTokenExpiryAsync(socialIntegration.AccessToken);
@@ -307,17 +307,12 @@ namespace AISAM.Services.Service
             }
         }
 
-        private async Task<SocialIntegration> GetSocialIntegrationWithAdAccountAsync(Guid brandId, string adAccountId)
+        private async Task<SocialIntegration> GetSocialIntegrationAsync(Guid brandId)
         {
             var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(brandId);
             if (socialIntegration == null || !socialIntegration.IsActive)
             {
                 throw new ArgumentException("No active social integration found for this brand");
-            }
-
-            if (string.IsNullOrEmpty(socialIntegration.AdAccountId) || socialIntegration.AdAccountId != adAccountId)
-            {
-                throw new ArgumentException("Ad account ID does not match the brand's social integration");
             }
 
             return socialIntegration;

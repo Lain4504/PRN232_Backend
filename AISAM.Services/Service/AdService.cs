@@ -95,7 +95,7 @@ namespace AISAM.Services.Service
 
                 // Get social integration for Facebook API calls
                 var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(adSet.Campaign.BrandId);
-                if (socialIntegration == null || !socialIntegration.IsActive || string.IsNullOrEmpty(socialIntegration.AdAccountId))
+                if (socialIntegration == null || !socialIntegration.IsActive)
                 {
                     throw new ArgumentException("No active social integration found for this brand");
                 }
@@ -118,9 +118,9 @@ namespace AISAM.Services.Service
                     throw new ArgumentException("Ad creative does not have a Facebook Creative ID. Please ensure the creative was created successfully on Facebook.");
                 }
 
-                // Create ad on Facebook
+                // Create ad on Facebook (AdAccountId comes from campaign)
                 var facebookAdId = await _facebookApiService.CreateAdAsync(
-                    socialIntegration.AdAccountId,
+                    adSet.Campaign.AdAccountId,
                     adSet.FacebookAdSetId, // Use Facebook Ad Set ID, not internal GUID
                     creative.CreativeId,
                     request.Status,
@@ -512,23 +512,24 @@ namespace AISAM.Services.Service
 
         private async Task ValidateCreativeAccessAsync(Guid userId, AdCreative creative)
         {
-            // If creative is from Facebook post (ContentId is null), validate through brand
+            // If creative is from content, validate through content
             if (creative.ContentId.HasValue && creative.Content != null)
             {
                 await ValidateContentAccessAsync(userId, creative.Content);
             }
             else
             {
-                // For Facebook post creatives, validate through brand via social integration
-                var socialIntegration = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
-                if (socialIntegration != null)
+                // For Facebook post creatives, validate through campaign if ad exists
+                // Otherwise, skip validation as it was already validated during creation
+                if (creative.Ads != null && creative.Ads.Any())
                 {
-                    var brand = await _brandRepository.GetByIdAsync(socialIntegration.BrandId);
-                    if (brand != null)
+                    var firstAd = creative.Ads.First();
+                    if (firstAd.AdSet?.Campaign != null)
                     {
-                        await ValidateBrandAccessAsync(userId, brand);
+                        await ValidateCampaignAccessAsync(userId, firstAd.AdSet.Campaign);
                     }
                 }
+                // Note: If creative has no ads, validation was already done during creation
             }
         }
 

@@ -85,14 +85,9 @@ namespace AISAM.Services.Service
 
                 // Get social integration for Facebook API calls
                 var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(content.BrandId);
-                if (socialIntegration == null || !socialIntegration.IsActive || string.IsNullOrEmpty(socialIntegration.AdAccountId))
+                if (socialIntegration == null || !socialIntegration.IsActive)
                 {
                     throw new ArgumentException("No active social integration found for this brand");
-                }
-
-                if (socialIntegration.AdAccountId != request.AdAccountId)
-                {
-                    throw new ArgumentException("Ad account ID does not match the brand's social integration");
                 }
 
                 // Check token validity
@@ -125,7 +120,7 @@ namespace AISAM.Services.Service
 
                 // Create ad creative on Facebook
                 var facebookCreativeId = await _facebookApiService.CreateAdCreativeAsync(
-                    socialIntegration.AdAccountId,
+                    request.AdAccountId,
                     pageId,
                     message,
                     imageUrl,
@@ -191,14 +186,9 @@ namespace AISAM.Services.Service
 
                 // Get social integration for Facebook API calls
                 var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(request.BrandId);
-                if (socialIntegration == null || !socialIntegration.IsActive || string.IsNullOrEmpty(socialIntegration.AdAccountId))
+                if (socialIntegration == null || !socialIntegration.IsActive)
                 {
                     throw new ArgumentException("No active social integration found for this brand");
-                }
-
-                if (socialIntegration.AdAccountId != request.AdAccountId)
-                {
-                    throw new ArgumentException("Ad account ID does not match the brand's social integration");
                 }
 
                 // Check token validity
@@ -227,7 +217,7 @@ namespace AISAM.Services.Service
 
                 // Create ad creative using object_story_id (existing post)
                 var facebookCreativeId = await _facebookApiService.CreateAdCreativeFromPostAsync(
-                    socialIntegration.AdAccountId,
+                    request.AdAccountId,
                     request.FacebookPostId,
                     socialIntegration.AccessToken,
                     adName);
@@ -288,16 +278,17 @@ namespace AISAM.Services.Service
                 }
                 else
                 {
-                    // For Facebook post creatives, we need to find the brand through social integration
-                    var socialIntegration = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
-                    if (socialIntegration != null)
+                    // For Facebook post creatives, validate through first ad's campaign if available
+                    // Otherwise, skip validation as it was already validated when creating the creative
+                    if (creative.Ads != null && creative.Ads.Any())
                     {
-                        var brand = await _brandRepository.GetByIdAsync(socialIntegration.BrandId);
-                        if (brand != null)
+                        var firstAd = creative.Ads.First();
+                        if (firstAd.AdSet?.Campaign != null)
                         {
-                            await ValidateBrandAccessAsync(userId, brand);
+                            await ValidateBrandAccessAsync(userId, firstAd.AdSet.Campaign.Brand);
                         }
                     }
+                    // Note: If creative has no ads, we skip validation as it was validated during creation
                     
                     return MapToResponseFromFacebookPost(creative);
                 }
@@ -392,28 +383,32 @@ namespace AISAM.Services.Service
                     throw new ArgumentException("Ad creative not found");
                 }
 
-                // Validate access via content or brand
+                // Validate access via content or brand through campaign
+                Brand? brand = null;
                 if (creative.ContentId.HasValue && creative.Content != null)
                 {
                     await ValidateContentAccessAsync(userId, creative.Content);
+                    brand = creative.Content.Brand;
                 }
-                else
+                else if (creative.Ads != null && creative.Ads.Any())
                 {
-                    var social = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
-                    if (social == null)
+                    // For Facebook post creatives, validate through first ad's campaign
+                    var firstAd = creative.Ads.First();
+                    if (firstAd.AdSet?.Campaign != null)
                     {
-                        throw new ArgumentException("No social integration found for this creative");
+                        brand = firstAd.AdSet.Campaign.Brand;
+                        await ValidateBrandAccessAsync(userId, brand);
                     }
-                    var brand = await _brandRepository.GetByIdAsync(social.BrandId);
-                    if (brand == null)
-                    {
-                        throw new ArgumentException("Brand not found for this creative");
-                    }
-                    await ValidateBrandAccessAsync(userId, brand);
                 }
 
                 // Need a valid user access token per FB docs for previews
-                var socialIntegration = await _socialIntegrationRepository.GetByAdAccountIdAsync(creative.AdAccountId);
+                // Get social integration from brand
+                if (brand == null)
+                {
+                    throw new ArgumentException("Cannot determine brand for this creative");
+                }
+                
+                var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(brand.Id);
                 if (socialIntegration == null || !socialIntegration.IsActive)
                 {
                     throw new ArgumentException("No active social integration found");

@@ -61,7 +61,7 @@ namespace AISAM.Services.Service
 
                 // Get social integration for Facebook API calls
                 var socialIntegration = await _socialIntegrationRepository.GetByBrandIdAsync(campaign.BrandId);
-                if (socialIntegration == null || !socialIntegration.IsActive || string.IsNullOrEmpty(socialIntegration.AdAccountId))
+                if (socialIntegration == null || !socialIntegration.IsActive)
                 {
                     throw new ArgumentException("No active social integration found for this brand");
                 }
@@ -95,9 +95,9 @@ namespace AISAM.Services.Service
                     throw new ArgumentException("Campaign Facebook ID is not in valid format. Please recreate the campaign.");
                 }
 
-                // Create ad set on Facebook
+                // Create ad set on Facebook (AdAccountId comes from campaign)
                 var facebookAdSetId = await _facebookApiService.CreateAdSetAsync(
-                    socialIntegration.AdAccountId,
+                    campaign.AdAccountId,
                     campaign.FacebookCampaignId, // Use actual Facebook Campaign ID
                     request.Name,
                     request.Targeting,

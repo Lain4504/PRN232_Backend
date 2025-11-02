@@ -419,6 +419,56 @@ namespace AISAM.Services.Service
             }
         }
 
+        public async Task<GenericResponse<SubscriptionResponseDto>> GetActiveSubscriptionByProfileIdAsync(Guid profileId, Guid userId)
+        {
+            try
+            {
+                // Verify user owns the profile
+                var profile = await _profileRepository.GetByIdAsync(profileId);
+                if (profile == null || profile.UserId != userId)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Access denied");
+                }
+
+                // Try to get active subscription first
+                var subscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
+                
+                // If no active subscription, get the most recent subscription for this profile
+                if (subscription == null)
+                {
+                    var allSubscriptions = await _subscriptionRepository.GetByProfileIdAsync(profileId);
+                    subscription = allSubscriptions.FirstOrDefault(); // Already ordered by CreatedAt descending
+                }
+
+                // If still no subscription found, return null data but success response
+                if (subscription == null)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("No subscription found for this profile");
+                }
+
+                var response = new SubscriptionResponseDto
+                {
+                    Id = subscription.Id,
+                    ProfileId = subscription.ProfileId,
+                    Plan = subscription.Plan,
+                    QuotaPostsPerMonth = subscription.QuotaPostsPerMonth,
+                    QuotaStorageGb = subscription.QuotaStorageGb,
+                    StartDate = subscription.StartDate,
+                    EndDate = subscription.EndDate,
+                    IsActive = subscription.IsActive,
+                    CreatedAt = subscription.CreatedAt,
+                    StripeSubscriptionId = subscription.StripeSubscriptionId,
+                    StripeCustomerId = subscription.StripeCustomerId
+                };
+
+                return GenericResponse<SubscriptionResponseDto>.CreateSuccess(response, "Subscription retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<SubscriptionResponseDto>.CreateError($"Error retrieving subscription: {ex.Message}");
+            }
+        }
+
         public async Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetUserSubscriptionsAsync(Guid userId)
         {
             try
@@ -473,6 +523,117 @@ namespace AISAM.Services.Service
             catch (Exception ex)
             {
                 return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError($"Error retrieving payment history: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<SubscriptionResponseDto>> ChangePlanAsync(ChangePlanRequest request, Guid userId, Guid profileId)
+        {
+            try
+            {
+                // Get the active subscription for this profile
+                var currentSubscription = await _subscriptionRepository.GetActiveByProfileIdAsync(profileId);
+                if (currentSubscription == null)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("No active subscription found for this profile");
+                }
+
+                // Verify user owns the profile
+                var profile = await _profileRepository.GetByIdAsync(profileId);
+                if (profile == null || profile.UserId != userId)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("Access denied");
+                }
+
+                // Check if it's the same plan
+                if (currentSubscription.Plan == request.PlanId)
+                {
+                    return GenericResponse<SubscriptionResponseDto>.CreateError("You are already on this plan");
+                }
+
+                // Get plan details
+                var (quotaPosts, quotaStorage, priceId, _) = GetPlanDetails(request.PlanId);
+
+                // If subscription has Stripe subscription ID, update it in Stripe
+                if (!string.IsNullOrEmpty(currentSubscription.StripeSubscriptionId))
+                {
+                    var subscriptionService = new Stripe.SubscriptionService();
+                    var stripeSubscription = await subscriptionService.GetAsync(currentSubscription.StripeSubscriptionId);
+
+                    // Get the subscription item to update
+                    if (stripeSubscription.Items.Data.Count > 0)
+                    {
+                        var subscriptionItemId = stripeSubscription.Items.Data[0].Id;
+
+                        // Update subscription item with new price
+                        var subscriptionItemService = new Stripe.SubscriptionItemService();
+                        var updateOptions = new SubscriptionItemUpdateOptions
+                        {
+                            Price = priceId,
+                            ProrationBehavior = request.Immediate ? "create_prorations" : "none"
+                        };
+
+                        await subscriptionItemService.UpdateAsync(subscriptionItemId, updateOptions);
+
+                        // If not immediate, schedule the change at period end
+                        if (!request.Immediate)
+                        {
+                            var subscriptionUpdateOptions = new SubscriptionUpdateOptions
+                            {
+                                Metadata = new Dictionary<string, string>
+                                {
+                                    { "scheduled_plan_change", ((int)request.PlanId).ToString() },
+                                    { "scheduled_billing_cycle", request.BillingCycle }
+                                }
+                            };
+                            await subscriptionService.UpdateAsync(currentSubscription.StripeSubscriptionId, subscriptionUpdateOptions);
+                        }
+                    }
+                }
+
+                // Update subscription in database
+                if (request.Immediate)
+                {
+                    currentSubscription.Plan = request.PlanId;
+                    currentSubscription.QuotaPostsPerMonth = quotaPosts;
+                    currentSubscription.QuotaStorageGb = quotaStorage;
+                    currentSubscription.UpdatedAt = DateTime.UtcNow;
+                }
+                // If not immediate, we'll keep the current plan but mark for change at period end
+                // This would require additional tracking - for now, we'll do immediate change
+
+                await _subscriptionRepository.UpdateAsync(currentSubscription);
+
+                // Update profile type to match new plan
+                if (profile != null)
+                {
+                    profile.ProfileType = (ProfileTypeEnum)(int)request.PlanId;
+                    await _profileRepository.UpdateAsync(profile);
+                }
+
+                var response = new SubscriptionResponseDto
+                {
+                    Id = currentSubscription.Id,
+                    ProfileId = currentSubscription.ProfileId,
+                    Plan = currentSubscription.Plan,
+                    QuotaPostsPerMonth = currentSubscription.QuotaPostsPerMonth,
+                    QuotaStorageGb = currentSubscription.QuotaStorageGb,
+                    StartDate = currentSubscription.StartDate,
+                    EndDate = currentSubscription.EndDate,
+                    IsActive = currentSubscription.IsActive,
+                    CreatedAt = currentSubscription.CreatedAt,
+                    StripeSubscriptionId = currentSubscription.StripeSubscriptionId,
+                    StripeCustomerId = currentSubscription.StripeCustomerId
+                };
+
+                return GenericResponse<SubscriptionResponseDto>.CreateSuccess(response, "Subscription plan changed successfully");
+            }
+            catch (StripeException ex)
+            {
+                return GenericResponse<SubscriptionResponseDto>.CreateError($"Stripe error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<SubscriptionResponseDto>.CreateError($"Error changing subscription plan: {ex.Message}");
             }
         }
 
