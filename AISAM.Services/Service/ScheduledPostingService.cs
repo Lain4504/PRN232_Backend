@@ -248,10 +248,14 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("User profile not found");
             }
 
+            // Combine date + time in provided timezone and store UTC instant in ScheduledDate
+            var scheduledUtc = CombineToUtc(scheduledDate.Date, scheduledTime ?? TimeSpan.Zero, timezone);
+
             var schedule = new ContentCalendar
             {
                 ContentId = contentId,
-                ScheduledDate = DateTime.SpecifyKind(scheduledDate.Date, DateTimeKind.Utc),
+                ScheduledDate = scheduledUtc,
+                // Keep ScheduledTime optional for backward compatibility
                 ScheduledTime = scheduledTime,
                 Timezone = timezone,
                 RepeatType = RepeatTypeEnum.None,
@@ -301,10 +305,12 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("User profile not found");
             }
 
+            var startUtc = CombineToUtc(startDate.Date, scheduledTime ?? TimeSpan.Zero, timezone);
+
             var schedule = new ContentCalendar
             {
                 ContentId = contentId,
-                ScheduledDate = DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc),
+                ScheduledDate = startUtc,
                 ScheduledTime = scheduledTime,
                 Timezone = timezone,
                 RepeatType = repeatType,
@@ -337,7 +343,9 @@ namespace AISAM.Services.Service
             var schedule = await _calendarRepository.GetByIdAsync(scheduleId);
             if (schedule == null) return false;
 
-            schedule.ScheduledDate = DateTime.SpecifyKind(newScheduledDate.Date, DateTimeKind.Utc);
+            // Recompute UTC instant based on schedule's timezone
+            var recomputedUtc = CombineToUtc(newScheduledDate.Date, newScheduledTime ?? TimeSpan.Zero, schedule.Timezone);
+            schedule.ScheduledDate = recomputedUtc;
             schedule.ScheduledTime = newScheduledTime;
             schedule.UpdatedAt = DateTime.UtcNow;
 
@@ -387,6 +395,40 @@ namespace AISAM.Services.Service
         public async Task<IEnumerable<ContentCalendar>> GetTeamSchedulesAsync(Guid teamId, int limit = 50)
         {
             return await _calendarRepository.GetByTeamIdAsync(teamId, limit);
+        }
+
+        private static DateTime CombineToUtc(DateTime dateOnly, TimeSpan timeOfDay, string? timezone)
+        {
+            var tz = TryGetTimeZone(timezone) ?? TimeZoneInfo.Utc;
+            var local = new DateTime(
+                dateOnly.Year,
+                dateOnly.Month,
+                dateOnly.Day,
+                timeOfDay.Hours,
+                timeOfDay.Minutes,
+                timeOfDay.Seconds,
+                DateTimeKind.Unspecified);
+            try
+            {
+                return TimeZoneInfo.ConvertTimeToUtc(local, tz);
+            }
+            catch
+            {
+                return DateTime.SpecifyKind(dateOnly.Add(timeOfDay), DateTimeKind.Utc);
+            }
+        }
+
+        private static TimeZoneInfo? TryGetTimeZone(string? timezoneId)
+        {
+            if (string.IsNullOrWhiteSpace(timezoneId)) return null;
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timezoneId);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

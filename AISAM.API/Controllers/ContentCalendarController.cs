@@ -73,6 +73,12 @@ namespace AISAM.API.Controllers
                     }
                 }
 
+                // Require scheduled time (UI expects explicit time selection)
+                if (request.ScheduledTime == null)
+                {
+                    return BadRequest(GenericResponse<object>.CreateError("scheduledTime is required", System.Net.HttpStatusCode.BadRequest, "VALIDATION_ERROR"));
+                }
+
                 var result = await _scheduledPostingService.ScheduleContentAsync(
                     contentId,
                     request.ScheduledDate,
@@ -217,7 +223,14 @@ namespace AISAM.API.Controllers
                     schedules = await _scheduledPostingService.GetUpcomingSchedulesAsync(limit);
                 }
 
-                return Ok(GenericResponse<IEnumerable<Data.Model.ContentCalendar>>.CreateSuccess(schedules, "Upcoming schedules retrieved successfully"));
+                // Project to DTOs to avoid serialization cycles
+                var dto = schedules.Select(s => ContentCalendarResponseDto.FromModel(
+                    s,
+                    s.Content?.Title ?? string.Empty,
+                    s.Content?.Brand?.Name ?? string.Empty
+                ));
+
+                return Ok(GenericResponse<IEnumerable<ContentCalendarResponseDto>>.CreateSuccess(dto, "Upcoming schedules retrieved successfully"));
             }
             catch (Exception ex)
             {

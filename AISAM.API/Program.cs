@@ -362,6 +362,9 @@ app.UseCors("CorsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Auto-provision user from JWT if they don't exist in database
+app.UseUserProvisioning();
+
 app.MapControllers();
 
 app.Run();

@@ -27,7 +27,20 @@ namespace AISAM.Services.Service
             "image/webp"
         };
 
+        /// <summary>
+        /// Các loại content type video được hỗ trợ.
+        /// </summary>
+        private static readonly HashSet<string> AllowedVideoTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "video/mp4",
+            "video/mpeg",
+            "video/quicktime",
+            "video/x-msvideo",
+            "video/webm"
+        };
+
         private const long MaxImageSize = 5 * 1024 * 1024; // 5MB
+        private const long MaxVideoSize = 100 * 1024 * 1024; // 100MB
 
         /// <summary>
         /// Validate ảnh trước khi upload.
@@ -41,6 +54,20 @@ namespace AISAM.Services.Service
 
             if (!AllowedImageTypes.Contains(file.ContentType))
                 throw new InvalidOperationException("Chỉ hỗ trợ định dạng ảnh jpg, jpeg, png, webp");
+        }
+
+        /// <summary>
+        /// Validate video trước khi upload.
+        /// </summary>
+        private static void ValidateVideoFile(Microsoft.AspNetCore.Http.IFormFile file)
+        {
+            if (file == null) throw new ArgumentNullException(nameof(file));
+
+            if (file.Length > MaxVideoSize)
+                throw new InvalidOperationException("Video không được lớn hơn 100MB");
+
+            if (!AllowedVideoTypes.Contains(file.ContentType))
+                throw new InvalidOperationException("Chỉ hỗ trợ định dạng video mp4, mpeg, mov, avi, webm");
         }
 
         /// <summary>
@@ -60,11 +87,22 @@ namespace AISAM.Services.Service
         {
             if (file == null) throw new ArgumentNullException(nameof(file));
 
-            // Validate image file nếu là ảnh
-            ValidateImageFile(file);
+            // Validate file based on content type
+            var contentType = file.ContentType ?? "image/png";
+            if (AllowedImageTypes.Contains(contentType))
+            {
+                ValidateImageFile(file);
+            }
+            else if (AllowedVideoTypes.Contains(contentType))
+            {
+                ValidateVideoFile(file);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Không hỗ trợ định dạng file: {contentType}. Chỉ hỗ trợ ảnh (jpg, jpeg, png, webp) và video (mp4, mpeg, mov, avi, webm)");
+            }
 
             // Extract content type and stream từ IFormFile
-            var contentType = file.ContentType ?? "image/png";
             using var fileStream = file.OpenReadStream();
 
             // đọc stream thành byte[]

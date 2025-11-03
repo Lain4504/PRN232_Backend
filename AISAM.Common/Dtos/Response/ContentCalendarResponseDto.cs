@@ -42,30 +42,57 @@ namespace AISAM.Common.Dtos.Response
 
         private static string ComputeStatus(ContentCalendar model)
         {
-            var now = DateTime.UtcNow;
-            var scheduledDateTime = model.ScheduledDate;
-            
-            if (model.ScheduledTime.HasValue)
-            {
-                scheduledDateTime = model.ScheduledDate.Date.Add(model.ScheduledTime.Value);
-            }
-
-            if (model.IsDeleted)
+            if (model.IsDeleted || !model.IsActive)
             {
                 return "cancelled";
             }
 
-            if (!model.IsActive)
+            // If ScheduledTime is not provided, ScheduledDate is already a full UTC instant
+            DateTime scheduledUtc;
+            if (!model.ScheduledTime.HasValue)
             {
-                return "cancelled";
+                scheduledUtc = model.ScheduledDate;
+            }
+            else
+            {
+                var tz = TryGetTimeZone(model.Timezone) ?? TimeZoneInfo.Utc;
+
+                var dateOnly = model.ScheduledDate.Date;
+                var timeOfDay = model.ScheduledTime ?? TimeSpan.Zero;
+
+                var local = new DateTime(
+                    dateOnly.Year,
+                    dateOnly.Month,
+                    dateOnly.Day,
+                    timeOfDay.Hours,
+                    timeOfDay.Minutes,
+                    timeOfDay.Seconds,
+                    DateTimeKind.Unspecified);
+
+                try
+                {
+                    scheduledUtc = TimeZoneInfo.ConvertTimeToUtc(local, tz);
+                }
+                catch
+                {
+                    scheduledUtc = model.ScheduledDate;
+                }
             }
 
-            if (scheduledDateTime <= now)
-            {
-                return "published";
-            }
+            return scheduledUtc <= DateTime.UtcNow ? "published" : "scheduled";
+        }
 
-            return "scheduled";
+        private static TimeZoneInfo? TryGetTimeZone(string? timezoneId)
+        {
+            if (string.IsNullOrWhiteSpace(timezoneId)) return null;
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timezoneId);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static List<Guid> ParseIntegrationIds(string? integrationIdsJson)

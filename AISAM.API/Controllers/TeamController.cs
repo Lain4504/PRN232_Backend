@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AISAM.API.Utils;
 using System.Linq;
+using AISAM.Repositories.IRepositories;
+using AISAM.Data.Enumeration;
+using Microsoft.Extensions.Logging;
 
 namespace AISAM.API.Controllers
 {
@@ -15,10 +18,29 @@ namespace AISAM.API.Controllers
     public class TeamController : ControllerBase
     {
         private readonly ITeamService _teamService;
+        private readonly IBrandService _brandService;
+        private readonly IContentRepository _contentRepository;
+        private readonly IPostRepository _postRepository;
+        private readonly IApprovalRepository _approvalRepository;
+        private readonly ITeamMemberRepository _teamMemberRepository;
+        private readonly ILogger<TeamController> _logger;
 
-        public TeamController(ITeamService teamService)
+        public TeamController(
+            ITeamService teamService,
+            IBrandService brandService,
+            IContentRepository contentRepository,
+            IPostRepository postRepository,
+            IApprovalRepository approvalRepository,
+            ITeamMemberRepository teamMemberRepository,
+            ILogger<TeamController> logger)
         {
             _teamService = teamService;
+            _brandService = brandService;
+            _contentRepository = contentRepository;
+            _postRepository = postRepository;
+            _approvalRepository = approvalRepository;
+            _teamMemberRepository = teamMemberRepository;
+            _logger = logger;
         }
 
         /// <summary>
@@ -282,5 +304,107 @@ namespace AISAM.API.Controllers
 
             return BadRequest(result);
         }
+
+        /// <summary>
+        /// Lấy thống kê tổng quan của team
+        /// </summary>
+        [HttpGet("{teamId}/stats")]
+        public async Task<ActionResult<GenericResponse<TeamStatsResponse>>> GetTeamStats(Guid teamId)
+        {
+            try
+            {
+                var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                if (profileId == Guid.Empty)
+                {
+                    return Unauthorized(GenericResponse<TeamStatsResponse>.CreateError("Không thể xác thực người dùng"));
+                }
+
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                if (userId == Guid.Empty)
+                {
+                    return Unauthorized(GenericResponse<TeamStatsResponse>.CreateError("Không thể xác thực người dùng"));
+                }
+
+                // Verify user has access to this team
+                var teamResult = await _teamService.GetTeamByIdAsync(teamId, profileId, userId);
+                if (!teamResult.Success)
+                {
+                    return BadRequest(GenericResponse<TeamStatsResponse>.CreateError("Không tìm thấy team hoặc bạn không có quyền truy cập"));
+                }
+
+                // Get team members count
+                var teamMembers = await _teamMemberRepository.GetByTeamIdAsync(teamId);
+                var membersCount = teamMembers.Count();
+
+                // Calculate members added this month
+                var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+                var membersAddedThisMonth = teamMembers.Count(m => m.JoinedAt >= firstDayOfMonth);
+
+                // Get team brands
+                var brands = await _brandService.GetBrandsByTeamIdAsync(teamId, userId);
+                var brandsCount = brands.Count();
+                var brandIds = brands.Select(b => b.Id).ToList();
+
+                // Initialize stats
+                int totalContents = 0;
+                int contentCreatedThisWeek = 0;
+                int pendingApprovals = 0;
+
+                if (brandIds.Any())
+                {
+                    // Get all contents for team brands
+                    var allContents = new List<AISAM.Data.Model.Content>();
+                    foreach (var brandId in brandIds)
+                    {
+                        var contents = await _contentRepository.GetByBrandIdAsync(brandId);
+                        allContents.AddRange(contents);
+                    }
+
+                    totalContents = allContents.Count;
+
+                    // Calculate content created this week
+                    var firstDayOfWeek = DateTime.UtcNow.AddDays(-(int)DateTime.UtcNow.DayOfWeek).Date;
+                    contentCreatedThisWeek = allContents.Count(c => c.CreatedAt >= firstDayOfWeek);
+
+                    // Count pending approvals (contents with status PendingApproval)
+                    pendingApprovals = allContents.Count(c => c.Status == ContentStatusEnum.PendingApproval);
+                }
+
+                var stats = new TeamStatsResponse
+                {
+                    MembersCount = membersCount,
+                    MembersAddedThisMonth = membersAddedThisMonth,
+                    BrandsCount = brandsCount,
+                    TotalContents = totalContents,
+                    ContentCreatedThisWeek = contentCreatedThisWeek,
+                    PendingApprovals = pendingApprovals
+                };
+
+                return Ok(GenericResponse<TeamStatsResponse>.CreateSuccess(stats, "Lấy thống kê team thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized team stats request for team {TeamId}", teamId);
+                return Unauthorized(GenericResponse<TeamStatsResponse>.CreateError("Không có quyền truy cập"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading team stats for team {TeamId}", teamId);
+                return StatusCode(500, GenericResponse<TeamStatsResponse>.CreateError("Đã xảy ra lỗi khi lấy thống kê team"));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Response DTO for team statistics
+    /// </summary>
+    public class TeamStatsResponse
+    {
+        public int MembersCount { get; set; }
+        public int MembersAddedThisMonth { get; set; }
+        public int BrandsCount { get; set; }
+        public int TotalContents { get; set; }
+        public int ContentCreatedThisWeek { get; set; }
+        public int PendingApprovals { get; set; }
     }
 }

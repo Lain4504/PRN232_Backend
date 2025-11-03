@@ -1129,5 +1129,84 @@ namespace AISAM.Services.Service
                 throw;
             }
         }
+
+        public async Task<List<FacebookPostDetails>> GetFacebookPostsAsync(string pageId, string accessToken, int limit = 50)
+        {
+            try
+            {
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{pageId}/posts";
+                var parameters = new Dictionary<string, string>
+                {
+                    ["fields"] = "id,message,created_time,permalink_url,story",
+                    ["limit"] = limit.ToString(),
+                    ["access_token"] = accessToken
+                };
+
+                var queryString = string.Join("&", parameters.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+                var fullUrl = $"{url}?{queryString}";
+
+                _logger.LogInformation("Getting Facebook posts for page {PageId}", pageId);
+
+                var response = await _httpClient.GetAsync(fullUrl);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Failed to get Facebook posts: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new List<FacebookPostDetails>();
+                }
+
+                var jsonDoc = JsonDocument.Parse(responseContent);
+                var root = jsonDoc.RootElement;
+
+                if (root.TryGetProperty("error", out var errorElement))
+                {
+                    _logger.LogError("Facebook API error getting posts: {Error}", errorElement.GetRawText());
+                    return new List<FacebookPostDetails>();
+                }
+
+                var posts = new List<FacebookPostDetails>();
+
+                if (root.TryGetProperty("data", out var dataProperty) && dataProperty.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var postElement in dataProperty.EnumerateArray())
+                    {
+                        var post = new FacebookPostDetails
+                        {
+                            Id = postElement.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "" : "",
+                            Message = postElement.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : null,
+                            LinkUrl = postElement.TryGetProperty("permalink_url", out var linkProp) ? linkProp.GetString() : null,
+                        };
+
+                        // Try to get story if message is not available
+                        if (string.IsNullOrEmpty(post.Message) && postElement.TryGetProperty("story", out var storyProp))
+                        {
+                            post.Message = storyProp.GetString();
+                        }
+
+                        // Type is not available in v24.0 API, set to null
+                        post.Type = null;
+
+                        if (postElement.TryGetProperty("created_time", out var createdProp))
+                        {
+                            if (DateTime.TryParse(createdProp.GetString(), out var createdTime))
+                            {
+                                post.CreatedTime = createdTime;
+                            }
+                        }
+
+                        posts.Add(post);
+                    }
+                }
+
+                _logger.LogInformation("Successfully retrieved {Count} Facebook posts for page {PageId}", posts.Count, pageId);
+                return posts;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting Facebook posts for page {PageId}", pageId);
+                return new List<FacebookPostDetails>();
+            }
+        }
     }
 }
