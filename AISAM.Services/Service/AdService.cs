@@ -2,6 +2,7 @@ using AISAM.Common.Dtos;
 using AISAM.Common.Dtos.Request;
 using AISAM.Common.Dtos.Response;
 using AISAM.Data.Model;
+using AISAM.Data.Enumeration;
 using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using AISAM.Services.Helper;
@@ -16,6 +17,7 @@ namespace AISAM.Services.Service
         private readonly IAdCreativeRepository _adCreativeRepository;
         private readonly IAdCampaignRepository _adCampaignRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
+        private readonly ISocialAccountRepository _socialAccountRepository;
         private readonly IPerformanceReportRepository _performanceReportRepository;
         private readonly IAdQuotaService _adQuotaService;
         private readonly IFacebookMarketingApiService _facebookApiService;
@@ -25,6 +27,7 @@ namespace AISAM.Services.Service
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IBrandRepository _brandRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
+        private readonly Dictionary<string, IProviderService> _providers;
         private readonly ILogger<AdService> _logger;
 
         public AdService(
@@ -33,6 +36,7 @@ namespace AISAM.Services.Service
             IAdCreativeRepository adCreativeRepository,
             IAdCampaignRepository adCampaignRepository,
             ISocialIntegrationRepository socialIntegrationRepository,
+            ISocialAccountRepository socialAccountRepository,
             IPerformanceReportRepository performanceReportRepository,
             IAdQuotaService adQuotaService,
             IFacebookMarketingApiService facebookApiService,
@@ -42,6 +46,7 @@ namespace AISAM.Services.Service
             ITeamMemberRepository teamMemberRepository,
             IBrandRepository brandRepository,
             RolePermissionConfig rolePermissionConfig,
+            IEnumerable<IProviderService> providers,
             ILogger<AdService> logger)
         {
             _adRepository = adRepository;
@@ -49,6 +54,7 @@ namespace AISAM.Services.Service
             _adCreativeRepository = adCreativeRepository;
             _adCampaignRepository = adCampaignRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
+            _socialAccountRepository = socialAccountRepository;
             _performanceReportRepository = performanceReportRepository;
             _adQuotaService = adQuotaService;
             _facebookApiService = facebookApiService;
@@ -58,6 +64,7 @@ namespace AISAM.Services.Service
             _teamMemberRepository = teamMemberRepository;
             _brandRepository = brandRepository;
             _rolePermissionConfig = rolePermissionConfig;
+            _providers = providers.ToDictionary(p => p.ProviderName, p => p);
             _logger = logger;
         }
 
@@ -148,7 +155,7 @@ namespace AISAM.Services.Service
                 _logger.LogInformation("User {UserId} created ad {AdId} with Facebook ID {FacebookAdId}", 
                     userId, createdAd.Id, facebookAdId);
 
-                return MapToResponse(createdAd);
+                return await MapToResponseAsync(createdAd);
             }
             catch (Exception ex)
             {
@@ -193,7 +200,11 @@ namespace AISAM.Services.Service
                     ads = await GetUserAdsAsync(userId, page, pageSize);
                 }
 
-                var responses = ads.Data.Select(MapToResponse).ToList();
+                var responses = new List<AdResponse>();
+                foreach (var ad in ads.Data)
+                {
+                    responses.Add(await MapToResponseAsync(ad));
+                }
                 
                 return new PagedResult<AdResponse>
                 {
@@ -220,7 +231,7 @@ namespace AISAM.Services.Service
                 // Validate access through ad set and campaign
                 await ValidateAdAccessAsync(userId, ad);
 
-                return MapToResponse(ad);
+                return await MapToResponseAsync(ad);
             }
             catch (Exception ex)
             {
@@ -716,8 +727,51 @@ namespace AISAM.Services.Service
             }
         }
 
-        private static AdResponse MapToResponse(Ad ad)
+        private async Task<AdResponse> MapToResponseAsync(Ad ad)
         {
+            string? pageName = null;
+            
+            // Try to get page name from brand's social integration
+            var brandId = ad.AdSet?.Campaign?.BrandId;
+            if (brandId.HasValue && brandId.Value != Guid.Empty)
+            {
+                try
+                {
+                    var integration = await _socialIntegrationRepository.GetByBrandIdAsync(brandId.Value);
+                    if (integration != null && integration.Platform == SocialPlatformEnum.Facebook && !string.IsNullOrEmpty(integration.ExternalId))
+                    {
+                        // Try to get page name from Facebook API
+                        if (_providers.TryGetValue("facebook", out var providerService) && integration.SocialAccountId != Guid.Empty)
+                        {
+                            try
+                            {
+                                var account = await _socialAccountRepository.GetByIdAsync(integration.SocialAccountId);
+                                if (account != null && !string.IsNullOrEmpty(account.UserAccessToken))
+                                {
+                                    var availableTargets = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                                    var target = availableTargets.FirstOrDefault(t => t.ProviderTargetId == integration.ExternalId);
+                                    if (target != null && !string.IsNullOrEmpty(target.Name))
+                                    {
+                                        pageName = target.Name;
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to fetch Facebook page name for ad {AdId}, using fallback", ad.Id);
+                            }
+                        }
+                        
+                        // Don't use page ID as fallback - let frontend use other fields
+                        // Only set pageName if we actually have a name
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get page name for ad {AdId}", ad.Id);
+                }
+            }
+            
             return new AdResponse
             {
                 Id = ad.Id,
@@ -727,6 +781,7 @@ namespace AISAM.Services.Service
                 Status = ad.Status,
                 Name = !string.IsNullOrEmpty(ad.AdId) ? ad.AdId : null,
                 AdSetName = ad.AdSet?.Name,
+                PageName = pageName,
                 CreatedAt = ad.CreatedAt
             };
         }

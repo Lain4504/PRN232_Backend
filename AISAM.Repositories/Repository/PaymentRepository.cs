@@ -44,6 +44,17 @@ namespace AISAM.Repositories.Repository
             return await _context.Payments
                 .Where(p => p.UserId == userId && !p.IsDeleted)
                 .Include(p => p.Subscription)
+                .Include(p => p.User)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Payment>> GetAllPaymentsAsync()
+        {
+            return await _context.Payments
+                .Where(p => !p.IsDeleted)
+                .Include(p => p.Subscription)
+                .Include(p => p.User)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
         }

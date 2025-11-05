@@ -12,11 +12,13 @@ namespace AISAM.Common.Dtos.Request
         [MaxLength(255)]
         public string FacebookPostId { get; set; } = string.Empty;
 
+        [Required]
         [MaxLength(50)]
-        public string? CallToAction { get; set; }
+        public string CallToAction { get; set; } = string.Empty;
 
+        [Required]
         [MaxLength(500)]
-        public string? LinkUrl { get; set; }
+        public string LinkUrl { get; set; } = string.Empty;
 
         [MaxLength(255)]
         public string? AdName { get; set; }

@@ -19,6 +19,17 @@ namespace AISAM.Repositories.IRepositories
             AdTypeEnum? adType,
             bool onlyDeleted,
             ContentStatusEnum? status);
+        
+        Task<(IEnumerable<Content> Items, int TotalCount)> GetPagedAsync(
+            Guid? brandId,
+            int page,
+            int pageSize,
+            string? searchTerm,
+            string? sortBy,
+            bool sortDescending,
+            AdTypeEnum? adType,
+            bool onlyDeleted,
+            ContentStatusEnum? status);
         Task<Content> CreateAsync(Content content);
         Task UpdateAsync(Content content);
         Task DeleteAsync(Guid id);

@@ -26,6 +26,10 @@ namespace AISAM.Data.Model
         [Column("call_to_action")]
         public string? CallToAction { get; set; }
 
+        [MaxLength(500)]
+        [Column("link_url")]
+        public string? LinkUrl { get; set; }
+
         [MaxLength(255)]
         [Column("facebook_post_id")]
         public string? FacebookPostId { get; set; }

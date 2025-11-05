@@ -136,7 +136,8 @@ namespace AISAM.Services.Service
                     ContentId = request.ContentId,
                     AdAccountId = request.AdAccountId,
                     CreativeId = facebookCreativeId,
-                    CallToAction = callToAction
+                    CallToAction = callToAction,
+                    LinkUrl = linkUrl
                 };
 
                 var createdCreative = await _adCreativeRepository.CreateAsync(adCreative);
@@ -229,6 +230,7 @@ namespace AISAM.Services.Service
                     AdAccountId = request.AdAccountId,
                     CreativeId = facebookCreativeId,
                     CallToAction = request.CallToAction?.ToUpper(),
+                    LinkUrl = request.LinkUrl,
                     FacebookPostId = request.FacebookPostId // Store the original Facebook post ID
                 };
 
@@ -325,15 +327,27 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<PagedResult<AdCreativeResponse>> GetAdCreativesByAdSetAsync(Guid userId, Guid adSetId, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null)
+        public async Task<PagedResult<AdCreativeResponse>> GetAdCreativesByAdSetAsync(Guid userId, Guid? adSetId, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null)
         {
             try
             {
-                // Validate access via ad set's campaign
-                var adSet = await _adCreativeRepository.GetByIdAsync(adSetId); // This is wrong type; adjust by using AdSetRepository if needed.
-                // Since we don't have AdSetRepository here, assume access validated earlier at controller layer if necessary.
+                (IEnumerable<AdCreative> Data, int TotalCount) result;
 
-                var result = await _adCreativeRepository.GetByAdSetIdPagedAsync(adSetId, page, pageSize, search, type, sortBy, sortOrder);
+                if (adSetId.HasValue)
+                {
+                    // Validate access via ad set's campaign
+                    var adSet = await _adCreativeRepository.GetByIdAsync(adSetId.Value); // This is wrong type; adjust by using AdSetRepository if needed.
+                    // Since we don't have AdSetRepository here, assume access validated earlier at controller layer if necessary.
+
+                    result = await _adCreativeRepository.GetByAdSetIdPagedAsync(adSetId.Value, page, pageSize, search, type, sortBy, sortOrder);
+                }
+                else
+                {
+                    // Get all creatives for user's accessible brands
+                    var brandIds = await GetUserAccessibleBrandIdsAsync(userId);
+                    result = await _adCreativeRepository.GetAllPagedAsync(brandIds, page, pageSize, search, type, sortBy, sortOrder);
+                }
+
                 var data = new List<AdCreativeResponse>();
                 foreach (var ac in result.Data)
                 {
@@ -524,6 +538,28 @@ namespace AISAM.Services.Service
             {
                 _logger.LogError(ex, "Failed to send notification to profile {ProfileId}", profileId);
             }
+        }
+
+        private async Task<List<Guid>> GetUserAccessibleBrandIdsAsync(Guid userId)
+        {
+            var profiles = await _profileRepository.GetByUserIdAsync(userId);
+            var ownedBrandIds = new List<Guid>();
+            
+            foreach (var profile in profiles)
+            {
+                var brands = await _brandRepository.GetPagedByProfileIdAsync(profile.Id, new PaginationRequest { Page = 1, PageSize = 10000 });
+                ownedBrandIds.AddRange(brands.Data.Select(b => b.Id));
+            }
+            
+            // Add team brands with permission
+            var teamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
+            var teamBrandIds = teamMembers
+                .Where(tm => _rolePermissionConfig.HasCustomPermission(tm.Permissions, "can_create_ad"))
+                .SelectMany(tm => tm.Team.TeamBrands.Select(tb => tb.BrandId))
+                .Distinct()
+                .ToList();
+            
+            return ownedBrandIds.Union(teamBrandIds).Distinct().ToList();
         }
 
         private async Task ValidateBrandAccessAsync(Guid userId, Brand brand)

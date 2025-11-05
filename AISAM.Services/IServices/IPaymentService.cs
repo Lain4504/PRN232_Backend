@@ -16,5 +16,11 @@ namespace AISAM.Services.IServices
         Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetUserPaymentHistoryAsync(Guid userId);
         Task<GenericResponse<SubscriptionResponseDto>> ChangePlanAsync(ChangePlanRequest request, Guid userId, Guid profileId);
         Task<GenericResponse<bool>> HandleWebhookAsync(string json, string stripeSignature);
+        
+        // Admin methods
+        Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetAllPaymentsAsync();
+        Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetAllSubscriptionsAsync();
+        Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetUserPaymentsByAdminAsync(Guid targetUserId);
+        Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetUserSubscriptionsByAdminAsync(Guid targetUserId);
     }
 }

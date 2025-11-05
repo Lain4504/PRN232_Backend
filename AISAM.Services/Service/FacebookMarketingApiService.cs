@@ -36,8 +36,11 @@ namespace AISAM.Services.Service
                 var mappedObjective = FacebookObjectiveMapper.MapToFacebookObjective(objective);
                 _logger.LogInformation("Mapped objective '{Objective}' to '{MappedObjective}'", objective, mappedObjective);
                 
+                // Get currency from ad account
+                var currency = await GetAdAccountCurrencyAsync(adAccountId, accessToken);
+                
                 // Convert budget to appropriate currency unit
-                var budgetInCurrencyUnit = ConvertBudgetToCurrencyUnit(budget);
+                var budgetInCurrencyUnit = ConvertBudgetToCurrencyUnit(budget, currency);
                 
                 var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{finalAdAccountId}/campaigns";
                 
@@ -156,8 +159,11 @@ namespace AISAM.Services.Service
                     throw new ArgumentException("Invalid targeting JSON format", ex);
                 }
                 
+                // Get currency from ad account
+                var currency = await GetAdAccountCurrencyAsync(adAccountId, accessToken);
+                
                 // Convert budget to appropriate currency unit
-                var budgetInCurrencyUnit = ConvertBudgetToCurrencyUnit(dailyBudget);
+                var budgetInCurrencyUnit = ConvertBudgetToCurrencyUnit(dailyBudget, currency);
 
                 // Check if campaign has budget set - if so, don't set daily_budget on ad set
                 var campaignHasBudget = await CheckCampaignBudgetAsync(campaignId, finalAccessToken);
@@ -360,15 +366,16 @@ namespace AISAM.Services.Service
                     };
                 }
 
+                // Use object_story_spec to create new ad creative from content
+                // Only use object_story_id when creating from existing post (handled by CreateAdCreativeFromPostAsync)
+                // **IMPORTANT**:
                 // For sandbox mode, we need to use an existing post ID instead of creating new content
                 // Get the latest published post ID from the page using the original access token (page access token)
                 // Use original pageId instead of sandboxPageId to get posts from the actual page
-                var latestPostId = await GetLatestPostIdAsync(pageId, accessToken);
-                
                 var payload = new
                 {
                     name = adName ?? "Ad Creative", // Required field for creative
-                    object_story_id = latestPostId, // Use existing published post ID
+                    object_story_spec = objectStorySpec, // Create new creative from content
                     access_token = sandboxAccessToken
                 };
 
@@ -958,26 +965,111 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
-        /// Converts budget to appropriate currency unit based on sandbox mode
+        /// Gets the currency of an ad account from Facebook API
+        /// </summary>
+        /// <param name="adAccountId">Ad account ID</param>
+        /// <param name="accessToken">Access token</param>
+        /// <returns>Currency code (e.g., "VND", "USD")</returns>
+        private async Task<string> GetAdAccountCurrencyAsync(string adAccountId, string accessToken)
+        {
+            try
+            {
+                // Get sandbox config if enabled
+                var (finalAccessToken, finalAdAccountId, _) = GetSandboxConfig(accessToken, adAccountId);
+                
+                // If using sandbox, return sandbox currency
+                if (_facebookSettings.UseSandbox && _facebookSettings.Sandbox != null)
+                {
+                    var sandboxCurrency = _facebookSettings.Sandbox.Currency ?? "VND";
+                    _logger.LogInformation("Using sandbox currency: {Currency}", sandboxCurrency);
+                    return sandboxCurrency;
+                }
+                
+                // Get currency from Facebook API
+                var url = $"{_facebookSettings.BaseUrl}/{_facebookSettings.GraphApiVersion}/{finalAdAccountId}?fields=currency&access_token={finalAccessToken}";
+                var response = await _httpClient.GetAsync(url);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get ad account currency, defaulting to USD");
+                    return "USD"; // Default fallback
+                }
+                
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var jsonResponse = JsonDocument.Parse(responseContent);
+                
+                if (jsonResponse.RootElement.TryGetProperty("currency", out var currencyProperty))
+                {
+                    var currency = currencyProperty.GetString() ?? "USD";
+                    _logger.LogInformation("Ad account {AdAccountId} currency: {Currency}", finalAdAccountId, currency);
+                    return currency;
+                }
+                
+                _logger.LogWarning("Currency not found in ad account response, defaulting to USD");
+                return "USD"; // Default fallback
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting ad account currency, defaulting to USD");
+                return "USD"; // Default fallback
+            }
+        }
+
+        /// <summary>
+        /// Converts budget to appropriate currency unit based on currency type
+        /// According to Facebook API: currencies like USD, EUR use cents (x100), while VND, JPY use base units (x1)
         /// </summary>
         /// <param name="budget">Budget amount</param>
+        /// <param name="currency">Currency code (e.g., "VND", "USD", "EUR")</param>
         /// <returns>Budget in appropriate currency unit</returns>
-        private int ConvertBudgetToCurrencyUnit(decimal budget)
+        private int ConvertBudgetToCurrencyUnit(decimal budget, string currency)
         {
-            // For VND: 1 VND = 1 unit (no conversion needed)
-            // For USD: 1 USD = 100 cents
-            var budgetInCurrencyUnit = _facebookSettings.UseSandbox ? (int)budget : (int)(budget * 100);
+            // Currencies that use cents/subunits (multiply by 100)
+            var currenciesWithSubunits = new[] { "USD", "EUR", "GBP", "CAD", "AUD", "CHF", "SEK", "NOK", "DKK" };
             
-            if (_facebookSettings.UseSandbox)
+            // Currencies without subunits (use as-is)
+            var currenciesWithoutSubunits = new[] { "VND", "JPY", "KRW", "CLF" };
+            
+            var currencyUpper = currency.ToUpper();
+            
+            int budgetInCurrencyUnit;
+            if (currenciesWithSubunits.Contains(currencyUpper))
             {
-                _logger.LogInformation("Using VND currency for sandbox mode - budget: {Budget} VND", budget);
+                // For currencies with subunits (cents), multiply by 100
+                budgetInCurrencyUnit = (int)(budget * 100);
+                _logger.LogInformation("Converting budget for {Currency}: {Budget} {Currency} = {BudgetInUnits} {Subunit}", 
+                    currency, budget, currency, budgetInCurrencyUnit, GetCurrencySubunit(currencyUpper));
+            }
+            else if (currenciesWithoutSubunits.Contains(currencyUpper))
+            {
+                // For currencies without subunits, use as-is
+                budgetInCurrencyUnit = (int)budget;
+                _logger.LogInformation("Converting budget for {Currency}: {Budget} = {BudgetInUnits} {Currency} (no conversion)", 
+                    currency, budget, budgetInCurrencyUnit, currency);
             }
             else
             {
-                _logger.LogInformation("Using USD currency for production mode - budget: {Budget} USD = {BudgetInCents} cents", budget, budgetInCurrencyUnit);
+                // Default: assume no subunits (safe default)
+                budgetInCurrencyUnit = (int)budget;
+                _logger.LogWarning("Unknown currency {Currency}, using no conversion (x1). Budget: {Budget} = {BudgetInUnits}", 
+                    currency, budget, budgetInCurrencyUnit);
             }
             
             return budgetInCurrencyUnit;
+        }
+
+        /// <summary>
+        /// Gets the subunit name for a currency (for logging)
+        /// </summary>
+        private static string GetCurrencySubunit(string currency)
+        {
+            return currency switch
+            {
+                "USD" => "cents",
+                "EUR" => "centimes",
+                "GBP" => "pence",
+                _ => "subunits"
+            };
         }
 
         public async Task<FacebookPostDetails?> GetPostDetailsAsync(string postId, string accessToken)

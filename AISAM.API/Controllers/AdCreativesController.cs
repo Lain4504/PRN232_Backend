@@ -180,7 +180,7 @@ namespace AISAM.API.Controllers
 
         [HttpGet]
         public async Task<ActionResult<GenericResponse<AISAM.Common.Dtos.PagedResult<AdCreativeResponse>>>> ListAdCreatives(
-            [FromQuery] Guid adSetId,
+            [FromQuery] Guid? adSetId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] string? search = null,

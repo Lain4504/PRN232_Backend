@@ -250,5 +250,126 @@ namespace AISAM.API.Controllers
                 return BadRequest($"Webhook error: {ex.Message}");
             }
         }
+
+        // Admin endpoints
+        /// <summary>
+        /// Get all payments (Admin only)
+        /// </summary>
+        [HttpGet("admin/all")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<PaymentResponseDto>>>> GetAllPayments([FromServices] IUserService userService)
+        {
+            try
+            {
+                await UserClaimsHelper.EnsureAdminAsync(User, userService);
+
+                var result = await _paymentService.GetAllPaymentsAsync();
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError($"Error retrieving all payments: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Get all subscriptions (Admin only)
+        /// </summary>
+        [HttpGet("admin/subscriptions")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<SubscriptionResponseDto>>>> GetAllSubscriptions([FromServices] IUserService userService)
+        {
+            try
+            {
+                await UserClaimsHelper.EnsureAdminAsync(User, userService);
+
+                var result = await _paymentService.GetAllSubscriptionsAsync();
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateError($"Error retrieving all subscriptions: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Get user payments by admin (Admin only)
+        /// </summary>
+        [HttpGet("admin/user/{userId}/payments")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<PaymentResponseDto>>>> GetUserPaymentsByAdmin(
+            Guid userId,
+            [FromServices] IUserService userService)
+        {
+            try
+            {
+                await UserClaimsHelper.EnsureAdminAsync(User, userService);
+
+                var result = await _paymentService.GetUserPaymentsByAdminAsync(userId);
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError($"Error retrieving user payments: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
+        /// Get user subscriptions by admin (Admin only)
+        /// </summary>
+        [HttpGet("admin/user/{userId}/subscriptions")]
+        public async Task<ActionResult<GenericResponse<IEnumerable<SubscriptionResponseDto>>>> GetUserSubscriptionsByAdmin(
+            Guid userId,
+            [FromServices] IUserService userService)
+        {
+            try
+            {
+                await UserClaimsHelper.EnsureAdminAsync(User, userService);
+
+                var result = await _paymentService.GetUserSubscriptionsByAdminAsync(userId);
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateError($"Error retrieving user subscriptions: {ex.Message}"));
+            }
+        }
     }
 }

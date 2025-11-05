@@ -19,6 +19,11 @@ namespace AISAM.Services.IServices
         Task<PublishResultDto> PublishContentAsync(Guid contentId, Guid integrationId, Guid userId);
         
         /// <summary>
+        /// Clone existing content into a new Draft
+        /// </summary>
+        Task<ContentResponseDto> CloneContentAsync(Guid contentId, Guid userId);
+        
+        /// <summary>
         /// Get content by ID
         /// </summary>
         Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId, Guid userId);
@@ -29,6 +34,17 @@ namespace AISAM.Services.IServices
         /// </summary>
         Task<PagedResult<ContentResponseDto>> GetPagedContentsByBrandAsync(
             Guid brandId,
+            PaginationRequest request,
+            AdTypeEnum? adType = null,
+            bool onlyDeleted = false,
+            ContentStatusEnum? status = null);
+
+        /// <summary>
+        /// Get paged contents by brand or all contents if brandId is null
+        /// </summary>
+        Task<PagedResult<ContentResponseDto>> GetPagedContentsAsync(
+            Guid? brandId,
+            Guid userId,
             PaginationRequest request,
             AdTypeEnum? adType = null,
             bool onlyDeleted = false,

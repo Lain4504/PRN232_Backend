@@ -20,6 +20,6 @@ namespace AISAM.Services.IServices
         Task<string> GetAdCreativePreviewHtmlAsync(Guid userId, Guid creativeId, string adFormat);
 
         // Listing
-        Task<PagedResult<AdCreativeResponse>> GetAdCreativesByAdSetAsync(Guid userId, Guid adSetId, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null);
+        Task<PagedResult<AdCreativeResponse>> GetAdCreativesByAdSetAsync(Guid userId, Guid? adSetId, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null);
     }
 }

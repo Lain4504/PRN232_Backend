@@ -9,6 +9,7 @@ namespace AISAM.Repositories.IRepositories
         Task<Payment?> GetByTransactionIdAsync(string transactionId);
         Task<IEnumerable<Payment>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<Payment>> GetUserPaymentHistoryAsync(Guid userId);
+        Task<IEnumerable<Payment>> GetAllPaymentsAsync();
         Task UpdateAsync(Payment payment);
         Task DeleteAsync(Guid id);
     }

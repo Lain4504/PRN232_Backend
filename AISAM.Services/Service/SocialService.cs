@@ -454,6 +454,35 @@ namespace AISAM.Services.Service
                     return new List<SocialIntegrationDto>();
                 }
 
+                // Default name (fallback)
+                var pageName = integrations.ExternalId ?? "Social Integration";
+
+                // For Facebook, try to get page name from Facebook API
+                if (integrations.Platform == SocialPlatformEnum.Facebook && 
+                    !string.IsNullOrEmpty(integrations.ExternalId) &&
+                    integrations.SocialAccountId != Guid.Empty &&
+                    _providers.TryGetValue("facebook", out var providerService))
+                {
+                    try
+                    {
+                        var account = await _socialAccountRepository.GetByIdAsync(integrations.SocialAccountId);
+                        if (account != null && !string.IsNullOrEmpty(account.UserAccessToken))
+                        {
+                            var availableTargets = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                            var target = availableTargets.FirstOrDefault(t => t.ProviderTargetId == integrations.ExternalId);
+                            if (target != null && !string.IsNullOrEmpty(target.Name))
+                            {
+                                pageName = target.Name;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch Facebook page name for integration {IntegrationId}, using fallback", integrations.Id);
+                        // Continue with fallback name if API call fails
+                    }
+                }
+
                 // Convert to DTO
                 return new List<SocialIntegrationDto>
                 {
@@ -464,7 +493,7 @@ namespace AISAM.Services.Service
                         ProfileId = integrations.ProfileId,
                         BrandId = integrations.BrandId,
                         ExternalId = integrations.ExternalId ?? string.Empty,
-                        Name = integrations.ExternalId ?? "Social Integration", // Use ExternalId as name
+                        Name = pageName,
                         Platform = integrations.Platform.ToString(),
                         IsActive = integrations.IsActive,
                         CreatedAt = integrations.CreatedAt,

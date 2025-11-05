@@ -120,6 +120,81 @@ namespace AISAM.Repositories.Repository
             return (items, totalCount);
         }
 
+        public async Task<(IEnumerable<Content> Items, int TotalCount)> GetPagedAsync(
+            Guid? brandId,
+            int page,
+            int pageSize,
+            string? searchTerm,
+            string? sortBy,
+            bool sortDescending,
+            AdTypeEnum? adType,
+            bool onlyDeleted,
+            ContentStatusEnum? status)
+        {
+            var query = _context.Contents
+                .Include(c => c.Brand)
+                .Include(c => c.Product)
+                .Include(c => c.Posts)
+                .AsQueryable();
+
+            // Filter by brandId if provided, otherwise get all
+            if (brandId.HasValue && brandId.Value != Guid.Empty)
+            {
+                query = query.Where(c => c.BrandId == brandId.Value);
+            }
+
+            query = onlyDeleted ? query.Where(c => c.IsDeleted) : query.Where(c => !c.IsDeleted);
+
+            if (adType.HasValue)
+            {
+                query = query.Where(c => c.AdType == adType.Value);
+            }
+
+            if (status.HasValue)
+            {
+                query = query.Where(c => c.Status == status.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(c =>
+                    (c.Title != null && c.Title.ToLower().Contains(term)) ||
+                    (c.TextContent != null && c.TextContent.ToLower().Contains(term))
+                );
+            }
+
+            // Sorting
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                bool desc = sortDescending;
+                switch (sortBy.Trim().ToLower())
+                {
+                    case "title":
+                        query = desc ? query.OrderByDescending(c => c.Title) : query.OrderBy(c => c.Title);
+                        break;
+                    case "updatedat":
+                        query = desc ? query.OrderByDescending(c => c.UpdatedAt) : query.OrderBy(c => c.UpdatedAt);
+                        break;
+                    default:
+                        query = desc ? query.OrderByDescending(c => c.CreatedAt) : query.OrderBy(c => c.CreatedAt);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderByDescending(c => c.CreatedAt);
+            }
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
         public async Task<Content> CreateAsync(Content content)
         {
             content.CreatedAt = DateTime.UtcNow;

@@ -93,5 +93,47 @@ namespace AISAM.API.Controllers
                 ));
             }
         }
+
+        /// <summary>
+        /// Get user by ID (Admin only)
+        /// Note: Role is checked by querying database, not from JWT token (Supabase JWT does not contain system roles)
+        /// </summary>
+        [HttpGet("{id}")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<UserListDto>>> GetUserById(Guid id)
+        {
+            try
+            {
+                // Check if current user is admin by querying database (Supabase JWT does not contain role)
+                await UserClaimsHelper.EnsureAdminAsync(User, _userService);
+
+                var user = await _userService.GetUserByIdAsync(id);
+                if (user == null)
+                {
+                    return NotFound(GenericResponse<UserListDto>.CreateError("Không tìm thấy người dùng"));
+                }
+
+                var response = new UserListDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    CreatedAt = user.CreatedAt,
+                    SocialAccountsCount = 0 // Would need to query from social accounts
+                };
+
+                return Ok(GenericResponse<UserListDto>.CreateSuccess(response, "Lấy thông tin người dùng thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(GenericResponse<UserListDto>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user by ID");
+                return StatusCode(500, GenericResponse<UserListDto>.CreateError(
+                    "Đã xảy ra lỗi khi lấy thông tin người dùng"
+                ));
+            }
+        }
     }
 }

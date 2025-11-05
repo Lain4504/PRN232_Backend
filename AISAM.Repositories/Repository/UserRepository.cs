@@ -57,7 +57,7 @@ namespace AISAM.Repositories.Repository
                 _ => query.OrderByDescending(u => u.CreatedAt)
             };
 
-            // Apply pagination
+            // Apply pagination and get user data with social accounts count
             var users = await query
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -66,7 +66,9 @@ namespace AISAM.Repositories.Repository
                     Id = u.Id,
                     Email = u.Email ?? "",
                     CreatedAt = u.CreatedAt,
-                    SocialAccountsCount = 0 // User no longer has direct SocialAccounts relationship
+                    SocialAccountsCount = _context.SocialAccounts
+                        .Count(sa => _context.Profiles
+                            .Any(p => p.UserId == u.Id && p.Id == sa.ProfileId && !sa.IsDeleted))
                 })
                 .ToListAsync();
 

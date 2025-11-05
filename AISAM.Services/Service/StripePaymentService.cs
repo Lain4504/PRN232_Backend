@@ -110,10 +110,14 @@ namespace AISAM.Services.Service
 
                 var createdPayment = await _paymentRepository.CreateAsync(payment);
 
+                // Get user email for response
+                var user = await _userRepository.GetByIdAsync(userId);
+                
                 var response = new PaymentResponseDto
                 {
                     Id = createdPayment.Id,
                     UserId = createdPayment.UserId,
+                    UserEmail = user?.Email,
                     Amount = createdPayment.Amount,
                     Currency = createdPayment.Currency,
                     Status = createdPayment.Status,
@@ -508,6 +512,7 @@ namespace AISAM.Services.Service
                 {
                     Id = payment.Id,
                     UserId = payment.UserId,
+                    UserEmail = payment.User?.Email,
                     SubscriptionId = payment.SubscriptionId,
                     Amount = payment.Amount,
                     Currency = payment.Currency,
@@ -738,6 +743,123 @@ namespace AISAM.Services.Service
                 SubscriptionPlanEnum.Pro => 99,
                 _ => 0
             };
+        }
+
+        // Admin methods
+        public async Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetAllPaymentsAsync()
+        {
+            try
+            {
+                var payments = await _paymentRepository.GetAllPaymentsAsync();
+
+                var responses = payments.Select(payment => new PaymentResponseDto
+                {
+                    Id = payment.Id,
+                    UserId = payment.UserId,
+                    UserEmail = payment.User?.Email,
+                    SubscriptionId = payment.SubscriptionId,
+                    Amount = payment.Amount,
+                    Currency = payment.Currency,
+                    Status = payment.Status,
+                    PaymentMethod = payment.PaymentMethod,
+                    TransactionId = payment.TransactionId,
+                    InvoiceUrl = payment.InvoiceUrl,
+                    CreatedAt = payment.CreatedAt
+                });
+
+                return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(responses, "All payments retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError($"Error retrieving all payments: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetAllSubscriptionsAsync()
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetAllSubscriptionsAsync();
+
+                var responses = subscriptions.Select(subscription => new SubscriptionResponseDto
+                {
+                    Id = subscription.Id,
+                    ProfileId = subscription.ProfileId,
+                    Plan = subscription.Plan,
+                    QuotaPostsPerMonth = subscription.QuotaPostsPerMonth,
+                    QuotaStorageGb = subscription.QuotaStorageGb,
+                    StartDate = subscription.StartDate,
+                    EndDate = subscription.EndDate,
+                    IsActive = subscription.IsActive,
+                    CreatedAt = subscription.CreatedAt,
+                    StripeSubscriptionId = subscription.StripeSubscriptionId,
+                    StripeCustomerId = subscription.StripeCustomerId
+                });
+
+                return GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateSuccess(responses, "All subscriptions retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateError($"Error retrieving all subscriptions: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetUserPaymentsByAdminAsync(Guid targetUserId)
+        {
+            try
+            {
+                var payments = await _paymentRepository.GetUserPaymentHistoryAsync(targetUserId);
+
+                var responses = payments.Select(payment => new PaymentResponseDto
+                {
+                    Id = payment.Id,
+                    UserId = payment.UserId,
+                    UserEmail = payment.User?.Email,
+                    SubscriptionId = payment.SubscriptionId,
+                    Amount = payment.Amount,
+                    Currency = payment.Currency,
+                    Status = payment.Status,
+                    PaymentMethod = payment.PaymentMethod,
+                    TransactionId = payment.TransactionId,
+                    InvoiceUrl = payment.InvoiceUrl,
+                    CreatedAt = payment.CreatedAt
+                });
+
+                return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(responses, $"Payments for user {targetUserId} retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateError($"Error retrieving user payments: {ex.Message}");
+            }
+        }
+
+        public async Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetUserSubscriptionsByAdminAsync(Guid targetUserId)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByUserIdAsync(targetUserId);
+
+                var responses = subscriptions.Select(subscription => new SubscriptionResponseDto
+                {
+                    Id = subscription.Id,
+                    ProfileId = subscription.ProfileId,
+                    Plan = subscription.Plan,
+                    QuotaPostsPerMonth = subscription.QuotaPostsPerMonth,
+                    QuotaStorageGb = subscription.QuotaStorageGb,
+                    StartDate = subscription.StartDate,
+                    EndDate = subscription.EndDate,
+                    IsActive = subscription.IsActive,
+                    CreatedAt = subscription.CreatedAt,
+                    StripeSubscriptionId = subscription.StripeSubscriptionId,
+                    StripeCustomerId = subscription.StripeCustomerId
+                });
+
+                return GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateSuccess(responses, $"Subscriptions for user {targetUserId} retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return GenericResponse<IEnumerable<SubscriptionResponseDto>>.CreateError($"Error retrieving user subscriptions: {ex.Message}");
+            }
         }
     }
 }

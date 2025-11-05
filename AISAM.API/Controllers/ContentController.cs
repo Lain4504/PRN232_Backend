@@ -119,6 +119,38 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
+        /// Clone existing content into a new Draft
+        /// </summary>
+        [HttpPost("{contentId}/clone")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<ContentResponseDto>>> Clone(Guid contentId)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _contentService.CloneContentAsync(contentId, userId);
+                return Ok(GenericResponse<ContentResponseDto>.CreateSuccess(result, "Nhân bản nội dung thành công"));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized clone for content {ContentId}", contentId);
+                return StatusCode(403, GenericResponse<ContentResponseDto>.CreateError(ex.Message));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid clone for content {ContentId}", contentId);
+                return BadRequest(GenericResponse<ContentResponseDto>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cloning content {ContentId}", contentId);
+                return StatusCode(500, GenericResponse<ContentResponseDto>.CreateError(
+                    "Đã xảy ra lỗi khi nhân bản nội dung"
+                ));
+            }
+        }
+
+        /// <summary>
         /// Soft delete content
         /// </summary>
         [HttpDelete("{contentId}")]
@@ -233,12 +265,12 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Get paginated contents by brand
+        /// Get paginated contents by brand or all contents if no brandId provided
         /// </summary>
         [HttpGet]
         [Authorize]
         public async Task<ActionResult<GenericResponse<PagedResult<ContentResponseDto>>>> GetContentsByBrand(
-            [FromQuery] Guid brandId,
+            [FromQuery] Guid? brandId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? searchTerm = null,
@@ -250,11 +282,8 @@ namespace AISAM.API.Controllers
         {
             try
             {
-                if (brandId == Guid.Empty)
-                {
-                    return BadRequest(GenericResponse<PagedResult<ContentResponseDto>>.CreateError("brandId là bắt buộc"));
-                }
-
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                
                 var request = new PaginationRequest
                 {
                     Page = page,
@@ -264,8 +293,10 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _contentService.GetPagedContentsByBrandAsync(
+                // If brandId provided, filter by that brand, otherwise get all contents
+                var result = await _contentService.GetPagedContentsAsync(
                     brandId,
+                    userId,
                     request,
                     adType,
                     onlyDeleted,
@@ -273,12 +304,12 @@ namespace AISAM.API.Controllers
 
                 return Ok(GenericResponse<PagedResult<ContentResponseDto>>.CreateSuccess(
                     result,
-                    "Lấy danh sách nội dung theo brand thành công"
+                    "Lấy danh sách nội dung thành công"
                 ));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting contents by brand {BrandId}", brandId);
+                _logger.LogError(ex, "Error getting contents");
                 return StatusCode(500, GenericResponse<PagedResult<ContentResponseDto>>.CreateError(
                     "Đã xảy ra lỗi khi lấy danh sách nội dung"
                 ));

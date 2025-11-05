@@ -75,6 +75,52 @@ namespace AISAM.Repositories.Repository
             return (data, total);
         }
 
+        public async Task<(IEnumerable<AdCreative> Data, int TotalCount)> GetAllPagedAsync(List<Guid> brandIds, int page, int pageSize, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null)
+        {
+            var query = _context.AdCreatives
+                .Include(ac => ac.Content)
+                    .ThenInclude(c => c.Brand)
+                .Include(ac => ac.Ads)
+                    .ThenInclude(a => a.AdSet)
+                        .ThenInclude(ads => ads.Campaign)
+                            .ThenInclude(c => c.Brand)
+                .Where(ac => !ac.IsDeleted && (
+                    (ac.Content != null && brandIds.Contains(ac.Content.BrandId)) ||
+                    (ac.Ads.Any(a => a.AdSet != null && a.AdSet.Campaign != null && brandIds.Contains(a.AdSet.Campaign.BrandId))) ||
+                    // Allow creatives without Content (e.g., created from Facebook posts) if user has access to at least one brand
+                    (ac.Content == null && brandIds.Any())
+                ))
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(ac => (ac.Content != null && ac.Content.Title.Contains(search)) || (ac.CallToAction != null && ac.CallToAction.Contains(search)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                // Filter by related content's AdType when available
+                var t = type.ToUpper();
+                query = query.Where(ac => ac.Content != null && ac.Content.AdType.ToString().ToUpper() == t);
+            }
+
+            // Sorting
+            var desc = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+            switch (sortBy?.ToLower())
+            {
+                case "createdat":
+                    query = desc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt);
+                    break;
+                default:
+                    query = query.OrderByDescending(x => x.CreatedAt);
+                    break;
+            }
+
+            var total = await query.CountAsync();
+            var data = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            return (data, total);
+        }
+
         public async Task<AdCreative> CreateAsync(AdCreative adCreative)
         {
             _context.AdCreatives.Add(adCreative);

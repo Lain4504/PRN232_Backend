@@ -11,6 +11,7 @@ namespace AISAM.Common.Dtos.Response
         public string? Status { get; set; }
         public string? Name { get; set; }
         public string? AdSetName { get; set; }
+        public string? PageName { get; set; }
         public DateTime CreatedAt { get; set; }
         public AdMetrics? Metrics { get; set; }
     }

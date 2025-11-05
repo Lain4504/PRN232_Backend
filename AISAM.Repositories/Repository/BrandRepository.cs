@@ -179,5 +179,19 @@ namespace AISAM.Repositories.Repository
                 .OrderBy(b => b.Name)
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<Brand>> GetByIdsAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (!idList.Any())
+            {
+                return new List<Brand>();
+            }
+
+            return await _context.Brands
+                .Include(b => b.Profile)
+                .Where(b => idList.Contains(b.Id) && !b.IsDeleted)
+                .ToListAsync();
+        }
     }
 }

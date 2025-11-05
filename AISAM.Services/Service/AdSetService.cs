@@ -394,6 +394,7 @@ namespace AISAM.Services.Service
                     Status = a.Status,
                     Name = !string.IsNullOrEmpty(a.AdId) ? a.AdId : null,
                     AdSetName = adSet.Name,
+                    PageName = null, // Page name will be populated when fetching individual ads
                     CreatedAt = a.CreatedAt
                 }).ToList() ?? new List<AdResponse>()
             };

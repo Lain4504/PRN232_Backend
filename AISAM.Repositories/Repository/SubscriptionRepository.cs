@@ -50,6 +50,15 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
+        public async Task<List<Subscription>> GetAllSubscriptionsAsync()
+        {
+            return await _context.Subscriptions
+                .Include(s => s.Profile)
+                .Where(s => !s.IsDeleted)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<Subscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId)
         {
             return await _context.Subscriptions

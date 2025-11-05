@@ -15,6 +15,7 @@ namespace AISAM.Services.Service
     {
         private readonly IContentRepository _contentRepository;
         private readonly ISocialIntegrationRepository _socialIntegrationRepository;
+        private readonly IApprovalRepository _approvalRepository;
         private readonly IUserRepository _userRepository;
         private readonly IPostRepository _postRepository;
         private readonly IBrandRepository _brandRepository;
@@ -27,6 +28,7 @@ namespace AISAM.Services.Service
         public ContentService(
             IContentRepository contentRepository,
             ISocialIntegrationRepository socialIntegrationRepository,
+            IApprovalRepository approvalRepository,
             IUserRepository userRepository,
             IPostRepository postRepository,
             IBrandRepository brandRepository,
@@ -38,6 +40,7 @@ namespace AISAM.Services.Service
         {
             _contentRepository = contentRepository;
             _socialIntegrationRepository = socialIntegrationRepository;
+            _approvalRepository = approvalRepository;
             _userRepository = userRepository;
             _postRepository = postRepository;
             _brandRepository = brandRepository;
@@ -145,6 +148,16 @@ namespace AISAM.Services.Service
                 {
                     Success = false,
                     ErrorMessage = "Content not found"
+                };
+            }
+
+            // Prevent republish if content already published
+            if (content.Status == ContentStatusEnum.Published)
+            {
+                return new PublishResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "Content has already been published"
                 };
             }
 
@@ -272,6 +285,17 @@ namespace AISAM.Services.Service
                     content.Status = ContentStatusEnum.Published;
                     await _contentRepository.UpdateAsync(content);
 
+                    // Update related approvals to Published to lock further publishes
+                    var approvals = await _approvalRepository.GetByContentIdAsync(content.Id);
+                    foreach (var approval in approvals)
+                    {
+                        if (approval.Status == ContentStatusEnum.Approved)
+                        {
+                            approval.Status = ContentStatusEnum.Published;
+                            await _approvalRepository.UpdateAsync(approval);
+                        }
+                    }
+
                     // Removed audit logging per latest requirement
 
                     _logger.LogInformation("Successfully published content {ContentId} to {Platform}", 
@@ -294,6 +318,44 @@ namespace AISAM.Services.Service
                     ErrorMessage = $"Publishing failed: {ex.Message}"
                 };
             }
+        }
+
+        public async Task<ContentResponseDto> CloneContentAsync(Guid contentId, Guid userId)
+        {
+            // Get existing content
+            var existing = await _contentRepository.GetByIdAsync(contentId);
+            if (existing == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
+            // Permission: user must be able to create content for this brand
+            var canCreate = await CanUserPerformActionAsync(userId, "CREATE_CONTENT", existing.BrandId);
+            if (!canCreate)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to clone this content");
+            }
+
+            var clone = new Content
+            {
+                ProfileId = existing.ProfileId,
+                BrandId = existing.BrandId,
+                ProductId = existing.ProductId,
+                AdType = existing.AdType,
+                Title = existing.Title,
+                TextContent = existing.TextContent,
+                ImageUrl = existing.ImageUrl,
+                VideoUrl = existing.VideoUrl,
+                StyleDescription = existing.StyleDescription,
+                ContextDescription = existing.ContextDescription,
+                RepresentativeCharacter = existing.RepresentativeCharacter,
+                Status = ContentStatusEnum.Draft
+            };
+
+            await _contentRepository.CreateAsync(clone);
+
+            var brand = await _brandRepository.GetByIdAsync(clone.BrandId);
+            return MapToDto(clone, null, brand?.Name);
         }
 
         public async Task<ContentResponseDto?> GetContentByIdAsync(Guid contentId, Guid userId)
@@ -344,6 +406,46 @@ namespace AISAM.Services.Service
             return new PagedResult<ContentResponseDto>
             {
                 Data = items.Select(c => MapToDto(c, null, brand?.Name)).ToList(),
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        public async Task<PagedResult<ContentResponseDto>> GetPagedContentsAsync(
+            Guid? brandId,
+            Guid userId,
+            PaginationRequest request,
+            AdTypeEnum? adType = null,
+            bool onlyDeleted = false,
+            ContentStatusEnum? status = null)
+        {
+            var page = request.Page <= 0 ? 1 : request.Page;
+            var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            var (items, total) = await _contentRepository.GetPagedAsync(
+                brandId,
+                page,
+                pageSize,
+                request.SearchTerm,
+                request.SortBy,
+                request.SortDescending,
+                adType,
+                onlyDeleted,
+                status
+            );
+
+            // Map items to DTOs with brand names
+            var brandIds = items.Select(c => c.BrandId).Distinct().ToList();
+            // Fetch all brands in a single query to avoid concurrent DbContext operations
+            var brands = await _brandRepository.GetByIdsAsync(brandIds);
+            var brandMap = brands.ToDictionary(b => b.Id, b => b.Name);
+
+            var data = items.Select(c => MapToDto(c, null, brandMap.TryGetValue(c.BrandId, out var brandName) ? brandName : null)).ToList();
+
+            return new PagedResult<ContentResponseDto>
+            {
+                Data = data,
                 TotalCount = total,
                 Page = page,
                 PageSize = pageSize

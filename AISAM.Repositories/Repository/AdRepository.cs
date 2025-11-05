@@ -44,6 +44,8 @@ namespace AISAM.Repositories.Repository
         {
             var query = _context.Ads
                 .Include(a => a.AdSet)
+                    .ThenInclude(ads => ads.Campaign)
+                        .ThenInclude(c => c.Brand)
                 .Include(a => a.Creative)
                     .ThenInclude(c => c.Content)
                 .Where(a => a.AdSet.CampaignId == campaignId && !a.IsDeleted)
@@ -69,6 +71,7 @@ namespace AISAM.Repositories.Repository
             var query = _context.Ads
                 .Include(a => a.AdSet)
                     .ThenInclude(ads => ads.Campaign)
+                        .ThenInclude(c => c.Brand)
                 .Include(a => a.Creative)
                     .ThenInclude(c => c.Content)
                 .Where(a => a.AdSet.Campaign.BrandId == brandId && !a.IsDeleted)

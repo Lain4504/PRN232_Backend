@@ -23,7 +23,7 @@ namespace AISAM.Services.Service
         private readonly IUserRepository _userRepository;
         private readonly IProfileRepository _profileRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
-        private readonly IEnumerable<IProviderService> _providers;
+        private readonly Dictionary<string, IProviderService> _providers;
         private readonly ILogger<PostService> _logger;
 
         public PostService(
@@ -52,7 +52,7 @@ namespace AISAM.Services.Service
             _userRepository = userRepository;
             _profileRepository = profileRepository;
             _rolePermissionConfig = rolePermissionConfig;
-            _providers = providers;
+            _providers = providers.ToDictionary(p => p.ProviderName, p => p);
             _logger = logger;
         }
 
@@ -110,14 +110,42 @@ namespace AISAM.Services.Service
                         }
                     }
 
-                    var integration = await _integrationRepository.GetByIdAsync(p.IntegrationId);
+                                        var integration = await _integrationRepository.GetByIdAsync(p.IntegrationId);                                                               
                     if (integration != null)
                     {
-                        dto.IntegrationPlatform = integration.Platform.ToString();
-                        var account = await _accountRepository.GetByIdAsync(integration.SocialAccountId);
+                        dto.IntegrationPlatform = integration.Platform.ToString();                                                                              
+                        var account = await _accountRepository.GetByIdAsync(integration.SocialAccountId);                                                       
                         if (account != null)
                         {
-                            dto.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                            // For Facebook, try to get the page name from Graph API
+                            if (integration.Platform == SocialPlatformEnum.Facebook && 
+                                !string.IsNullOrEmpty(integration.ExternalId) &&
+                                !string.IsNullOrEmpty(account.UserAccessToken) &&
+                                _providers.TryGetValue("facebook", out var providerService))
+                            {
+                                try
+                                {
+                                    var availableTargets = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                                    var target = availableTargets.FirstOrDefault(t => t.ProviderTargetId == integration.ExternalId);
+                                    if (target != null && !string.IsNullOrEmpty(target.Name))
+                                    {
+                                        dto.IntegrationAccountName = target.Name;
+                                    }
+                                    else
+                                    {
+                                        dto.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Failed to fetch Facebook page name for integration {IntegrationId}, using fallback", integration.Id);
+                                    dto.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                                }
+                            }
+                            else
+                            {
+                                dto.IntegrationAccountName = integration.ExternalId ?? account.AccountId;                                                           
+                            }
                         }
                     }
                 }
@@ -181,14 +209,42 @@ namespace AISAM.Services.Service
                     }
                 }
 
-                var integration = await _integrationRepository.GetByIdAsync(post.IntegrationId);
+                                var integration = await _integrationRepository.GetByIdAsync(post.IntegrationId);                                                                
                 if (integration != null)
                 {
-                    details.IntegrationPlatform = integration.Platform.ToString();
-                    var account = await _accountRepository.GetByIdAsync(integration.SocialAccountId);
+                    details.IntegrationPlatform = integration.Platform.ToString();                                                                              
+                    var account = await _accountRepository.GetByIdAsync(integration.SocialAccountId);                                                           
                     if (account != null)
                     {
-                        details.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                        // For Facebook, try to get the page name from Graph API
+                        if (integration.Platform == SocialPlatformEnum.Facebook && 
+                            !string.IsNullOrEmpty(integration.ExternalId) &&
+                            !string.IsNullOrEmpty(account.UserAccessToken) &&
+                            _providers.TryGetValue("facebook", out var providerService))
+                        {
+                            try
+                            {
+                                var availableTargets = (await providerService.GetTargetsAsync(account.UserAccessToken)).ToList();
+                                var target = availableTargets.FirstOrDefault(t => t.ProviderTargetId == integration.ExternalId);
+                                if (target != null && !string.IsNullOrEmpty(target.Name))
+                                {
+                                    details.IntegrationAccountName = target.Name;
+                                }
+                                else
+                                {
+                                    details.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to fetch Facebook page name for integration {IntegrationId}, using fallback", integration.Id);
+                                details.IntegrationAccountName = integration.ExternalId ?? account.AccountId;
+                            }
+                        }
+                        else
+                        {
+                            details.IntegrationAccountName = integration.ExternalId ?? account.AccountId;                                                           
+                        }
                     }
                 }
             }
