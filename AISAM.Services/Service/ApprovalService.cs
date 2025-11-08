@@ -494,6 +494,103 @@ namespace AISAM.Services.Service
             return await _approvalRepository.GetPendingCountAsync(approverId);
         }
 
+        public async Task<IEnumerable<UserResponseDto>> GetAvailableApproversAsync(Guid brandId, Guid currentUserId)
+        {
+            var brand = await _brandRepository.GetByIdAsync(brandId);
+            if (brand == null)
+            {
+                throw new ArgumentException("Brand not found");
+            }
+
+            // Get team members for this brand who have APPROVE_CONTENT permission
+            var teamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(currentUserId);
+
+            var approvers = new List<UserResponseDto>();
+
+            foreach (var teamMember in teamMembers)
+            {
+                if (_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "APPROVE_CONTENT"))
+                {
+                    approvers.Add(new UserResponseDto
+                    {
+                        Id = teamMember.UserId,
+                        Email = teamMember.User.Email,
+                        FirstName = string.Empty,
+                        LastName = string.Empty,
+                        Role = teamMember.User.Role.ToString(),
+                        CreatedAt = teamMember.User.CreatedAt
+                    });
+                }
+            }
+
+            // Also include brand owner if they have permission
+            var brandOwner = await _userRepository.GetByIdAsync(brand.Profile.UserId);
+            if (brandOwner != null && !approvers.Any(a => a.Id == brandOwner.Id))
+            {
+                var canApprove = await CanUserPerformActionAsync(brandOwner.Id, "APPROVE_CONTENT", brandId);
+                if (canApprove)
+                {
+                    approvers.Add(new UserResponseDto
+                    {
+                        Id = brandOwner.Id,
+                        Email = brandOwner.Email,
+                        FirstName = string.Empty,
+                        LastName = string.Empty,
+                        Role = brandOwner.Role.ToString(),
+                        CreatedAt = brandOwner.CreatedAt
+                    });
+                }
+            }
+
+            return approvers;
+        }
+
+        public async Task<ApprovalResponseDto> ChangeApproverAsync(Guid approvalId, Guid newApproverId, Guid actorUserId)
+        {
+            var approval = await _approvalRepository.GetByIdAsync(approvalId);
+            if (approval == null)
+            {
+                throw new ArgumentException("Approval not found");
+            }
+
+            // Get content to get brandId for permission check
+            var content = await _contentRepository.GetByIdAsync(approval.ContentId);
+            if (content == null)
+            {
+                throw new ArgumentException("Content not found");
+            }
+
+            // Check if user has permission to change approver (must have APPROVE_CONTENT permission)
+            var canChange = await CanUserPerformActionAsync(actorUserId, "APPROVE_CONTENT", content.BrandId);
+            if (!canChange)
+            {
+                throw new UnauthorizedAccessException("You are not allowed to change the approver for this approval");
+            }
+
+            // Validate new approver exists
+            var newApprover = await _userRepository.GetByIdAsync(newApproverId);
+            if (newApprover == null)
+            {
+                throw new ArgumentException("New approver not found");
+            }
+
+            // Check if new approver has permission to approve content
+            var canNewApproverApprove = await CanUserPerformActionAsync(newApproverId, "APPROVE_CONTENT", content.BrandId);
+            if (!canNewApproverApprove)
+            {
+                throw new ArgumentException("New approver does not have permission to approve content");
+            }
+
+            // Update the approver
+            approval.ApproverUserId = newApproverId;
+            await _approvalRepository.UpdateAsync(approval);
+
+            _logger.LogInformation("Changed approver for approval {ApprovalId} from {OldApproverId} to {NewApproverId} by user {ActorUserId}",
+                approvalId, approval.ApproverUserId, newApproverId, actorUserId);
+
+            return MapToResponseDto(approval);
+        }
+
         private static ApprovalResponseDto MapToResponseDto(Approval approval)
         {
             return new ApprovalResponseDto

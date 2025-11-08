@@ -101,7 +101,7 @@ namespace AISAM.Services.Service
                     Name = createdTeam.Name,
                     Description = createdTeam.Description,
                     CreatedAt = createdTeam.CreatedAt,
-                    Status = createdTeam.Status,
+                    Status = createdTeam.Status == TeamStatusEnum.Active ? "Active" : createdTeam.Status == TeamStatusEnum.Inactive ? "Inactive" : "Archived",
                     MembersCount = 1 // Vendor is automatically added as first member
                 };
 
@@ -149,7 +149,7 @@ namespace AISAM.Services.Service
                     Name = team.Name,
                     Description = team.Description,
                     CreatedAt = team.CreatedAt,
-                    Status = team.Status,
+                    Status = team.Status == TeamStatusEnum.Active ? "Active" : team.Status == TeamStatusEnum.Inactive ? "Inactive" : "Archived",
                     MembersCount = membersCount.Count()
                 };
 
@@ -254,7 +254,7 @@ namespace AISAM.Services.Service
                     Name = updatedTeam.Name,
                     Description = updatedTeam.Description,
                     CreatedAt = updatedTeam.CreatedAt,
-                    Status = updatedTeam.Status
+                    Status = updatedTeam.Status == TeamStatusEnum.Active ? "Active" : updatedTeam.Status == TeamStatusEnum.Inactive ? "Inactive" : "Archived"
                 };
 
                 return GenericResponse<TeamResponse>.CreateSuccess(response, "Cập nhật team thành công");
@@ -632,7 +632,7 @@ namespace AISAM.Services.Service
                             Name = team.Name,
                             Description = team.Description,
                             CreatedAt = team.CreatedAt,
-                            Status = team.Status,
+                            Status = team.Status == TeamStatusEnum.Active ? "Active" : team.Status == TeamStatusEnum.Inactive ? "Inactive" : "Archived",
                             MembersCount = team.TeamMembers?.Count(tm => tm.IsActive) ?? 0,
                             UserRole = teamMember?.Role ?? "Member"
                         };
@@ -718,7 +718,7 @@ namespace AISAM.Services.Service
                 Name = team.Name,
                 Description = team.Description,
                 CreatedAt = team.CreatedAt,
-                Status = team.Status,
+                Status = team.Status == TeamStatusEnum.Active ? "Active" : team.Status == TeamStatusEnum.Inactive ? "Inactive" : "Archived",
                 MembersCount = team.TeamMembers?.Count ?? 0
             };
         }

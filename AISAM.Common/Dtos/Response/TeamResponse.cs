@@ -9,7 +9,7 @@ namespace AISAM.Common.Dtos.Response
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTime CreatedAt { get; set; }
-        public TeamStatusEnum Status { get; set; } = TeamStatusEnum.Active;
+        public string Status { get; set; } = "Active";
         public int MembersCount { get; set; } = 0;
         public string? UserRole { get; set; }
     }

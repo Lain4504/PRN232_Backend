@@ -7,6 +7,7 @@ using AISAM.Data.Enumeration;
 using Microsoft.AspNetCore.Authorization;
 using AISAM.Common.Dtos;
 using AISAM.API.Utils;
+using AISAM.Common.Dtos.Request;
 
 namespace AISAM.API.Controllers
 {
@@ -397,6 +398,56 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<int>.CreateError(
                     "Đã xảy ra lỗi khi lấy số lượng yêu cầu phê duyệt đang chờ"
                 ));
+            }
+        }
+
+        /// <summary>
+        /// Get users who can approve content for a specific brand
+        /// </summary>
+        [HttpGet("brands/{brandId}/available-approvers")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<IEnumerable<UserResponseDto>>>> GetAvailableApprovers(Guid brandId)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var approvers = await _approvalService.GetAvailableApproversAsync(brandId, userId);
+                return Ok(GenericResponse<IEnumerable<UserResponseDto>>.CreateSuccess(approvers));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available approvers for brand {BrandId}", brandId);
+                return StatusCode(500, GenericResponse<IEnumerable<UserResponseDto>>.CreateError("Lỗi hệ thống"));
+            }
+        }
+
+        /// <summary>
+        /// Change the approver for an approval request
+        /// </summary>
+        [HttpPut("{id}/approver")]
+        [Authorize]
+        public async Task<ActionResult<GenericResponse<ApprovalResponseDto>>> ChangeApprover(Guid id, [FromBody] ChangeApproverRequest request)
+        {
+            try
+            {
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
+                var result = await _approvalService.ChangeApproverAsync(id, request.NewApproverId, userId);
+                return Ok(GenericResponse<ApprovalResponseDto>.CreateSuccess(result, "Thay đổi người phê duyệt thành công"));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid request for changing approver");
+                return BadRequest(GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to change approver for approval {ApprovalId}", id);
+                return StatusCode(403, GenericResponse<ApprovalResponseDto>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing approver for approval {ApprovalId}", id);
+                return StatusCode(500, GenericResponse<ApprovalResponseDto>.CreateError("Lỗi hệ thống khi thay đổi người phê duyệt"));
             }
         }
     }
