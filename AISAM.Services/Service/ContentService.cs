@@ -81,7 +81,7 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("Subscription or quota limit exceeded");
             }
 
-            // Create content entity
+            // Create content entity - all profiles create content as Draft
             var content = new Content
             {
                 ProfileId = brand.ProfileId,  // Content belongs to brand owner's profile
@@ -487,6 +487,17 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Content not found");
             }
 
+            // Get brand to check profile type
+            var brand = await _brandRepository.GetByIdAsync(content.BrandId);
+            if (brand == null)
+            {
+                throw new ArgumentException("Brand not found");
+            }
+
+            // Check if brand's profile is Free type
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            var isFreeProfile = brandProfile?.ProfileType == ProfileTypeEnum.Free;
+
             // Check if user has permission to update this content
             var canUpdate = await CanUserPerformActionAsync(userId, "EDIT_CONTENT", content.BrandId);
             if (!canUpdate)
@@ -494,8 +505,9 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to update this content");
             }
 
-            // Check if content can be updated (only draft content can be updated)
-            if (content.Status != ContentStatusEnum.Draft)
+            // For Free profiles: allow updating content and changing status directly
+            // For Basic/Pro profiles: only draft content can be updated (team workflow)
+            if (!isFreeProfile && content.Status != ContentStatusEnum.Draft)
             {
                 throw new ArgumentException("Only draft content can be updated");
             }
@@ -546,13 +558,25 @@ namespace AISAM.Services.Service
                 content.RepresentativeCharacter = request.RepresentativeCharacter;
             }
 
+            // Update status if provided (only for Free profiles)
+            if (request.Status.HasValue && isFreeProfile)
+            {
+                content.Status = request.Status.Value;
+                _logger.LogInformation("Free profile: Changed content {ContentId} status to {Status} by user {UserId}", 
+                    contentId, request.Status.Value, userId);
+            }
+            else if (request.Status.HasValue && !isFreeProfile)
+            {
+                // Basic/Pro profiles cannot change status directly - must use approval workflow
+                throw new UnauthorizedAccessException("Status can only be changed through approval workflow for Basic/Pro profiles");
+            }
+
             // Update the content
             await _contentRepository.UpdateAsync(content);
 
             _logger.LogInformation("Updated content {ContentId} by user {UserId}", contentId, userId);
 
-            var brand = await _brandRepository.GetByIdAsync(content.BrandId);
-            return MapToDto(content, null, brand?.Name);
+            return MapToDto(content, null, brand.Name);
         }
 
         /// <summary>

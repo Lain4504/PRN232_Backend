@@ -18,6 +18,7 @@ namespace AISAM.Services.Service
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly IBrandRepository _brandRepository;
         private readonly IProfileRepository _profileRepository;
+        private readonly ITeamBrandRepository _teamBrandRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly ILogger<ApprovalService> _logger;
 
@@ -28,6 +29,7 @@ namespace AISAM.Services.Service
             ITeamMemberRepository teamMemberRepository,
             IBrandRepository brandRepository,
             IProfileRepository profileRepository,
+            ITeamBrandRepository teamBrandRepository,
             RolePermissionConfig rolePermissionConfig,
             ILogger<ApprovalService> logger)
         {
@@ -37,6 +39,7 @@ namespace AISAM.Services.Service
             _teamMemberRepository = teamMemberRepository;
             _brandRepository = brandRepository;
             _profileRepository = profileRepository;
+            _teamBrandRepository = teamBrandRepository;
             _rolePermissionConfig = rolePermissionConfig;
             _logger = logger;
         }
@@ -50,7 +53,22 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Content must be in DRAFT to submit");
             }
 
-            // Check if user has permission to submit for approval
+            // Get brand to check profile type
+            var brand = await _brandRepository.GetByIdAsync(content.BrandId);
+            if (brand == null)
+            {
+                throw new ArgumentException("Brand not found");
+            }
+
+            // Check if brand's profile is Free type - Free profiles don't use approval workflow
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+            {
+                // Free profiles: content is already approved when created, no approval workflow
+                throw new UnauthorizedAccessException("Free profiles do not use approval workflow. Content is automatically approved when created.");
+            }
+
+            // Check if user has permission to submit for approval (for Basic/Pro profiles)
             var canSubmit = await CanUserPerformActionAsync(actorUserId, "SUBMIT_FOR_APPROVAL", content.BrandId);
             if (!canSubmit)
             {
@@ -502,43 +520,76 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Brand not found");
             }
 
-            // Get team members for this brand who have APPROVE_CONTENT permission
-            var teamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(currentUserId);
+            if (brand.Profile == null)
+            {
+                throw new ArgumentException("Brand profile not found");
+            }
+
+            // Check if brand's profile is Free type - team features not available
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+            {
+                // Free profiles don't have team features, return empty list
+                return new List<UserResponseDto>();
+            }
 
             var approvers = new List<UserResponseDto>();
+            var addedUserIds = new HashSet<Guid>();
 
-            foreach (var teamMember in teamMembers)
+            // Get all teams that have access to this brand
+            var teamBrands = await _teamBrandRepository.GetByBrandIdAsync(brandId);
+            var teamIds = teamBrands.Select(tb => tb.TeamId).Distinct().ToList();
+
+            // Get all team members from those teams who have APPROVE_CONTENT permission
+            foreach (var teamId in teamIds)
             {
-                if (_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "APPROVE_CONTENT"))
+                var teamMembers = await _teamMemberRepository.GetByTeamIdAsync(teamId);
+                
+                foreach (var teamMember in teamMembers)
                 {
-                    approvers.Add(new UserResponseDto
+                    // Check if user is loaded and not already added
+                    if (teamMember.User == null || addedUserIds.Contains(teamMember.UserId))
                     {
-                        Id = teamMember.UserId,
-                        Email = teamMember.User.Email,
-                        FirstName = string.Empty,
-                        LastName = string.Empty,
-                        Role = teamMember.User.Role.ToString(),
-                        CreatedAt = teamMember.User.CreatedAt
-                    });
+                        continue;
+                    }
+
+                    // Check if team member has APPROVE_CONTENT permission
+                    if (_rolePermissionConfig.HasCustomPermission(teamMember.Permissions, "APPROVE_CONTENT"))
+                    {
+                        approvers.Add(new UserResponseDto
+                        {
+                            Id = teamMember.UserId,
+                            Email = teamMember.User.Email,
+                            FirstName = string.Empty,
+                            LastName = string.Empty,
+                            Role = teamMember.User.Role.ToString(),
+                            CreatedAt = teamMember.User.CreatedAt
+                        });
+                        addedUserIds.Add(teamMember.UserId);
+                    }
                 }
             }
 
             // Also include brand owner if they have permission
-            var brandOwner = await _userRepository.GetByIdAsync(brand.Profile.UserId);
-            if (brandOwner != null && !approvers.Any(a => a.Id == brandOwner.Id))
+            var brandOwnerId = brand.Profile.UserId;
+            if (!addedUserIds.Contains(brandOwnerId))
             {
-                var canApprove = await CanUserPerformActionAsync(brandOwner.Id, "APPROVE_CONTENT", brandId);
-                if (canApprove)
+                var brandOwner = await _userRepository.GetByIdAsync(brandOwnerId);
+                if (brandOwner != null)
                 {
-                    approvers.Add(new UserResponseDto
+                    var canApprove = await CanUserPerformActionAsync(brandOwnerId, "APPROVE_CONTENT", brandId);
+                    if (canApprove)
                     {
-                        Id = brandOwner.Id,
-                        Email = brandOwner.Email,
-                        FirstName = string.Empty,
-                        LastName = string.Empty,
-                        Role = brandOwner.Role.ToString(),
-                        CreatedAt = brandOwner.CreatedAt
-                    });
+                        approvers.Add(new UserResponseDto
+                        {
+                            Id = brandOwner.Id,
+                            Email = brandOwner.Email,
+                            FirstName = string.Empty,
+                            LastName = string.Empty,
+                            Role = brandOwner.Role.ToString(),
+                            CreatedAt = brandOwner.CreatedAt
+                        });
+                    }
                 }
             }
 
@@ -558,6 +609,20 @@ namespace AISAM.Services.Service
             if (content == null)
             {
                 throw new ArgumentException("Content not found");
+            }
+
+            // Get brand to check profile type
+            var brand = await _brandRepository.GetByIdAsync(content.BrandId);
+            if (brand == null)
+            {
+                throw new ArgumentException("Brand not found");
+            }
+
+            // Check if brand's profile is Free type - team features not available
+            var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+            if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
+            {
+                throw new UnauthorizedAccessException("Change approver feature is not available for Free profiles. Please upgrade to Basic or Pro to use team features.");
             }
 
             // Check if user has permission to change approver (must have APPROVE_CONTENT permission)
