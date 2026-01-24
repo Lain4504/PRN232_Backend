@@ -26,7 +26,7 @@ namespace AISAM.Data.Model
         public string PasswordHash { get; set; } = string.Empty;
 
         [Required]
-        [MaxLength(100)]
+        [MaxLength(200)]
         [Column("password_salt")]
         public string PasswordSalt { get; set; } = string.Empty;
         

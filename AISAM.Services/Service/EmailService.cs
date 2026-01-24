@@ -27,7 +27,7 @@ namespace AISAM.Services.Service
 
         public async Task SendEmailVerificationAsync(string email, string userName, string verificationToken)
         {
-            var verificationLink = $"{_frontendBaseUrl}/verify-email?token={verificationToken}";
+            var verificationLink = $"{_frontendBaseUrl}/auth/verify-email?token={verificationToken}";
             
             var subject = "Xác thực email của bạn - AISAM";
             var htmlBody = GetEmailVerificationTemplate(userName, verificationLink);
@@ -39,7 +39,7 @@ namespace AISAM.Services.Service
 
         public async Task SendPasswordResetAsync(string email, string userName, string resetToken)
         {
-            var resetLink = $"{_frontendBaseUrl}/reset-password?token={resetToken}";
+            var resetLink = $"{_frontendBaseUrl}/auth/update-password?token={resetToken}";
             
             var subject = "Đặt lại mật khẩu - AISAM";
             var htmlBody = GetPasswordResetTemplate(userName, resetLink);
@@ -88,11 +88,16 @@ namespace AISAM.Services.Service
                     return false;
                 }
 
+                _logger.LogInformation("Sending email to {Email} with subject '{Subject}' via {SmtpHost}:{Port}", 
+                    toEmail, subject, _emailSettings.SmtpHost, _emailSettings.SmtpPort);
+
                 using var smtpClient = new SmtpClient(_emailSettings.SmtpHost, _emailSettings.SmtpPort)
                 {
                     EnableSsl = _emailSettings.EnableSsl,
                     UseDefaultCredentials = false,
-                    Credentials = new NetworkCredential(_emailSettings.SmtpUsername, _emailSettings.SmtpPassword)
+                    Credentials = new NetworkCredential(_emailSettings.SmtpUsername, _emailSettings.SmtpPassword),
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    Timeout = 30000 // 30 seconds timeout
                 };
 
                 using var mailMessage = new MailMessage
@@ -102,7 +107,8 @@ namespace AISAM.Services.Service
                     Body = htmlBody,
                     IsBodyHtml = true,
                     BodyEncoding = Encoding.UTF8,
-                    SubjectEncoding = Encoding.UTF8
+                    SubjectEncoding = Encoding.UTF8,
+                    Priority = MailPriority.Normal
                 };
 
                 mailMessage.To.Add(toEmail);
@@ -114,18 +120,23 @@ namespace AISAM.Services.Service
                     mailMessage.AlternateViews.Add(plainView);
                 }
 
+                _logger.LogInformation("Attempting SMTP connection to {Host}:{Port} with SSL={EnableSsl}", 
+                    _emailSettings.SmtpHost, _emailSettings.SmtpPort, _emailSettings.EnableSsl);
+
                 await smtpClient.SendMailAsync(mailMessage);
+                
                 _logger.LogInformation("Email sent successfully to {Email}", toEmail);
                 return true;
             }
             catch (SmtpException ex)
             {
-                _logger.LogError(ex, "SMTP error sending email to {Email}: {Error}", toEmail, ex.Message);
+                _logger.LogError(ex, "SMTP error sending email to {Email}: StatusCode={StatusCode}, Message={Message}", 
+                    toEmail, ex.StatusCode, ex.Message);
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending email to {Email}", toEmail);
+                _logger.LogError(ex, "Error sending email to {Email}: {Message}", toEmail, ex.Message);
                 return false;
             }
         }
