@@ -11,6 +11,7 @@ namespace AISAM.Repositories
         }
 
         public DbSet<User> Users { get; set; }
+        public DbSet<Session> Sessions { get; set; }
         public DbSet<SocialAccount> SocialAccounts { get; set; }
         public DbSet<SocialIntegration> SocialIntegrations { get; set; }
         public DbSet<Post> Posts { get; set; }
@@ -42,14 +43,29 @@ namespace AISAM.Repositories
         {
             base.OnModelCreating(modelBuilder);
 
-            // User entity indexes and constraints (Supabase-auth anchored)
+            // User entity indexes and constraints
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(u => u.Id);
-                entity.Property(u => u.Email).HasMaxLength(255);
-                entity.HasIndex(u => u.Email);
+                entity.Property(u => u.Email).HasMaxLength(255).IsRequired();
+                entity.HasIndex(u => u.Email).IsUnique();
                 entity.Property(u => u.Role).HasConversion<int>().HasDefaultValue(UserRoleEnum.User);
                 entity.HasIndex(u => u.Role);
+                entity.HasIndex(u => u.CreatedAt);
+            });
+
+            // Session entity configuration
+            modelBuilder.Entity<Session>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.HasIndex(s => s.UserId);
+                entity.HasIndex(s => s.RefreshToken);
+                entity.HasIndex(s => s.ExpiresAt);
+                entity.HasIndex(s => s.IsActive);
+                entity.HasOne(s => s.User)
+                      .WithMany(u => u.Sessions)
+                      .HasForeignKey(s => s.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Brand entity configuration

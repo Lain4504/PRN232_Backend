@@ -16,10 +16,12 @@ using AISAM.Common.Dtos.Request;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
-using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using System.Text;
+using AISAM.Common.Config;
+using Supabase;
 
 // Load environment variables from .env file
 DotNetEnv.Env.Load();
@@ -88,6 +90,19 @@ if (!string.IsNullOrEmpty(facebookSandboxAccessToken))
     builder.Configuration["FacebookSettings:Sandbox:AccessToken"] = facebookSandboxAccessToken;
 }
 
+// Google OAuth configuration override
+var googleClientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+if (!string.IsNullOrEmpty(googleClientId))
+{
+    builder.Configuration["GoogleSettings:ClientId"] = googleClientId;
+}
+
+var googleClientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+if (!string.IsNullOrEmpty(googleClientSecret))
+{
+    builder.Configuration["GoogleSettings:ClientSecret"] = googleClientSecret;
+}
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
@@ -104,6 +119,10 @@ builder.Services.AddControllers(options =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 
+// Configure Google Settings
+builder.Services.Configure<GoogleSettings>(
+    builder.Configuration.GetSection("GoogleSettings"));
+
 // Configure Facebook Settings
 builder.Services.Configure<FacebookSettings>(
     builder.Configuration.GetSection("FacebookSettings"));
@@ -116,7 +135,11 @@ builder.Services.Configure<FrontendSettings>(
 builder.Services.Configure<GeminiSettings>(
     builder.Configuration.GetSection("Gemini"));
 
-// Register Supabase client singleton for future auth/storage usage
+// Configure JWT Settings
+builder.Services.Configure<JwtSettings>(
+    builder.Configuration.GetSection("JwtSettings"));
+
+// Register Supabase client for storage only (not for authentication)
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseKey))
@@ -125,7 +148,7 @@ if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supaba
     {
         var opts = new SupabaseOptions
         {
-            AutoConnectRealtime = true
+            AutoConnectRealtime = false // We only need storage, not realtime
         };
         var client = new Client(supabaseUrl, supabaseKey, opts);
         client.InitializeAsync().GetAwaiter().GetResult();
@@ -133,8 +156,7 @@ if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supaba
     });
 }
 
-// Add Entity Framework - Supabase Postgres via Npgsql
-// Expect connection string from env or appsettings ConnectionStrings:DefaultConnection (Supabase URI)
+// Add Entity Framework - PostgreSQL via Npgsql
 // ✅ Thay vì dùng connection string trực tiếp, ta dùng NpgsqlDataSourceBuilder
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -155,6 +177,7 @@ builder.Services.AddHttpClient();
 
 // Add repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddScoped<ISocialAccountRepository, SocialAccountRepository>();
 builder.Services.AddScoped<ISocialIntegrationRepository, SocialIntegrationRepository>();
 builder.Services.AddScoped<IContentRepository, ContentRepository>();
@@ -180,9 +203,13 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 // Add services
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+// Note: SupabaseStorageService is still being used for file storage
+// You may want to migrate to a different storage solution (Azure Blob, AWS S3, etc.)
+// For now, keeping Supabase for storage only, not authentication
 builder.Services.AddScoped<SupabaseStorageService>();
 builder.Services.AddHostedService<BucketInitializerService>();
 builder.Services.AddHostedService<NotificationCleanupService>();
@@ -207,6 +234,7 @@ builder.Services.AddScoped<IAdQuotaService, AdQuotaService>();
 builder.Services.AddScoped<IFacebookMarketingApiService, FacebookMarketingApiService>();
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
+builder.Services.AddScoped<IProviderService, GoogleProvider>();
 builder.Services.AddScoped<IPaymentService, StripePaymentService>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
@@ -224,50 +252,56 @@ builder.Services.AddScoped<PublishRequestValidator>();
 // Add subscription validation service
 builder.Services.AddScoped<ISubscriptionValidationService, SubscriptionValidationService>();
 
-var jwksUri = $"{supabaseUrl!.TrimEnd('/')}/auth/v1/.well-known/jwks.json";
+// Configure JWT Authentication
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"];
 
-// Fetch JWKS 1 lần khi app start
-using var http = new HttpClient();
-var jwksJson = await http.GetStringAsync(jwksUri);
-var jwks = new JsonWebKeySet(jwksJson);
+if (string.IsNullOrEmpty(secretKey))
+{
+    throw new InvalidOperationException("JWT SecretKey is not configured in appsettings.json");
+}
 
+var key = Encoding.UTF8.GetBytes(secretKey);
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.SaveToken = true;
+    options.RequireHttpsMetadata = false; // Set to true in production
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.IncludeErrorDetails = true;
-        options.RequireHttpsMetadata = true;
-        options.TokenValidationParameters = new TokenValidationParameters
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings["Issuer"],
+
+        ValidateAudience = true,
+        ValidAudience = jwtSettings["Audience"],
+
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromMinutes(5),
+
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = ctx =>
         {
-            ValidateIssuer = true,
-            ValidIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1",
-
-            ValidateAudience = true,
-            ValidAudience = "authenticated",
-
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5),
-
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = jwks.Keys,
-            ValidAlgorithms = new[] { SecurityAlgorithms.EcdsaSha256 } // Supabase use ES256 (ECDSA with SHA-256)
-        };
-
-        options.Events = new JwtBearerEvents
+            Console.WriteLine("JWT Auth failed: " + ctx.Exception.Message);
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = ctx =>
         {
-            OnAuthenticationFailed = ctx =>
-            {
-                Console.WriteLine("Auth failed: " + ctx.Exception);
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = ctx =>
-            {
-                Console.WriteLine("Token OK for user: " +
-                                  ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier));
-                return Task.CompletedTask;
-            }
-        };
-    });
+            var userId = ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            Console.WriteLine($"JWT Token validated for user: {userId}");
+            return Task.CompletedTask;
+        }
+    };
+});
 
 builder.Services.AddAuthorization();
 // Disable automatic 400 for model validation to allow custom GenericResponse
@@ -362,8 +396,8 @@ app.UseCors("CorsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Auto-provision user from JWT if they don't exist in database
-app.UseUserProvisioning();
+// Note: UserProvisioningMiddleware is no longer needed as users are created during registration
+// app.UseUserProvisioning();
 
 app.MapControllers();
 
