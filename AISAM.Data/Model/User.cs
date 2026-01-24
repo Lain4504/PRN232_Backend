@@ -37,6 +37,20 @@ namespace AISAM.Data.Model
         [Column("is_email_verified")]
         public bool IsEmailVerified { get; set; } = false;
 
+        [MaxLength(500)]
+        [Column("email_verification_token")]
+        public string? EmailVerificationToken { get; set; }
+
+        [Column("email_verification_token_expires_at")]
+        public DateTime? EmailVerificationTokenExpiresAt { get; set; }
+
+        [MaxLength(500)]
+        [Column("password_reset_token")]
+        public string? PasswordResetToken { get; set; }
+
+        [Column("password_reset_token_expires_at")]
+        public DateTime? PasswordResetTokenExpiresAt { get; set; }
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

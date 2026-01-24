@@ -36,6 +36,25 @@ namespace AISAM.Repositories.Repository
             return user;
         }
 
+        public async Task<User> UpdateAsync(User user)
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+            return user;
+        }
+
+        public async Task<User?> GetByPasswordResetTokenAsync(string token)
+        {
+            return await _context.Users
+                .FirstOrDefaultAsync(u => u.PasswordResetToken == token);
+        }
+
+        public async Task<User?> GetByEmailVerificationTokenAsync(string token)
+        {
+            return await _context.Users
+                .FirstOrDefaultAsync(u => u.EmailVerificationToken == token);
+        }
+
         public async Task<PagedResult<UserListDto>> GetPagedUsersAsync(PaginationRequest request)
         {
             var query = _context.Users.AsNoTracking();

@@ -18,15 +18,18 @@ namespace AISAM.Services.Service
     {
         private readonly IUserRepository _userRepository;
         private readonly ISessionRepository _sessionRepository;
+        private readonly IEmailService _emailService;
         private readonly JwtSettings _jwtSettings;
 
         public AuthService(
             IUserRepository userRepository,
             ISessionRepository sessionRepository,
+            IEmailService emailService,
             IOptions<JwtSettings> jwtSettings)
         {
             _userRepository = userRepository;
             _sessionRepository = sessionRepository;
+            _emailService = emailService;
             _jwtSettings = jwtSettings.Value;
         }
 
@@ -55,7 +58,17 @@ namespace AISAM.Services.Service
                 CreatedAt = DateTime.UtcNow
             };
 
+            // Generate email verification token
+            var verificationToken = GenerateSecureToken();
+            var verificationTokenExpiration = DateTime.UtcNow.AddDays(7); // Token expires in 7 days
+
+            user.EmailVerificationToken = verificationToken;
+            user.EmailVerificationTokenExpiresAt = verificationTokenExpiration;
+
             await _userRepository.CreateAsync(user);
+
+            // Send verification email
+            await _emailService.SendEmailVerificationAsync(user.Email, user.FullName ?? "User", verificationToken);
 
             // Generate tokens
             return await GenerateTokensAsync(user, userAgent, ipAddress);
@@ -160,6 +173,107 @@ namespace AISAM.Services.Service
 
             // Revoke all sessions except current (force re-login everywhere)
             await _sessionRepository.RevokeAllUserSessionsAsync(userId);
+
+            return true;
+        }
+
+        public async Task<bool> ForgotPasswordAsync(string email)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            
+            // Don't reveal if email exists for security
+            if (user == null)
+            {
+                return true;
+            }
+
+            // Generate password reset token
+            var resetToken = GenerateSecureToken();
+            var resetTokenExpiration = DateTime.UtcNow.AddHours(1); // Token expires in 1 hour
+
+            user.PasswordResetToken = resetToken;
+            user.PasswordResetTokenExpiresAt = resetTokenExpiration;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+
+            // Send password reset email
+            await _emailService.SendPasswordResetAsync(email, user.FullName ?? "User", resetToken);
+
+            return true;
+        }
+
+        public async Task<bool> ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            var user = await _userRepository.GetByPasswordResetTokenAsync(request.Token);
+            
+            if (user == null || 
+                user.PasswordResetTokenExpiresAt == null || 
+                user.PasswordResetTokenExpiresAt < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            // Create new password hash
+            CreatePasswordHash(request.NewPassword, out string passwordHash, out string passwordSalt);
+
+            user.PasswordHash = passwordHash;
+            user.PasswordSalt = passwordSalt;
+            user.PasswordResetToken = null;
+            user.PasswordResetTokenExpiresAt = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+
+            // Revoke all sessions (force re-login everywhere)
+            await _sessionRepository.RevokeAllUserSessionsAsync(user.Id);
+
+            return true;
+        }
+
+        public async Task<bool> VerifyEmailAsync(string token)
+        {
+            var user = await _userRepository.GetByEmailVerificationTokenAsync(token);
+            
+            if (user == null || 
+                user.EmailVerificationTokenExpiresAt == null || 
+                user.EmailVerificationTokenExpiresAt < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            user.IsEmailVerified = true;
+            user.EmailVerificationToken = null;
+            user.EmailVerificationTokenExpiresAt = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+
+            return true;
+        }
+
+        public async Task<bool> ResendEmailVerificationAsync(string email)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            
+            // Don't reveal if email exists for security
+            if (user == null || user.IsEmailVerified)
+            {
+                return true;
+            }
+
+            // Generate new verification token
+            var verificationToken = GenerateSecureToken();
+            var verificationTokenExpiration = DateTime.UtcNow.AddDays(7); // Token expires in 7 days
+
+            user.EmailVerificationToken = verificationToken;
+            user.EmailVerificationTokenExpiresAt = verificationTokenExpiration;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+
+            // Send verification email
+            await _emailService.SendEmailVerificationAsync(email, user.FullName ?? "User", verificationToken);
 
             return true;
         }
@@ -269,6 +383,14 @@ namespace AISAM.Services.Service
             var computedHashString = Convert.ToBase64String(computedHash);
 
             return computedHashString == storedHash;
+        }
+
+        private string GenerateSecureToken()
+        {
+            var randomNumber = new byte[32];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber).Replace("+", "-").Replace("/", "_").Replace("=", "");
         }
 
         #endregion

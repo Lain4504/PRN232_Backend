@@ -103,6 +103,56 @@ if (!string.IsNullOrEmpty(googleClientSecret))
     builder.Configuration["GoogleSettings:ClientSecret"] = googleClientSecret;
 }
 
+// JWT configuration override
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+if (!string.IsNullOrEmpty(jwtSecretKey))
+{
+    builder.Configuration["JwtSettings:SecretKey"] = jwtSecretKey;
+}
+
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
+if (!string.IsNullOrEmpty(jwtIssuer))
+{
+    builder.Configuration["JwtSettings:Issuer"] = jwtIssuer;
+}
+
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+if (!string.IsNullOrEmpty(jwtAudience))
+{
+    builder.Configuration["JwtSettings:Audience"] = jwtAudience;
+}
+
+// Email configuration override
+var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST");
+if (!string.IsNullOrEmpty(smtpHost))
+{
+    builder.Configuration["EmailSettings:SmtpHost"] = smtpHost;
+}
+
+var smtpPort = Environment.GetEnvironmentVariable("SMTP_PORT");
+if (!string.IsNullOrEmpty(smtpPort))
+{
+    builder.Configuration["EmailSettings:SmtpPort"] = smtpPort;
+}
+
+var smtpUsername = Environment.GetEnvironmentVariable("SMTP_USERNAME");
+if (!string.IsNullOrEmpty(smtpUsername))
+{
+    builder.Configuration["EmailSettings:SmtpUsername"] = smtpUsername;
+}
+
+var smtpPassword = Environment.GetEnvironmentVariable("SMTP_PASSWORD");
+if (!string.IsNullOrEmpty(smtpPassword))
+{
+    builder.Configuration["EmailSettings:SmtpPassword"] = smtpPassword;
+}
+
+var fromEmail = Environment.GetEnvironmentVariable("FROM_EMAIL");
+if (!string.IsNullOrEmpty(fromEmail))
+{
+    builder.Configuration["EmailSettings:FromEmail"] = fromEmail;
+}
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
@@ -118,6 +168,10 @@ builder.Services.AddControllers(options =>
 // Enable FluentValidation automatic model validation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
+
+// Configure Email Settings
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
 
 // Configure Google Settings
 builder.Services.Configure<GoogleSettings>(
@@ -204,6 +258,7 @@ builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 // Add services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IContentService, ContentService>();

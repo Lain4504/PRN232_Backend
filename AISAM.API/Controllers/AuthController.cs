@@ -216,5 +216,123 @@ namespace AISAM.API.Controllers
                 return StatusCode(500, GenericResponse<object>.CreateError("An error occurred"));
             }
         }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                await _authService.ForgotPasswordAsync(request.Email);
+
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "If the email exists, a password reset link has been sent"
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during forgot password");
+                // Don't reveal if email exists or not for security
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "If the email exists, a password reset link has been sent"
+                ));
+            }
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                var result = await _authService.ResetPasswordAsync(request);
+
+                if (!result)
+                {
+                    return BadRequest(GenericResponse<object>.CreateError("Invalid or expired reset token"));
+                }
+
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "Password reset successfully. Please login with your new password."
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password reset");
+                return StatusCode(500, GenericResponse<object>.CreateError("An error occurred during password reset"));
+            }
+        }
+
+        [HttpPost("change-password-with-token")]
+        public async Task<IActionResult> ChangePasswordWithToken([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                var result = await _authService.ResetPasswordAsync(request);
+
+                if (!result)
+                {
+                    return BadRequest(GenericResponse<object>.CreateError("Invalid or expired reset token"));
+                }
+
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "Password changed successfully. Please login with your new password."
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password change");
+                return StatusCode(500, GenericResponse<object>.CreateError("An error occurred during password change"));
+            }
+        }
+
+        [HttpGet("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+        {
+            try
+            {
+                var result = await _authService.VerifyEmailAsync(token);
+
+                if (!result)
+                {
+                    return BadRequest(GenericResponse<object>.CreateError("Invalid or expired verification token"));
+                }
+
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "Email verified successfully. You can now login."
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during email verification");
+                return StatusCode(500, GenericResponse<object>.CreateError("An error occurred during email verification"));
+            }
+        }
+
+        [HttpPost("verify-email/resend")]
+        public async Task<IActionResult> ResendEmailVerification([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                await _authService.ResendEmailVerificationAsync(request.Email);
+
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "If the email exists and is not verified, a verification email has been sent"
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resending verification email");
+                // Don't reveal if email exists or not for security
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    null,
+                    "If the email exists and is not verified, a verification email has been sent"
+                ));
+            }
+        }
     }
 }
