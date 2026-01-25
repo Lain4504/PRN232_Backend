@@ -365,28 +365,50 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.SuppressModelStateInvalidFilter = true;
 });
 
-var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
-var configuredOrigins = Array.Empty<string>();
+var configuredOrigins = new List<string>();
 
+// 1. Load from Environment Variable
+var corsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
 if (!string.IsNullOrWhiteSpace(corsEnv))
 {
-    configuredOrigins = corsEnv
-        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    configuredOrigins.AddRange(corsEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }
 
+// 2. Load from Configuration (appsettings.json)
+var corsConfig = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (corsConfig != null)
+{
+    configuredOrigins.AddRange(corsConfig);
+}
+
+// 3. Load from FRONTEND_BASE_URL
+var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
+if (!string.IsNullOrWhiteSpace(frontendUrl))
+{
+    configuredOrigins.Add(frontendUrl.TrimEnd('/'));
+}
+
+// 4. Deduplicate
+var finalOrigins = configuredOrigins.Distinct().ToArray();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy",
         corsBuilder =>
         {
-            if (configuredOrigins.Length > 0)
+            if (finalOrigins.Length > 0)
             {
                 corsBuilder
-                    .WithOrigins(configuredOrigins)
+                    .WithOrigins(finalOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
-                    .AllowCredentials();
+                    .AllowCredentials()
+                    .SetIsOriginAllowedToAllowWildcardSubdomains(); // Useful for subdomains
+            }
+            else
+            {
+                // Fallback for development if no origins configured
+                corsBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
             }
         });
 });
