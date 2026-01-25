@@ -458,18 +458,18 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-app.UseSwagger();
-app.UseSwaggerUI();
-
-// Add global exception handling middleware
-app.UseMiddleware<ExceptionHandlerMiddleware>();
-
-app.UseHttpsRedirection();
-
+// 1. MUST BE FIRST: CORS must handle preflight and wrap the entire pipeline
 app.UseCors("CorsPolicy");
 
-// Enable authentication and authorization
+// 2. Swagger/Redirection
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseHttpsRedirection();
+
+// 3. Exception Handling (After CORS so error responses get CORS headers)
+app.UseMiddleware<ExceptionHandlerMiddleware>();
+
+// 4. Auth & Controllers
 app.UseAuthentication();
 app.UseAuthorization();
 
