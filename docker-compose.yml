@@ -56,7 +56,7 @@ services:
     container_name: aisam-api
     restart: always
     env_file:
-      - .env
+      - ./AISAM.API/.env
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - CONNECTION_STRING=Host=postgres;Port=5432;Database=aisam;Username=postgres;Password=${DB_PASSWORD:-123456789};
