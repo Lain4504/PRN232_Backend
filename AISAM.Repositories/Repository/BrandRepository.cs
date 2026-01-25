@@ -96,59 +96,51 @@ namespace AISAM.Repositories.Repository
             return await _context.Profiles.AnyAsync(p => p.Id == profileId);
         }
 
-        public async Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, PaginationRequest request)
+        public async Task<PagedResult<Brand>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, Guid userId, PaginationRequest request, Guid? teamId = null)
         {
-            // Get brands where profile is the owner
-            var ownerBrandsQuery = _context.Brands
+            // Get brands where user is a team member of the brand owner's teams and those teams are assigned to the brand
+            var query = _context.Brands
                 .Include(b => b.Profile)
-                .Where(b => b.ProfileId == profileId && !b.IsDeleted);
-
-            // Get brands where profile is a team member of the brand owner
-            var teamBrandsQuery = _context.Brands
-                .Include(b => b.Profile)
-                .Where(b => !b.IsDeleted &&
+                .Where(b => !b.IsDeleted && b.ProfileId == profileId &&
                     _context.TeamBrands.Any(tb =>
                         tb.BrandId == b.Id &&
                         tb.IsActive &&
+                        (teamId == null || tb.TeamId == teamId) &&
                         _context.TeamMembers.Any(tm =>
-                            tm.UserId == profileId &&
+                            tm.UserId == userId && 
                             tm.TeamId == tb.TeamId &&
-                            tm.IsActive &&
-                            tm.Team.ProfileId == b.ProfileId)));
-
-            // Combine both queries
-            var combinedQuery = ownerBrandsQuery.Union(teamBrandsQuery);
+                            tm.IsActive)));
 
             // Apply search
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
-                combinedQuery = combinedQuery.Where(b => b.Name.ToLower().Contains(request.SearchTerm.ToLower()));
+                query = query.Where(b => b.Name.ToLower().Contains(request.SearchTerm.ToLower()));
             }
 
             // Apply sorting
             if (!string.IsNullOrWhiteSpace(request.SortBy))
             {
-                combinedQuery = request.SortBy.ToLower() switch
+                query = request.SortBy.ToLower() switch
                 {
                     "name" => request.SortDescending
-                        ? combinedQuery.OrderByDescending(b => b.Name)
-                        : combinedQuery.OrderBy(b => b.Name),
+                        ? query.OrderByDescending(b => b.Name)
+                        : query.OrderBy(b => b.Name),
                     "createdat" => request.SortDescending
-                        ? combinedQuery.OrderByDescending(b => b.CreatedAt)
-                        : combinedQuery.OrderBy(b => b.CreatedAt),
-                    _ => combinedQuery.OrderBy(b => b.Name)
+                        ? query.OrderByDescending(b => b.CreatedAt)
+                        : query.OrderBy(b => b.CreatedAt),
+                    _ => query.OrderBy(b => b.Name)
                 };
             }
             else
             {
-                combinedQuery = combinedQuery.OrderBy(b => b.Name);
+                query = query.OrderBy(b => b.Name);
             }
 
             // Get total count
-            var totalCount = await combinedQuery.CountAsync();
+            var totalCount = await query.CountAsync();
 
             // Apply pagination
-            var data = await combinedQuery
+            var data = await query
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToListAsync();

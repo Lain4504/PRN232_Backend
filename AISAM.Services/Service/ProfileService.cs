@@ -14,12 +14,16 @@ namespace AISAM.Services.Service
         private readonly IProfileRepository _profileRepository;
         private readonly IUserRepository _userRepository;
         private readonly SupabaseStorageService _storageService;
+        private readonly ITeamService _teamService;
+        private readonly ITeamMemberRepository _teamMemberRepository;
 
-        public ProfileService(IProfileRepository profileRepository, IUserRepository userRepository, SupabaseStorageService storageService)
+        public ProfileService(IProfileRepository profileRepository, IUserRepository userRepository, SupabaseStorageService storageService, ITeamService teamService, ITeamMemberRepository teamMemberRepository)
         {
             _profileRepository = profileRepository;
             _userRepository = userRepository;
             _storageService = storageService;
+            _teamService = teamService;
+            _teamMemberRepository = teamMemberRepository;
         }
 
         public async Task<GenericResponse<ProfileResponseDto>> GetProfileByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -57,10 +61,29 @@ namespace AISAM.Services.Service
                     return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateError("Không tìm thấy người dùng", HttpStatusCode.NotFound);
                 }
 
-                // Use repository method to search profiles
+                // Use repository method to search profiles (includes shared profiles)
                 var profiles = await _profileRepository.SearchUserProfilesAsync(userId, searchTerm, isDeleted, cancellationToken);
 
-                var profileDtos = profiles.Select(MapToDto);
+                var profileDtos = new List<ProfileResponseDto>();
+                foreach (var profile in profiles)
+                {
+                    var dto = MapToDto(profile);
+                    dto.IsOwner = profile.UserId == userId;
+                    
+                    if (!dto.IsOwner)
+                    {
+                        // Lookup specific member role for this shared workspace
+                        var member = await _teamMemberRepository.GetByUserIdAndProfileAsync(userId, profile.Id);
+                        dto.MemberRole = member?.Role;
+                    }
+                    else 
+                    {
+                        dto.MemberRole = "Owner"; // Semantic role for the owner
+                    }
+                    
+                    profileDtos.Add(dto);
+                }
+
                 return GenericResponse<IEnumerable<ProfileResponseDto>>.CreateSuccess(profileDtos, "Tìm kiếm hồ sơ thành công");
             }
             catch (Exception ex)
@@ -113,8 +136,28 @@ namespace AISAM.Services.Service
                 };
 
                 var createdProfile = await _profileRepository.CreateAsync(profile, cancellationToken);
-                var profileDto = MapToDto(createdProfile);
 
+                // Automatic setup for Agency (Basic/Pro) profiles
+                if (createdProfile.ProfileType == ProfileTypeEnum.Basic || createdProfile.ProfileType == ProfileTypeEnum.Pro)
+                {
+                    try
+                    {
+                        var teamRequest = new CreateTeamRequest
+                        {
+                            Name = $"{createdProfile.Name} Default Team",
+                            Description = "Tự động tạo cho Agency Workspace",
+                            BrandIds = new List<Guid>()
+                        };
+                        await _teamService.CreateTeamAsync(teamRequest, createdProfile.Id, userId);
+                    }
+                    catch (Exception teamEx)
+                    {
+                        // Log but don't fail profile creation if team setup fails
+                        Console.WriteLine($"Warning: Failed to create automatic team for agency profile {createdProfile.Id}: {teamEx.Message}");
+                    }
+                }
+
+                var profileDto = MapToDto(createdProfile);
                 return GenericResponse<ProfileResponseDto>.CreateSuccess(profileDto, "Tạo hồ sơ thành công");
             }
             catch (Exception ex)

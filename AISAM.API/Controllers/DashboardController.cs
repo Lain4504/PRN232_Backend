@@ -35,39 +35,75 @@ namespace AISAM.API.Controllers
             public int BrandsCount { get; set; }
             public int PendingApprovalsCount { get; set; }
             public int TotalContents { get; set; }
+            public int MembersCount { get; set; }
+            public int ScheduledPostsCount { get; set; }
         }
 
         [HttpGet("stats")]
-        public async Task<ActionResult<GenericResponse<DashboardStatsResponse>>> GetStats()
+        public async Task<ActionResult<GenericResponse<DashboardStatsResponse>>> GetStats([FromQuery] Guid? teamId = null)
         {
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
                 var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-                // Teams count for current user
-                var userTeams = await _teamService.GetUserTeamsAsync(userId);
-                var teamsCount = userTeams?.Data?.Count() ?? 0;
+                int teamsCount = 0;
+                int brandsCount = 0;
+                int pendingApprovals = 0;
+                int totalContents = 0;
+                int membersCount = 0;
+                int scheduledPosts = 0;
 
-                // Brands count for current profile (use paged endpoint's total count for efficiency)
-                var pageRequest = new PaginationRequest
+                if (teamId.HasValue)
                 {
-                    Page = 1,
-                    PageSize = 1
-                };
-                var brandsPaged = await _brandService.GetPagedByProfileIdAsync(profileId, pageRequest);
-                var brandsCount = brandsPaged?.TotalCount ?? 0;
+                    // Scoped by Team
+                    var teamResult = await _teamService.GetTeamByIdAsync(teamId.Value, profileId, userId);
+                    if (!teamResult.Success)
+                    {
+                        return BadRequest(GenericResponse<DashboardStatsResponse>.CreateError("Team not found or access denied"));
+                    }
 
-                // Pending approvals for current user
-                var pendingApprovals = await _approvalService.GetPendingCountAsync(userId);
+                    // Brands in team
+                    var brands = await _brandService.GetBrandsByTeamIdAsync(teamId.Value, userId);
+                    brandsCount = brands.Count();
+                    var brandIds = brands.Select(b => b.Id).ToList();
 
-                // Total contents (not available via service by profile/team in current API surface) -> 0 for now
+                    // Contents in team brands
+                    foreach (var bId in brandIds)
+                    {
+                        var contents = await _brandService.GetPagedContentsByBrandIdAsync(bId, new PaginationRequest { PageSize = 1000 });
+                        totalContents += contents?.Data?.Count() ?? 0;
+                        pendingApprovals += contents?.Data?.Count(c => c.Status == "PendingApproval") ?? 0; // Wait, Status is string now in DTO.
+                    }
+                    
+                    // Members in team
+                    var teamMembers = await _teamService.GetTeamMembersAsync(teamId.Value, profileId, userId);
+                    membersCount = teamMembers?.Data?.Count() ?? 0;
+                }
+                else
+                {
+                    // Profile-wide Stats
+                    var userTeams = await _teamService.GetUserTeamsAsync(userId);
+                    teamsCount = userTeams?.Data?.Count() ?? 0;
+
+                    var brandsPaged = await _brandService.GetPagedByProfileIdAsync(profileId, userId, new PaginationRequest { PageSize = 1 });
+                    brandsCount = brandsPaged?.TotalCount ?? 0;
+
+                    pendingApprovals = await _approvalService.GetPendingCountAsync(userId);
+                    
+                    // For global total contents, we might need a more efficient way later
+                    // For now, let's keep it 0 or count across brands if feasible
+                    totalContents = 0; 
+                }
+
                 var stats = new DashboardStatsResponse
                 {
                     TeamsCount = teamsCount,
                     BrandsCount = brandsCount,
                     PendingApprovalsCount = pendingApprovals,
-                    TotalContents = 0,
+                    TotalContents = totalContents,
+                    MembersCount = membersCount,
+                    ScheduledPostsCount = scheduledPosts
                 };
 
                 return Ok(GenericResponse<DashboardStatsResponse>.CreateSuccess(stats, "Dashboard stats loaded"));

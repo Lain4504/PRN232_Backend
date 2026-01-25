@@ -7,11 +7,13 @@ namespace AISAM.Services.IServices
 {
     public interface IBrandService
     {
-        Task<PagedResult<BrandResponseDto>> GetPagedByProfileIdAsync(Guid profileId, PaginationRequest request);
+        Task<PagedResult<BrandResponseDto>> GetPagedByProfileIdAsync(Guid profileId, Guid userId, PaginationRequest request, Guid? teamId = null);
 
-        Task<PagedResult<BrandResponseDto>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, PaginationRequest request);
+        Task<PagedResult<BrandResponseDto>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, Guid userId, PaginationRequest request);
 
         Task<IEnumerable<BrandResponseDto>> GetBrandsByTeamIdAsync(Guid teamId, Guid userId);
+
+        Task<PagedResult<ContentResponseDto>> GetPagedContentsByBrandIdAsync(Guid brandId, PaginationRequest request);
 
         Task<BrandResponseDto?> GetByIdAsync(Guid id, Guid userId);
 

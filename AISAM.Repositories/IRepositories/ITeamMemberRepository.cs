@@ -23,6 +23,7 @@ namespace AISAM.Repositories.IRepositories
         Task<bool> TeamExistsAsync(Guid teamId);
         Task<bool> UserExistsAsync(Guid userId);
         Task<bool> IsUserMemberOfProfileTeamsAsync(Guid userId, Guid profileId);
+        Task<TeamMember?> GetByUserIdAndProfileAsync(Guid userId, Guid profileId);
     }
 }
 

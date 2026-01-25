@@ -63,11 +63,13 @@ namespace AISAM.API.Controllers
             [FromQuery] int pageSize = 10,
             [FromQuery] string? searchTerm = null,
             [FromQuery] string? sortBy = null,
-            [FromQuery] bool sortDescending = true)
+            [FromQuery] bool sortDescending = true,
+            [FromQuery] Guid? teamId = null)
         {
             try
             {
                 var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var paginationRequest = new PaginationRequest
                 {
@@ -78,7 +80,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _brandService.GetPagedByProfileIdAsync(profileId, paginationRequest);
+                var result = await _brandService.GetPagedByProfileIdAsync(profileId, userId, paginationRequest, teamId);
                 return Ok(GenericResponse<PagedResult<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand thành công"));
             }
             catch (UnauthorizedAccessException)
@@ -103,6 +105,7 @@ namespace AISAM.API.Controllers
             try
             {
                 var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
+                var userId = UserClaimsHelper.GetUserIdOrThrow(User);
 
                 var paginationRequest = new PaginationRequest
                 {
@@ -113,7 +116,7 @@ namespace AISAM.API.Controllers
                     SortDescending = sortDescending
                 };
 
-                var result = await _brandService.GetPagedBrandsByTeamMembershipAsync(profileId, paginationRequest);
+                var result = await _brandService.GetPagedBrandsByTeamMembershipAsync(profileId, userId, paginationRequest);
                 return Ok(GenericResponse<PagedResult<BrandResponseDto>>.CreateSuccess(result, "Lấy danh sách brand thành công"));
             }
             catch (UnauthorizedAccessException)

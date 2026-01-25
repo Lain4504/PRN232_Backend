@@ -105,10 +105,19 @@ namespace AISAM.Repositories.Repository
 
         public async Task<IEnumerable<Profile>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, bool? isDeleted = null, CancellationToken cancellationToken = default)
         {
-            var query = _context.Profiles
+            // Profiles owned by user
+            var ownedProfilesQuery = _context.Profiles
                 .Include(p => p.User)
                 .Include(p => p.Brands)
                 .Where(p => p.UserId == userId);
+
+            // Profiles where user is a team member
+            var memberProfilesQuery = _context.Profiles
+                .Include(p => p.User)
+                .Include(p => p.Brands)
+                .Where(p => _context.TeamMembers.Any(tm => tm.UserId == userId && tm.Team.ProfileId == p.Id && tm.IsActive));
+
+            var query = ownedProfilesQuery.Union(memberProfilesQuery);
 
             // Apply isDeleted filter (backward compatibility)
             if (isDeleted.HasValue)

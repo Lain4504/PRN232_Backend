@@ -17,28 +17,50 @@ namespace AISAM.Services.Service
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly ITeamRepository _teamRepository;
         private readonly IProductRepository _productRepository;
+        private readonly IContentRepository _contentRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
 
-        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IProductRepository productRepository, RolePermissionConfig rolePermissionConfig)
+        public BrandService(IBrandRepository brandRepository, IProfileRepository profileRepository, ITeamMemberRepository teamMemberRepository, ITeamRepository teamRepository, IProductRepository productRepository, IContentRepository contentRepository, RolePermissionConfig rolePermissionConfig)
         {
             _brandRepository = brandRepository;
             _profileRepository = profileRepository;
             _teamMemberRepository = teamMemberRepository;
             _teamRepository = teamRepository;
             _productRepository = productRepository;
+            _contentRepository = contentRepository;
             _rolePermissionConfig = rolePermissionConfig;
         }
 
         /// <summary>
         /// Lấy danh sách brand theo profileId với phân trang, hỗ trợ search và sắp xếp
         /// </summary>
-        public async Task<PagedResult<BrandResponseDto>> GetPagedByProfileIdAsync(Guid profileId, PaginationRequest request)
+        public async Task<PagedResult<BrandResponseDto>> GetPagedByProfileIdAsync(Guid profileId, Guid userId, PaginationRequest request, Guid? teamId = null)
         {
-            var brands = await _brandRepository.GetPagedByProfileIdAsync(profileId, request);
+            var profile = await _profileRepository.GetByIdAsync(profileId);
+            if (profile == null) throw new ArgumentException("Profile not found.");
+
+            PagedResult<Brand> brands;
+            if (profile.UserId == userId)
+            {
+                // Owner gets all brands
+                brands = await _brandRepository.GetPagedByProfileIdAsync(profileId, request);
+            }
+            else
+            {
+                // Member gets only assigned brands
+                brands = await _brandRepository.GetPagedBrandsByTeamMembershipAsync(profileId, userId, request, teamId);
+            }
+
+            var brandDtos = new List<BrandResponseDto>();
+            foreach (var brand in brands.Data)
+            {
+                var dto = await MapToResponseAsync(brand);
+                brandDtos.Add(dto);
+            }
 
             return new PagedResult<BrandResponseDto>
             {
-                Data = brands.Data.Select(MapToResponse).ToList(),
+                Data = brandDtos,
                 TotalCount = brands.TotalCount,
                 Page = brands.Page,
                 PageSize = brands.PageSize
@@ -48,13 +70,20 @@ namespace AISAM.Services.Service
         /// <summary>
         /// Lấy danh sách brand theo quyền truy cập qua team membership với phân trang, hỗ trợ search và sắp xếp
         /// </summary>
-        public async Task<PagedResult<BrandResponseDto>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, PaginationRequest request)
+        public async Task<PagedResult<BrandResponseDto>> GetPagedBrandsByTeamMembershipAsync(Guid profileId, Guid userId, PaginationRequest request)
         {
-            var brands = await _brandRepository.GetPagedBrandsByTeamMembershipAsync(profileId, request);
+            var brands = await _brandRepository.GetPagedBrandsByTeamMembershipAsync(profileId, userId, request);
+            var brandDtos = new List<BrandResponseDto>();
+
+            foreach (var brand in brands.Data)
+            {
+                var dto = await MapToResponseAsync(brand);
+                brandDtos.Add(dto);
+            }
 
             return new PagedResult<BrandResponseDto>
             {
-                Data = brands.Data.Select(MapToResponse).ToList(),
+                Data = brandDtos,
                 TotalCount = brands.TotalCount,
                 Page = brands.Page,
                 PageSize = brands.PageSize
@@ -74,7 +103,58 @@ namespace AISAM.Services.Service
             }
 
             var brands = await _brandRepository.GetBrandsByTeamIdAsync(teamId);
-            return brands.Select(MapToResponse);
+            var brandDtos = new List<BrandResponseDto>();
+
+            foreach (var brand in brands)
+            {
+                var dto = await MapToResponseAsync(brand);
+                brandDtos.Add(dto);
+            }
+
+            return brandDtos;
+        }
+
+        public async Task<PagedResult<ContentResponseDto>> GetPagedContentsByBrandIdAsync(Guid brandId, PaginationRequest request)
+        {
+            var (items, totalCount) = await _contentRepository.GetByBrandIdPagedAsync(
+                brandId,
+                request.Page,
+                request.PageSize,
+                request.SearchTerm,
+                request.SortBy,
+                request.SortDescending,
+                (AISAM.Data.Enumeration.AdTypeEnum?)null, // adType
+                false, // onlyDeleted
+                (AISAM.Data.Enumeration.ContentStatusEnum?)null // status
+            );
+
+            var dtos = items.Select(c => new ContentResponseDto
+            {
+                Id = c.Id,
+                ProfileId = c.ProfileId,
+                BrandId = c.BrandId,
+                BrandName = c.Brand?.Name,
+                ProductId = c.ProductId,
+                AdType = c.AdType.ToString(),
+                Title = c.Title,
+                TextContent = c.TextContent,
+                ImageUrl = c.ImageUrl,
+                VideoUrl = c.VideoUrl,
+                StyleDescription = c.StyleDescription,
+                ContextDescription = c.ContextDescription,
+                RepresentativeCharacter = c.RepresentativeCharacter,
+                Status = c.Status.ToString(),
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt
+            }).ToList();
+
+            return new PagedResult<ContentResponseDto>
+            {
+                Data = dtos,
+                TotalCount = totalCount,
+                Page = request.Page,
+                PageSize = request.PageSize
+            };
         }
 
         /// <summary>
@@ -92,7 +172,7 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to access this brand");
             }
 
-            return MapToResponse(brand);
+            return await MapToResponseAsync(brand);
         }
 
         /// <summary>
@@ -119,7 +199,7 @@ namespace AISAM.Services.Service
             };
 
             var created = await _brandRepository.AddAsync(brand);
-            return MapToResponse(created);
+            return await MapToResponseAsync(created);
         }
 
         /// <summary>
@@ -160,7 +240,7 @@ namespace AISAM.Services.Service
             brand.UpdatedAt = DateTime.UtcNow;
 
             await _brandRepository.UpdateAsync(brand);
-            return MapToResponse(brand);
+            return await MapToResponseAsync(brand);
         }
 
         /// <summary>
@@ -270,10 +350,13 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
-        /// Chuyển Brand sang BrandResponseDto
+        /// Chuyển Brand sang BrandResponseDto (Async to include counts)
         /// </summary>
-        private static BrandResponseDto MapToResponse(Brand brand)
+        private async Task<BrandResponseDto> MapToResponseAsync(Brand brand)
         {
+            var products = await _productRepository.GetProductsByBrandIdAsync(brand.Id);
+            var contents = await _contentRepository.GetByBrandIdAsync(brand.Id);
+
             return new BrandResponseDto
             {
                 Id = brand.Id,
@@ -285,7 +368,9 @@ namespace AISAM.Services.Service
                 Usp = brand.Usp,
                 TargetAudience = brand.TargetAudience,
                 CreatedAt = brand.CreatedAt,
-                UpdatedAt = brand.UpdatedAt
+                UpdatedAt = brand.UpdatedAt,
+                ProductsCount = products.Count(),
+                ContentsCount = contents.Count()
             };
         }
     }

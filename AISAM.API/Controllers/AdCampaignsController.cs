@@ -52,13 +52,14 @@ namespace AISAM.API.Controllers
         [HttpGet]
         public async Task<ActionResult<GenericResponse<Common.Dtos.PagedResult<AdCampaignResponse>>>> GetCampaigns(
             [FromQuery] Guid? brandId,
+            [FromQuery] Guid? teamId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
             try
             {
                 var userId = UserClaimsHelper.GetUserIdOrThrow(User);
-                var result = await _adCampaignService.GetCampaignsAsync(userId, brandId, page, pageSize);
+                var result = await _adCampaignService.GetCampaignsAsync(userId, brandId, teamId, page, pageSize);
                 return Ok(GenericResponse<Common.Dtos.PagedResult<AdCampaignResponse>>.CreateSuccess(result, "Campaigns retrieved successfully"));
             }
             catch (UnauthorizedAccessException ex)

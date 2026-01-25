@@ -15,5 +15,8 @@ namespace AISAM.Common.Dtos.Response
         public ProfileStatusEnum Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+
+        public bool IsOwner { get; set; }
+        public string? MemberRole { get; set; }
     }
 }

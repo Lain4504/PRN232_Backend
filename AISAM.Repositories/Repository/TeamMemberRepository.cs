@@ -188,5 +188,15 @@ namespace AISAM.Repositories.Repositories
                                tm.Team.ProfileId == profileId && 
                                !tm.Team.IsDeleted);
         }
+
+        public async Task<TeamMember?> GetByUserIdAndProfileAsync(Guid userId, Guid profileId)
+        {
+            return await _context.TeamMembers
+                .Include(tm => tm.Team)
+                .FirstOrDefaultAsync(tm => tm.UserId == userId && 
+                                         tm.IsActive && 
+                                         tm.Team.ProfileId == profileId && 
+                                         !tm.Team.IsDeleted);
+        }
     }
 }

@@ -125,7 +125,7 @@ namespace AISAM.Services.Service
             }
         }
 
-        public async Task<PagedResult<AdCampaignResponse>> GetCampaignsAsync(Guid userId, Guid? brandId, int page = 1, int pageSize = 20)
+        public async Task<PagedResult<AdCampaignResponse>> GetCampaignsAsync(Guid userId, Guid? brandId, Guid? teamId = null, int page = 1, int pageSize = 20)
         {
             try
             {
@@ -137,16 +137,21 @@ namespace AISAM.Services.Service
                     await ValidateBrandAccessAsync(userId, brandId.Value);
                     campaigns = await _adCampaignRepository.GetByBrandIdAsync(brandId.Value, page, pageSize);
                 }
+                else if (teamId.HasValue)
+                {
+                    // Get campaigns for specific team
+                    campaigns = await GetTeamCampaignsAsync(userId, teamId.Value, page, pageSize);
+                }
                 else
                 {
                     // Get all campaigns for user (including team brands if vendor)
                     campaigns = await _adCampaignRepository.GetByUserIdAsync(userId, page, pageSize);
                     
-                    // If user is vendor, also get campaigns from team brands
+                    // If user is vendor, also get campaigns from all team brands they have access to
                     var user = await _userRepository.GetByIdAsync(userId);
                     if (user?.Role == Data.Enumeration.UserRoleEnum.Vendor)
                     {
-                        var teamCampaigns = await GetTeamCampaignsAsync(userId, page, pageSize);
+                        var teamCampaigns = await GetAllTeamCampaignsAsync(userId, page, pageSize);
                         campaigns.Data.AddRange(teamCampaigns.Data);
                         campaigns.TotalCount += teamCampaigns.TotalCount;
                     }
@@ -318,12 +323,54 @@ namespace AISAM.Services.Service
             return socialIntegration;
         }
 
-        private async Task<PagedResult<AdCampaign>> GetTeamCampaignsAsync(Guid userId, int page, int pageSize)
+        private async Task<PagedResult<AdCampaign>> GetTeamCampaignsAsync(Guid userId, Guid teamId, int page, int pageSize)
         {
-            // Get team brands where user has ad permissions
+            // Get team brands where user has ad permissions for this specific team
+            var teamMembers = await _teamMemberRepository.GetByTeamIdAsync(teamId);
+            var member = teamMembers.FirstOrDefault(m => m.UserId == userId);
+            
+            if (member == null || (!member.Permissions.Contains("can_create_ad") && member.Role != "Owner" && member.Role != "Admin"))
+            {
+                return new PagedResult<AdCampaign> { Data = new List<AdCampaign>(), TotalCount = 0, Page = page, PageSize = pageSize };
+            }
+
+            var brandIds = await _brandRepository.GetBrandsByTeamIdAsync(teamId);
+            var ids = brandIds.Select(b => b.Id).ToList();
+
+            if (!ids.Any())
+            {
+                return new PagedResult<AdCampaign> { Data = new List<AdCampaign>(), TotalCount = 0, Page = page, PageSize = pageSize };
+            }
+
+            // Get campaigns for team brands
+            var allCampaigns = new List<AdCampaign>();
+            foreach (var bId in ids)
+            {
+                var cams = await _adCampaignRepository.GetByBrandIdAsync(bId, 1, 1000);
+                allCampaigns.AddRange(cams.Data);
+            }
+
+            var paged = allCampaigns
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return new PagedResult<AdCampaign>
+            {
+                Data = paged,
+                TotalCount = allCampaigns.Count,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        private async Task<PagedResult<AdCampaign>> GetAllTeamCampaignsAsync(Guid userId, int page, int pageSize)
+        {
+            // Get all labels/brands for all teams user is in
             var teamMembers = await _teamMemberRepository.GetByUserIdWithBrandsAsync(userId);
             var brandIds = teamMembers
-                .Where(tm => tm.Permissions.Contains("can_create_ad") && tm.Team.TeamBrands.Any())
+                .Where(tm => (tm.Permissions.Contains("can_create_ad") || tm.Role == "Owner" || tm.Role == "Admin") && tm.Team.TeamBrands.Any())
                 .SelectMany(tm => tm.Team.TeamBrands.Select(tb => tb.BrandId))
                 .Distinct()
                 .ToList();
