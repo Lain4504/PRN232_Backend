@@ -23,30 +23,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: aisam-redis
-    restart: always
-    ports:
-      - '6379:6379'
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  nats:
-    image: nats:2.12-alpine
-    container_name: aisam-nats
-    restart: always
-    ports:
-      - "4222:4222" # clients
-      - "8222:8222" # websockets
-    volumes:
-      - natsdata:/data/jetstream
-
   # ========================================
   # Application Services
   # ========================================
@@ -60,11 +36,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - CONNECTION_STRING=Host=postgres;Port=5432;Database=aisam;Username=postgres;Password=${DB_PASSWORD:-123456789};
-      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
-      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
     ports:
       - "8080:8080"
     depends_on:
@@ -73,8 +44,6 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
-  natsdata:
 
 networks:
   default:

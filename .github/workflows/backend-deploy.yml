@@ -47,6 +47,7 @@ jobs:
             cd ~/omniadly-api/PRN232_Backend
             git pull origin main
             docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             docker compose pull
             docker compose up -d
             docker system prune -f
