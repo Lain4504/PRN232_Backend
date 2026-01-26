@@ -72,6 +72,32 @@ namespace AISAM.API.Controllers
             }
         }
 
+        [HttpPost("google")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            try
+            {
+                var userAgent = Request.Headers["User-Agent"].ToString();
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+                var result = await _authService.GoogleLoginAsync(request.IdToken, userAgent, ipAddress);
+
+                return Ok(GenericResponse<object>.CreateSuccess(
+                    result,
+                    "Google login successful"
+                ));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(GenericResponse<object>.CreateError(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during Google login");
+                return StatusCode(500, GenericResponse<object>.CreateError("An error occurred during Google login"));
+            }
+        }
+
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {

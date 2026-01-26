@@ -16,5 +16,6 @@ namespace AISAM.Services.IServices
         Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
         Task<bool> VerifyEmailAsync(string token);
         Task<bool> ResendEmailVerificationAsync(string email);
+        Task<TokenResponse> GoogleLoginAsync(string idToken, string? userAgent, string? ipAddress);
     }
 }

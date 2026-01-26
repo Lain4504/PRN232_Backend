@@ -54,4 +54,10 @@ namespace AISAM.Common.Dtos.Request
         [Compare("NewPassword", ErrorMessage = "Passwords do not match")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
+
+    public class GoogleLoginRequest
+    {
+        [Required(ErrorMessage = "IdToken is required")]
+        public string IdToken { get; set; } = string.Empty;
+    }
 }

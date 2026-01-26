@@ -11,6 +11,8 @@ using AISAM.Repositories.IRepositories;
 using AISAM.Services.IServices;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Google.Apis.Auth;
+
 
 namespace AISAM.Services.Service
 {
@@ -20,17 +22,20 @@ namespace AISAM.Services.Service
         private readonly ISessionRepository _sessionRepository;
         private readonly IEmailService _emailService;
         private readonly JwtSettings _jwtSettings;
+        private readonly GoogleSettings _googleSettings;
 
         public AuthService(
             IUserRepository userRepository,
             ISessionRepository sessionRepository,
             IEmailService emailService,
-            IOptions<JwtSettings> jwtSettings)
+            IOptions<JwtSettings> jwtSettings,
+            IOptions<GoogleSettings> googleSettings)
         {
             _userRepository = userRepository;
             _sessionRepository = sessionRepository;
             _emailService = emailService;
             _jwtSettings = jwtSettings.Value;
+            _googleSettings = googleSettings.Value;
         }
 
         public async Task<TokenResponse> RegisterAsync(RegisterRequest request, string? userAgent, string? ipAddress)
@@ -94,6 +99,64 @@ namespace AISAM.Services.Service
 
             // Generate tokens
             return await GenerateTokensAsync(user, userAgent, ipAddress);
+        }
+
+        public async Task<TokenResponse> GoogleLoginAsync(string idToken, string? userAgent, string? ipAddress)
+        {
+            try
+            {
+                var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _googleSettings.ClientId }
+                });
+
+                if (payload == null)
+                {
+                    throw new UnauthorizedAccessException("Invalid Google token");
+                }
+
+                var user = await _userRepository.GetByEmailAsync(payload.Email);
+
+                if (user == null)
+                {
+                    // Create new user if not exists
+                    user = new User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = payload.Email,
+                        FullName = payload.Name,
+                        Role = UserRoleEnum.User,
+                        IsEmailVerified = true, // Google already verified this
+                        CreatedAt = DateTime.UtcNow,
+                        LastLoginAt = DateTime.UtcNow,
+                        // Provide a random password since they use Google
+                        PasswordSalt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                        PasswordHash = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64))
+                    };
+
+                    await _userRepository.CreateAsync(user);
+                }
+                else
+                {
+                    // Update user info
+                    user.LastLoginAt = DateTime.UtcNow;
+                    if (!user.IsEmailVerified)
+                    {
+                        user.IsEmailVerified = true;
+                    }
+                    await _userRepository.UpdateAsync(user);
+                }
+
+                return await GenerateTokensAsync(user, userAgent, ipAddress);
+            }
+            catch (InvalidJwtException ex)
+            {
+                throw new UnauthorizedAccessException("Invalid Google token: " + ex.Message);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error during Google login: " + ex.Message);
+            }
         }
 
         public async Task<TokenResponse> RefreshTokenAsync(string refreshToken, string? userAgent, string? ipAddress)
