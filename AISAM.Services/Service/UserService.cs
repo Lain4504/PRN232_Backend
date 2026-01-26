@@ -55,5 +55,26 @@ namespace AISAM.Services.Service
 
             return await _userRepository.GetPagedUsersAsync(request);
         }
+
+        public async Task<User> CreateUserInternalAsync()
+        {
+            const string internalEmail = "admin@aisam.com";
+            var existingUser = await _userRepository.GetByEmailAsync(internalEmail);
+            
+            if (existingUser != null)
+            {
+                return existingUser;
+            }
+
+            var newUser = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = internalEmail,
+                Role = Data.Enumeration.UserRoleEnum.Admin,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            return await _userRepository.CreateAsync(newUser);
+        }
     }
 }
