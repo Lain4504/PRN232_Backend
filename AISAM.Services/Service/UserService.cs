@@ -58,7 +58,7 @@ namespace AISAM.Services.Service
 
         public async Task<User> CreateUserInternalAsync()
         {
-            const string internalEmail = "admin@aisam.com";
+            const string internalEmail = "miraimagiclab@gmail.com";
             var existingUser = await _userRepository.GetByEmailAsync(internalEmail);
             
             if (existingUser != null)
