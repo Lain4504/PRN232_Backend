@@ -96,6 +96,7 @@ namespace AISAM.Services.Service
 
             // Update last login
             user.LastLoginAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
 
             // Generate tokens
             return await GenerateTokensAsync(user, userAgent, ipAddress);
@@ -233,6 +234,8 @@ namespace AISAM.Services.Service
             user.PasswordHash = passwordHash;
             user.PasswordSalt = passwordSalt;
             user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
 
             // Revoke all sessions except current (force re-login everywhere)
             await _sessionRepository.RevokeAllUserSessionsAsync(userId);

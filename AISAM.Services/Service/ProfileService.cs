@@ -128,6 +128,10 @@ namespace AISAM.Services.Service
                     UserId = userId,
                     Name = request.Name.Trim(),
                     ProfileType = request.ProfileType,
+                    // Free profiles are active by default, others wait for subscription
+                    Status = request.ProfileType == ProfileTypeEnum.Free 
+                        ? ProfileStatusEnum.Active 
+                        : ProfileStatusEnum.Pending,
                     CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim(),
                     Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio.Trim(),
                     AvatarUrl = avatarUrl,
@@ -186,6 +190,11 @@ namespace AISAM.Services.Service
                 if (request.ProfileType.HasValue)
                 {
                     profile.ProfileType = request.ProfileType.Value;
+                    // Automatically activate if switched back to Free tier
+                    if (profile.ProfileType == ProfileTypeEnum.Free)
+                    {
+                        profile.Status = ProfileStatusEnum.Active;
+                    }
                 }
 
                 // Update CompanyName - normalize and apply
