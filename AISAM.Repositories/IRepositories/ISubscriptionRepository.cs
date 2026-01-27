@@ -9,7 +9,7 @@ namespace AISAM.Repositories.IRepositories
         Task<List<Subscription>> GetByProfileIdAsync(Guid profileId);
         Task<List<Subscription>> GetByUserIdAsync(Guid userId);
         Task<List<Subscription>> GetAllSubscriptionsAsync();
-        Task<Subscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId);
+        Task<Subscription?> GetByPayOSOrderCodeAsync(string orderCode);
         Task<Subscription> CreateAsync(Subscription subscription);
         Task UpdateAsync(Subscription subscription);
         Task<bool> SoftDeleteAsync(Guid id);

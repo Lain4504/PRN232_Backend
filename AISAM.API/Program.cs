@@ -59,22 +59,23 @@ if (!string.IsNullOrEmpty(frontendBaseUrl))
     builder.Configuration["FrontendSettings:BaseUrl"] = frontendBaseUrl;
 }
 
-var stripeSecretKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
-if (!string.IsNullOrEmpty(stripeSecretKey))
+// PayOS configuration
+var payosClientId = Environment.GetEnvironmentVariable("PAYOS_CLIENT_ID");
+if (!string.IsNullOrEmpty(payosClientId))
 {
-    builder.Configuration["Stripe:SecretKey"] = stripeSecretKey;
+    builder.Configuration["PayOS:ClientId"] = payosClientId;
 }
 
-var stripePublishableKey = Environment.GetEnvironmentVariable("STRIPE_PUBLISHABLE_KEY");
-if (!string.IsNullOrEmpty(stripePublishableKey))
+var payosApiKey = Environment.GetEnvironmentVariable("PAYOS_API_KEY");
+if (!string.IsNullOrEmpty(payosApiKey))
 {
-    builder.Configuration["Stripe:PublishableKey"] = stripePublishableKey;
+    builder.Configuration["PayOS:ApiKey"] = payosApiKey;
 }
 
-var stripeWebhookSecret = Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
-if (!string.IsNullOrEmpty(stripeWebhookSecret))
+var payosChecksumKey = Environment.GetEnvironmentVariable("PAYOS_CHECKSUM_KEY");
+if (!string.IsNullOrEmpty(payosChecksumKey))
 {
-    builder.Configuration["Stripe:WebhookSecret"] = stripeWebhookSecret;
+    builder.Configuration["PayOS:ChecksumKey"] = payosChecksumKey;
 }
 
 // Facebook sandbox configuration override
@@ -290,7 +291,7 @@ builder.Services.AddScoped<IFacebookMarketingApiService, FacebookMarketingApiSer
 // Add provider services
 builder.Services.AddScoped<IProviderService, FacebookProvider>();
 builder.Services.AddScoped<IProviderService, GoogleProvider>();
-builder.Services.AddScoped<IPaymentService, StripePaymentService>();
+builder.Services.AddScoped<IPaymentService, PayOSPaymentService>();
 
 builder.Services.AddSingleton<RolePermissionConfig>();
 

@@ -11,7 +11,7 @@ namespace AISAM.Common.Dtos.Request
         [Required]
         public SubscriptionPlanEnum Plan { get; set; }
 
-        public string? PaymentMethodId { get; set; } // Stripe payment method ID
+
 
         public bool IsRecurring { get; set; } = true; // Monthly recurring subscription
     }

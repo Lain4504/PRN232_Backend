@@ -20,16 +20,28 @@ namespace AISAM.Data.Model
         public SubscriptionPlanEnum Plan { get; set; }
 
         [Column("quota_posts_per_month")]
-        public int QuotaPostsPerMonth { get; set; } = 100;
+        public int QuotaPostsPerMonth { get; set; } = 5;
 
-        [Column("quota_storage_gb")]
-        public int QuotaStorageGb { get; set; } = 5;
+        [Column("quota_ai_content_per_day")]
+        public int QuotaAIContentPerDay { get; set; } = 0;
 
-        [Column("quota_ad_budget_monthly", TypeName = "decimal(10,2)")]
-        public decimal QuotaAdBudgetMonthly { get; set; } = 100.00m;
+        [Column("quota_ai_images_per_day")]
+        public int QuotaAIImagesPerDay { get; set; } = 0;
+
+        [Column("quota_platforms")]
+        public int QuotaPlatforms { get; set; } = 1;
+
+        [Column("quota_accounts")]
+        public int QuotaAccounts { get; set; } = 1;
+
+        [Column("analysis_level")]
+        public int AnalysisLevel { get; set; } = 0; // 0: Basic (Age/Gender), 1: Plus (Ad/Reach), 2: Premium (Plus + Recommendations)
+
+        [Column("quota_ad_budget_monthly", TypeName = "decimal(18,2)")]
+        public decimal QuotaAdBudgetMonthly { get; set; } = 0.00m;
 
         [Column("quota_ad_campaigns")]
-        public int QuotaAdCampaigns { get; set; } = 5;
+        public int QuotaAdCampaigns { get; set; } = 0;
 
         [Required]
         [Column("start_date", TypeName = "date")]
@@ -51,12 +63,12 @@ namespace AISAM.Data.Model
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         [MaxLength(255)]
-        [Column("stripe_subscription_id")]
-        public string? StripeSubscriptionId { get; set; }
+        [Column("payos_order_code")]
+        public string? PayOSOrderCode { get; set; }
 
         [MaxLength(255)]
-        [Column("stripe_customer_id")]
-        public string? StripeCustomerId { get; set; }
+        [Column("payos_payment_link_id")]
+        public string? PayOSPaymentLinkId { get; set; }
 
         // Navigation properties
         [ForeignKey("ProfileId")]

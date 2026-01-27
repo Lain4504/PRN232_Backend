@@ -21,20 +21,20 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Create a payment intent for subscription payment
+        /// Create a PayOS checkout link for subscription payment
         /// </summary>
-        [HttpPost("create-payment-intent")]
-        public async Task<ActionResult<GenericResponse<CreatePaymentIntentResponse>>> CreatePaymentIntent([FromBody] CreatePaymentIntentRequest request)
+        [HttpPost("create-checkout-link")]
+        public async Task<ActionResult<GenericResponse<PayOSCheckoutResponse>>> CreateCheckoutLink([FromBody] CreatePaymentIntentRequest request)
         {
             var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
             {
-                return Unauthorized(GenericResponse<CreatePaymentIntentResponse>.CreateError("Không thể xác thực người dùng"));
+                return Unauthorized(GenericResponse<PayOSCheckoutResponse>.CreateError("Không thể xác thực người dùng"));
             }
 
             var profileId = ProfileContextHelper.GetActiveProfileIdOrThrow(HttpContext);
 
-            var result = await _paymentService.CreatePaymentIntentAsync(request, userId, profileId);
+            var result = await _paymentService.CreatePaymentLinkAsync(request, userId, profileId);
 
             if (result.Success)
             {
@@ -45,10 +45,10 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Confirm a payment after successful payment intent
+        /// Confirm a payment after successful checkout
         /// </summary>
-        [HttpPost("confirm/{paymentIntentId}")]
-        public async Task<ActionResult<GenericResponse<PaymentResponseDto>>> ConfirmPayment(string paymentIntentId)
+        [HttpPost("confirm/{orderCode}")]
+        public async Task<ActionResult<GenericResponse<PaymentResponseDto>>> ConfirmPayment(long orderCode)
         {
             var userId = UserClaimsHelper.GetUserIdOrThrow(User);
             if (userId == Guid.Empty)
@@ -56,7 +56,7 @@ namespace AISAM.API.Controllers
                 return Unauthorized(GenericResponse<PaymentResponseDto>.CreateError("Không thể xác thực người dùng"));
             }
 
-            var result = await _paymentService.ConfirmPaymentAsync(paymentIntentId, userId);
+            var result = await _paymentService.ConfirmPaymentAsync(orderCode, userId);
 
             if (result.Success)
             {
@@ -225,7 +225,7 @@ namespace AISAM.API.Controllers
         }
 
         /// <summary>
-        /// Handle Stripe webhooks
+        /// Handle PayOS webhooks
         /// </summary>
         [HttpPost("webhook")]
         [AllowAnonymous]
@@ -234,9 +234,9 @@ namespace AISAM.API.Controllers
             try
             {
                 var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
-                var stripeSignature = Request.Headers["Stripe-Signature"].ToString();
+                var signature = Request.Headers["x-api-validate-signature"].ToString();
 
-                var result = await _paymentService.HandleWebhookAsync(json, stripeSignature);
+                var result = await _paymentService.HandleWebhookAsync(json, signature);
 
                 if (result.Success)
                 {

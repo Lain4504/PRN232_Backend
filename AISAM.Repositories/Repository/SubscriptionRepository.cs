@@ -59,11 +59,11 @@ namespace AISAM.Repositories.Repository
                 .ToListAsync();
         }
 
-        public async Task<Subscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId)
+        public async Task<Subscription?> GetByPayOSOrderCodeAsync(string orderCode)
         {
             return await _context.Subscriptions
                 .Include(s => s.Profile)
-                .FirstOrDefaultAsync(s => s.StripeSubscriptionId == stripeSubscriptionId && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.PayOSOrderCode == orderCode && !s.IsDeleted);
         }
 
         public async Task<Subscription> CreateAsync(Subscription subscription)

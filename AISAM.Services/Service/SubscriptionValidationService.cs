@@ -72,9 +72,9 @@ namespace AISAM.Services.Service
             // In production, you'd track actual usage
             return quotaType switch
             {
-                "posts_per_month" => subscription.Plan == SubscriptionPlanEnum.Pro ? -1 : subscription.QuotaPostsPerMonth,
-                "ai_generations_per_month" => subscription.Plan == SubscriptionPlanEnum.Pro ? 1000 : 100,
-                "storage_gb" => subscription.QuotaStorageGb,
+                "posts_per_month" => subscription.Plan == SubscriptionPlanEnum.Premium ? -1 : subscription.QuotaPostsPerMonth,
+                "ai_generations_per_month" => subscription.Plan == SubscriptionPlanEnum.Premium ? 1000 : 100,
+                "storage_gb" => subscription.Plan == SubscriptionPlanEnum.Premium ? 20 : (subscription.Plan == SubscriptionPlanEnum.Plus ? 10 : 5),
                 _ => 0
             };
         }
