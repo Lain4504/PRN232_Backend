@@ -165,22 +165,22 @@ namespace AISAM.Services.Service
         {
             try
             {
-                // Lấy profiles của user đang đăng nhập để kiểm tra quyền
-                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
-                if (userProfiles == null || !userProfiles.Any())
+                // Check ownership: does the user own the requested profile?
+                var profile = await _profileRepository.GetByIdAsync(profileId);
+                if (profile == null)
                 {
-                    return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không tìm thấy profile của user");
+                    return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Profile không tồn tại");
                 }
 
-                // Kiểm tra xem user có phải là owner của profile này không
-                var isOwner = userProfiles.Any(p => p.Id == profileId);
+                bool isOwner = profile.UserId == userId;
+                
                 if (!isOwner)
                 {
-                    // Check if the user is a team member of any teams owned by the requested profile
+                    // If not owner, check if the user is an active team member of any team in this profile
                     var isTeamMember = await _teamMemberRepository.IsUserMemberOfProfileTeamsAsync(userId, profileId);
                     if (!isTeamMember)
                     {
-                        return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Không có quyền truy cập teams của profile này");
+                        return GenericResponse<IEnumerable<TeamResponse>>.CreateError("Bạn không có quyền truy cập đội nhóm của profile này");
                     }
                 }
 
