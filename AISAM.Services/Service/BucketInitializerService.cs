@@ -25,20 +25,24 @@ namespace AISAM.Services.Service
                 if (!existingBuckets.Any(b => b.Id == name))
                 {
                     await _supabase.Storage.CreateBucket(name);
-
-                    if (isPublic)
-                    {
-                        await _supabase.Storage.UpdateBucket(
-                            name,
-                            new Supabase.Storage.BucketUpsertOptions { Public = true }
-                        );
-                    }
-
-                    Console.WriteLine($"[Supabase] Created bucket: {name} (public={isPublic})");
+                    Console.WriteLine($"[Supabase] Created bucket: {name}");
                 }
                 else
                 {
                     Console.WriteLine($"[Supabase] Bucket already exists: {name}");
+                }
+
+                // Always update public status to match configuration
+                try 
+                {
+                    await _supabase.Storage.UpdateBucket(
+                        name,
+                        new Supabase.Storage.BucketUpsertOptions { Public = isPublic }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Supabase] Warning: Failed to update bucket {name}: {ex.Message}");
                 }
             }
         }

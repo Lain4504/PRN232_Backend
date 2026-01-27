@@ -26,7 +26,7 @@ namespace AISAM.Services.Extensions
                 DefaultBucketEnum.BrandAssets => true, // Public: Logo brand thường công khai
                 DefaultBucketEnum.ProductMedia => true, // Public: Product images cho ads
                 DefaultBucketEnum.ContentMedia => false, // Private: Content videos/images chưa approve
-                DefaultBucketEnum.AiGenerated => false, // Private: AI generated để tránh leak
+                DefaultBucketEnum.AiGenerated => true, // Public: AI generated
                 DefaultBucketEnum.Misc => true, // media linh tinh lặt vặt, e.g.
                 _ => false
             };

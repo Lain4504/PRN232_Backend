@@ -126,6 +126,25 @@ namespace AISAM.Services.Service
         }
 
         /// <summary>
+        /// Upload raw bytes directly (useful for AI generated content)
+        /// </summary>
+        public async Task<string> UploadDataAsync(byte[] fileData, string fileName, string contentType, DefaultBucketEnum bucket)
+        {
+            if (fileData == null || fileData.Length == 0) throw new ArgumentNullException(nameof(fileData));
+
+            var safeFileName = GenerateUniqueFileName(fileName);
+            var bucketClient = _supabaseClient.Storage.From(bucket.GetName());
+
+            await bucketClient.Upload(fileData, safeFileName, new StorageFileOptions
+            {
+                ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
+                Upsert = false
+            });
+
+            return safeFileName;
+        }
+
+        /// <summary>
         /// Download file (chỉ định bucket)
         /// </summary>
         public async Task<byte[]> DownloadFileAsync(string fileName, DefaultBucketEnum bucket)

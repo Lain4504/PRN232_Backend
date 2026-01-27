@@ -8,9 +8,11 @@ using AISAM.Services.IServices;
 using AISAM.Services.Helper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Google.Protobuf;
 using ContentEntity = AISAM.Data.Model.Content;
 using AISAM.Repositories;
 using DataModel = AISAM.Data.Model;
@@ -21,8 +23,8 @@ namespace AISAM.Services.Service
     public class AIService : IAIService
     {
         private readonly ILogger<AIService> _logger;
-         private readonly GeminiSettings _settings;
-         private readonly IUserRepository _userRepository;
+        private readonly GeminiSettings _settings;
+        private readonly IUserRepository _userRepository;
         private readonly Dictionary<string, IProviderService> _providers;
         private readonly HttpClient _httpClient;
         private readonly IContentRepository _contentRepository;
@@ -36,6 +38,8 @@ namespace AISAM.Services.Service
         private readonly ITeamMemberRepository _teamMemberRepository;
         private readonly RolePermissionConfig _rolePermissionConfig;
         private readonly AisamContext _context;
+        private readonly IConfiguration _configuration;
+        private readonly SupabaseStorageService _storageService;
 
         public AIService(
             IOptions<GeminiSettings> settings,
@@ -53,7 +57,9 @@ namespace AISAM.Services.Service
             ITeamMemberRepository teamMemberRepository,
             RolePermissionConfig rolePermissionConfig,
             AisamContext context,
-            IEnumerable<IProviderService> providers)
+            IEnumerable<IProviderService> providers,
+            IConfiguration configuration,
+            SupabaseStorageService storageService)
         {
             _settings = settings.Value;
             _logger = logger;
@@ -71,6 +77,8 @@ namespace AISAM.Services.Service
             _rolePermissionConfig = rolePermissionConfig;
             _context = context;
             _providers = providers.ToDictionary(p => p.ProviderName, p => p);
+            _configuration = configuration;
+            _storageService = storageService;
 
             if (string.IsNullOrEmpty(_settings.ApiKey))
             {
@@ -180,50 +188,18 @@ namespace AISAM.Services.Service
 
                 if (adType == AdTypeEnum.ImageText)
                 {
-                    // Generate an optimized image prompt using Gemini based on the context
-                    // Requesting VERY SHORT prompt to fit in DB URL limit (500 chars)
-                    var imagePromptRequest = $"Create a concise visual description for an AI image generator (max 25 words). " +
+                    // Generate an optimized image prompt using Gemini
+                    var imagePromptRequest = $"Create a detailed visual description for an AI image generator. " +
                         $"The image is for an advertisement based on this context: {prompt}. " +
-                        $"Focus on main subject and style. " +
+                        $"Focus on main subject, artistic style, lighting, and composition. " +
                         $"Return ONLY the image prompt text, no explanations.";
                     
                     var visualPrompt = await GenerateContentWithGemini(imagePromptRequest);
                     
-                    // Use Pollinations.ai for the visual generation
-                    var seed = new Random().Next(1000000);
-                    
-                    // Calculate max length available for prompt
-                    // URL structure: https://image.pollinations.ai/prompt/{encodedPrompt}?width=1024&height=1024&nologo=true&seed={seed}&model=flux
-                    // Base length approx 100 chars. We need to keep total under 500.
-                    
-                    var baseUrl = "https://image.pollinations.ai/prompt/";
-                    var paramsUrl = $"?width=1024&height=1024&nologo=true&seed={seed}&model=flux";
-                    var availableForPrompt = 495 - baseUrl.Length - paramsUrl.Length; // 495 safety margin
-                    
-                    var encodedPrompt = Uri.EscapeDataString(visualPrompt);
-                    
-                    // If encoded prompt is too long, truncate the original prompt text
-                    if (encodedPrompt.Length > availableForPrompt) 
-                    {
-                        // Simple truncation heuristic
-                         // Decode -> substring -> re-encode is safer but rough estimate works too
-                         // Roughly, try to cut to available length/1.5 to account for encoding
-                         var targetLength = (int)(availableForPrompt * 0.8);
-                         if (visualPrompt.Length > targetLength)
-                         {
-                             visualPrompt = visualPrompt.Substring(0, targetLength);
-                             encodedPrompt = Uri.EscapeDataString(visualPrompt);
-                         }
-                         
-                         // Hard truncation if still too long
-                         while (encodedPrompt.Length > availableForPrompt && visualPrompt.Length > 10)
-                         {
-                             visualPrompt = visualPrompt.Substring(0, visualPrompt.Length - 5);
-                             encodedPrompt = Uri.EscapeDataString(visualPrompt);
-                         }
-                    }
+                    _logger.LogInformation("Generated visual prompt: {VisualPrompt}", visualPrompt);
 
-                    var imageUrl = $"{baseUrl}{encodedPrompt}{paramsUrl}";
+                    // Use Vertex AI (Imagen) ONLY
+                    var imageUrl = await GenerateImageWithVertexAI(visualPrompt);
                     
                     aiGeneration.GeneratedImageUrl = imageUrl;
                     aiGeneration.GeneratedText = generatedText;
@@ -264,6 +240,75 @@ namespace AISAM.Services.Service
                     CreatedAt = aiGeneration.CreatedAt
                 };
             }
+        }
+
+        private async Task<string> GenerateImageWithVertexAI(string prompt)
+        {
+             var projectId = _configuration["GoogleCloud:ProjectId"] ?? Environment.GetEnvironmentVariable("GOOGLE_PROJECT_ID");
+             var location = _configuration["GoogleCloud:Location"] ?? Environment.GetEnvironmentVariable("GOOGLE_LOCATION") ?? "us-central1";
+             
+             _logger.LogInformation("Vertex AI Config - ProjectId: {ProjectId}, Location: {Location}", projectId, location);
+
+             if (string.IsNullOrEmpty(projectId)) throw new InvalidOperationException("GoogleCloud:ProjectId or GOOGLE_PROJECT_ID is not configured");
+
+             // Use Google.Cloud.AIPlatform.V1
+             var endpoint = $"{location}-aiplatform.googleapis.com";
+             var clientBuilder = new Google.Cloud.AIPlatform.V1.PredictionServiceClientBuilder
+             {
+                 Endpoint = endpoint
+             };
+             var client = await clientBuilder.BuildAsync();
+
+             var parent = $"projects/{projectId}/locations/{location}/publishers/google/models/imagen-3.0-generate-001"; // Imagen 3 model
+
+             // Construct the request payload for Imagen
+             // Refer: https://cloud.google.com/vertex-ai/docs/generative-ai/model-reference/image-generation
+             var instance = new Google.Protobuf.WellKnownTypes.Value
+             {
+                 StructValue = new Google.Protobuf.WellKnownTypes.Struct 
+                 {
+                     Fields = {
+                         { "prompt", new Google.Protobuf.WellKnownTypes.Value { StringValue = prompt } }
+                     }
+                 }
+             };
+
+             var parameters = new Google.Protobuf.WellKnownTypes.Value
+             {
+                 StructValue = new Google.Protobuf.WellKnownTypes.Struct 
+                 {
+                     Fields = {
+                         { "sampleCount", new Google.Protobuf.WellKnownTypes.Value { NumberValue = 1 } }
+                     }
+                 }
+             };
+
+             var request = new Google.Cloud.AIPlatform.V1.PredictRequest
+             {
+                 Endpoint = parent,
+                 Instances = { instance },
+                 Parameters = parameters
+             };
+
+             var response = await client.PredictAsync(request);
+             
+             if (response.Predictions.Count > 0)
+             {
+                 // Imagen returns Base64 string in `bytesBase64Encoded` field inside the prediction struct
+                 var prediction = response.Predictions[0].StructValue;
+                 if (prediction.Fields.ContainsKey("bytesBase64Encoded"))
+                 {
+                     var base64Image = prediction.Fields["bytesBase64Encoded"].StringValue;
+                     var imageBytes = Convert.FromBase64String(base64Image);
+                     
+                     // Upload to Supabase and get URL
+                     var fileName = $"vertex_gen_{Guid.NewGuid()}.png";
+                     var path = await _storageService.UploadDataAsync(imageBytes, fileName, "image/png", DefaultBucketEnum.AiGenerated);
+                     return _storageService.GetPublicUrl(path, DefaultBucketEnum.AiGenerated);
+                 }
+             }
+
+             throw new Exception("No image generated from Vertex AI");
         }
 
         public async Task<IEnumerable<AiGenerationDto>> GetContentAIGenerationsAsync(Guid contentId)

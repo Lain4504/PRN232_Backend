@@ -280,3 +280,4 @@ ehthumbs_vista.db
 
 # Build artifacts
 **/TestResults/
+AISAM.API/vertex-ai-backed.json
