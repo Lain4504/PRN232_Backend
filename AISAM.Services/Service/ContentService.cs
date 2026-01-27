@@ -561,23 +561,37 @@ namespace AISAM.Services.Service
         private async Task<bool> CanUserPerformActionAsync(Guid userId, string permission, Guid? brandId = null)
         {
             var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null) return false;
+            if (user == null)
+            {
+                _logger.LogWarning("CanUserPerformActionAsync: User {UserId} not found", userId);
+                return false;
+            }
 
             // If brandId is provided, check if user is brand owner or team member
             if (brandId.HasValue)
             {
                 var brand = await _brandRepository.GetByIdAsync(brandId.Value);
-                if (brand == null) return false;
-
-                // Check direct ownership through user's profiles
-                var userProfiles = await _profileRepository.GetByUserIdAsync(userId);
-                if (userProfiles?.Any(p => p.Id == brand.ProfileId) == true)
+                if (brand == null)
                 {
-                    return true; // User owns this brand directly
+                    _logger.LogWarning("CanUserPerformActionAsync: Brand {BrandId} not found", brandId);
+                    return false;
                 }
 
-                // If brand's profile is Free type, only owner can access
+                // Check direct ownership through user's profiles
+                // IMPORTANT: Owners always have full permissions on their brands
                 var brandProfile = await _profileRepository.GetByIdAsync(brand.ProfileId);
+                if (brandProfile != null && brandProfile.UserId == userId)
+                {
+                    return true;
+                }
+                
+                if (brandProfile != null)
+                {
+                    _logger.LogWarning("CanUserPerformActionAsync: User {UserId} is not owner of profile {ProfileId} (Owner: {OwnerId})", 
+                        userId, brandProfile.Id, brandProfile.UserId);
+                }
+
+                // If brand's profile is Free type, only owner can access (checked above)
                 if (brandProfile?.ProfileType == ProfileTypeEnum.Free)
                 {
                     return false; // Free profiles don't have team features
@@ -585,9 +599,18 @@ namespace AISAM.Services.Service
 
                 // For Basic/Pro profiles: check team member access
                 var teamMember = await _teamMemberRepository.GetByUserIdAndBrandAsync(userId, brandId.Value);
-                if (teamMember == null) return false;
+                if (teamMember == null)
+                {
+                    _logger.LogWarning("CanUserPerformActionAsync: User {UserId} is not a team member of brand {BrandId}", userId, brandId);
+                    return false;
+                }
 
-                return _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
+                var hasPerm = _rolePermissionConfig.HasCustomPermission(teamMember.Permissions, permission);
+                if (!hasPerm)
+                {
+                     _logger.LogWarning("CanUserPerformActionAsync: User {UserId} does not have permission {Permission} in brand {BrandId}", userId, permission, brandId);
+                }
+                return hasPerm;
             }
 
             // Fallback: check if user has permission in any team membership

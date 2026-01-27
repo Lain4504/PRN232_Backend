@@ -181,17 +181,49 @@ namespace AISAM.Services.Service
                 if (adType == AdTypeEnum.ImageText)
                 {
                     // Generate an optimized image prompt using Gemini based on the context
-                    var imagePromptRequest = $"Create a detailed, high-quality visual description for an AI image generator (like DALL-E or Midjourney). " +
+                    // Requesting VERY SHORT prompt to fit in DB URL limit (500 chars)
+                    var imagePromptRequest = $"Create a concise visual description for an AI image generator (max 25 words). " +
                         $"The image is for an advertisement based on this context: {prompt}. " +
-                        $"Focus on composition, lighting, style, and professional aesthetic. " +
+                        $"Focus on main subject and style. " +
                         $"Return ONLY the image prompt text, no explanations.";
                     
                     var visualPrompt = await GenerateContentWithGemini(imagePromptRequest);
                     
                     // Use Pollinations.ai for the visual generation
                     var seed = new Random().Next(1000000);
+                    
+                    // Calculate max length available for prompt
+                    // URL structure: https://image.pollinations.ai/prompt/{encodedPrompt}?width=1024&height=1024&nologo=true&seed={seed}&model=flux
+                    // Base length approx 100 chars. We need to keep total under 500.
+                    
+                    var baseUrl = "https://image.pollinations.ai/prompt/";
+                    var paramsUrl = $"?width=1024&height=1024&nologo=true&seed={seed}&model=flux";
+                    var availableForPrompt = 495 - baseUrl.Length - paramsUrl.Length; // 495 safety margin
+                    
                     var encodedPrompt = Uri.EscapeDataString(visualPrompt);
-                    var imageUrl = $"https://image.pollinations.ai/prompt/{encodedPrompt}?width=1024&height=1024&nologo=true&seed={seed}&model=flux";
+                    
+                    // If encoded prompt is too long, truncate the original prompt text
+                    if (encodedPrompt.Length > availableForPrompt) 
+                    {
+                        // Simple truncation heuristic
+                         // Decode -> substring -> re-encode is safer but rough estimate works too
+                         // Roughly, try to cut to available length/1.5 to account for encoding
+                         var targetLength = (int)(availableForPrompt * 0.8);
+                         if (visualPrompt.Length > targetLength)
+                         {
+                             visualPrompt = visualPrompt.Substring(0, targetLength);
+                             encodedPrompt = Uri.EscapeDataString(visualPrompt);
+                         }
+                         
+                         // Hard truncation if still too long
+                         while (encodedPrompt.Length > availableForPrompt && visualPrompt.Length > 10)
+                         {
+                             visualPrompt = visualPrompt.Substring(0, visualPrompt.Length - 5);
+                             encodedPrompt = Uri.EscapeDataString(visualPrompt);
+                         }
+                    }
+
+                    var imageUrl = $"{baseUrl}{encodedPrompt}{paramsUrl}";
                     
                     aiGeneration.GeneratedImageUrl = imageUrl;
                     aiGeneration.GeneratedText = generatedText;
@@ -595,7 +627,10 @@ namespace AISAM.Services.Service
             {
                 "create", "generate", "make", "write", "design", "produce",
                 "help me create", "give me", "i want", "i need",
-                "content for", "post about", "advertisement for"
+                "content for", "post about", "advertisement for",
+                // Vietnamese keywords
+                "tạo", "làm", "viết", "thiết kế", "vẽ", "sinh", "gen", 
+                "cho tôi", "giúp tôi", "muốn có", "cần", "ảnh", "hình", "video", "bài viết"
             };
 
             return generateKeywords.Any(keyword => message.Contains(keyword));
