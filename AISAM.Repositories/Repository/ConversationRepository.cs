@@ -18,6 +18,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.Conversations
                 .Include(c => c.ChatMessages.OrderBy(cm => cm.CreatedAt))
+                    .ThenInclude(cm => cm.AiGeneration)
                 .Include(c => c.Brand)
                 .Include(c => c.Product)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
@@ -87,6 +88,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.Conversations
                 .Include(c => c.ChatMessages.OrderBy(cm => cm.CreatedAt))
+                    .ThenInclude(cm => cm.AiGeneration)
                 .Include(c => c.Brand)
                 .Include(c => c.Product)
                 .FirstOrDefaultAsync(c =>

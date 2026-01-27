@@ -110,7 +110,7 @@ namespace AISAM.Services.Service
 
             await _contentRepository.CreateAsync(content);
 
-            return await CreateAndProcessAiGenerationAsync(content.Id, request.AIGenerationPrompt);
+            return await CreateAndProcessAiGenerationAsync(content.Id, request.AIGenerationPrompt, request.AdType);
         }
 
         public async Task<AiGenerationResponse> ImproveContentAsync(Guid contentId, string improvementPrompt)
@@ -146,8 +146,12 @@ namespace AISAM.Services.Service
                 throw new ArgumentException("Associated content not found");
             }
 
-            // Update content with AI-generated text
+            // Update content with AI-generated text and image
             content.TextContent = aiGeneration.GeneratedText;
+            if (!string.IsNullOrEmpty(aiGeneration.GeneratedImageUrl))
+            {
+                content.ImageUrl = FormatImageUrlForJsonb(aiGeneration.GeneratedImageUrl);
+            }
             content.Status = ContentStatusEnum.Approved; // Mark as approved
             content.UpdatedAt = DateTime.UtcNow;
 
@@ -159,7 +163,7 @@ namespace AISAM.Services.Service
             return MapToContentDto(content, null);
         }
 
-        private async Task<AiGenerationResponse> CreateAndProcessAiGenerationAsync(Guid contentId, string prompt)
+        private async Task<AiGenerationResponse> CreateAndProcessAiGenerationAsync(Guid contentId, string prompt, AdTypeEnum adType = AdTypeEnum.TextOnly)
         {
             var aiGeneration = new AiGeneration
             {
@@ -174,7 +178,29 @@ namespace AISAM.Services.Service
             {
                 var generatedText = await GenerateContentWithGemini(prompt);
 
-                aiGeneration.GeneratedText = generatedText;
+                if (adType == AdTypeEnum.ImageText)
+                {
+                    // Generate an optimized image prompt using Gemini based on the context
+                    var imagePromptRequest = $"Create a detailed, high-quality visual description for an AI image generator (like DALL-E or Midjourney). " +
+                        $"The image is for an advertisement based on this context: {prompt}. " +
+                        $"Focus on composition, lighting, style, and professional aesthetic. " +
+                        $"Return ONLY the image prompt text, no explanations.";
+                    
+                    var visualPrompt = await GenerateContentWithGemini(imagePromptRequest);
+                    
+                    // Use Pollinations.ai for the visual generation
+                    var seed = new Random().Next(1000000);
+                    var encodedPrompt = Uri.EscapeDataString(visualPrompt);
+                    var imageUrl = $"https://image.pollinations.ai/prompt/{encodedPrompt}?width=1024&height=1024&nologo=true&seed={seed}&model=flux";
+                    
+                    aiGeneration.GeneratedImageUrl = imageUrl;
+                    aiGeneration.GeneratedText = generatedText;
+                }
+                else
+                {
+                    aiGeneration.GeneratedText = generatedText;
+                }
+
                 aiGeneration.Status = AiStatusEnum.Completed;
 
                 await _aiGenerationRepository.UpdateAsync(aiGeneration);
@@ -184,6 +210,7 @@ namespace AISAM.Services.Service
                     AiGenerationId = aiGeneration.Id,
                     ContentId = contentId,
                     GeneratedText = generatedText,
+                    GeneratedImageUrl = aiGeneration.GeneratedImageUrl,
                     Status = AiStatusEnum.Completed,
                     CreatedAt = aiGeneration.CreatedAt
                 };
@@ -406,7 +433,7 @@ namespace AISAM.Services.Service
 
                 await _contentRepository.CreateAsync(content);
 
-                var aiGeneration = await CreateAndProcessAiGenerationAsync(content.Id, enhancedPrompt);
+                var aiGeneration = await CreateAndProcessAiGenerationAsync(content.Id, enhancedPrompt, request.AdType);
 
                 // If AI generation succeeded, update content with generated text
                 if (aiGeneration.Status == AiStatusEnum.Completed && !string.IsNullOrEmpty(aiGeneration.GeneratedText))
@@ -427,6 +454,7 @@ namespace AISAM.Services.Service
                     ContentId = content.Id,
                     AiGenerationId = aiGeneration.AiGenerationId,
                     GeneratedContent = aiGeneration.GeneratedText ?? "Content generation failed, but you can try again or approve a different version.",
+                    GeneratedImageUrl = aiGeneration.GeneratedImageUrl,
                     ConversationId = conversation.Id
                 };
             }
@@ -550,6 +578,12 @@ namespace AISAM.Services.Service
             }
 
             prompt += $"\n\nUser Request: {userMessage}";
+            
+            if (adType == AdTypeEnum.ImageText)
+            {
+                prompt += "\n\nThis is an image-based advertisement. Please generate a compelling caption/text and also keep the visual context in mind for the image prompt.";
+            }
+
             prompt += $"\n\nGenerate engaging, professional content that aligns with the brand's voice and appeals to the target audience.";
 
             return prompt;

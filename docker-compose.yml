@@ -28,7 +28,7 @@ services:
   # ========================================
   
   aisam-api:
-    image: ${DOCKERHUB_USERNAME}/aisam-backend:latest
+    image: lain4504/aisam-backend:latest
     container_name: aisam-api
     restart: always
     env_file:

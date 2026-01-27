@@ -132,6 +132,8 @@ namespace AISAM.Services.Service
                 Message = message.Message,
                 AiGenerationId = message.AiGenerationId,
                 ContentId = message.ContentId,
+                GeneratedText = message.AiGeneration?.GeneratedText,
+                GeneratedImageUrl = message.AiGeneration?.GeneratedImageUrl,
                 CreatedAt = message.CreatedAt
             };
         }

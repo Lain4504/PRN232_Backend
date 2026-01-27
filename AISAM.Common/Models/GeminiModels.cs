@@ -78,6 +78,7 @@ namespace AISAM.Common.Models
         public Guid? ContentId { get; set; }
         public Guid? AiGenerationId { get; set; }
         public string? GeneratedContent { get; set; }
+        public string? GeneratedImageUrl { get; set; }
         public Guid? ConversationId { get; set; }
     }
 }

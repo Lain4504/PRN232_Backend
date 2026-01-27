@@ -23,6 +23,8 @@ namespace AISAM.Common.Dtos.Response
         public string Message { get; set; } = string.Empty;
         public Guid? AiGenerationId { get; set; }
         public Guid? ContentId { get; set; }
+        public string? GeneratedText { get; set; }
+        public string? GeneratedImageUrl { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

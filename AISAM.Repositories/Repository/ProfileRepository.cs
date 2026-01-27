@@ -105,25 +105,29 @@ namespace AISAM.Repositories.Repository
 
         public async Task<IEnumerable<Profile>> SearchUserProfilesAsync(Guid userId, string? searchTerm = null, bool? isDeleted = null, CancellationToken cancellationToken = default)
         {
-            // Profiles owned by user
-            var ownedProfilesQuery = _context.Profiles
+            // Start with a base query that includes both owned and shared profiles
+            var query = _context.Profiles
                 .Include(p => p.User)
                 .Include(p => p.Brands)
-                .Where(p => p.UserId == userId);
+                .Where(p => p.UserId == userId || 
+                            _context.TeamMembers.Any(tm => tm.UserId == userId && 
+                                                         tm.IsActive && 
+                                                         tm.Team.ProfileId == p.Id && 
+                                                         !tm.Team.IsDeleted));
 
-            // Profiles where user is a team member
-            var memberProfilesQuery = _context.Profiles
-                .Include(p => p.User)
-                .Include(p => p.Brands)
-                .Where(p => _context.TeamMembers.Any(tm => tm.UserId == userId && tm.Team.ProfileId == p.Id && tm.IsActive));
-
-            var query = ownedProfilesQuery.Union(memberProfilesQuery);
-
-            // Apply isDeleted filter (backward compatibility)
+            // Apply deletion status filter
             if (isDeleted.HasValue)
             {
-                var statusFilter = isDeleted.Value ? ProfileStatusEnum.Cancelled : ProfileStatusEnum.Pending;
-                query = query.Where(p => p.Status == statusFilter);
+                if (isDeleted.Value)
+                {
+                    // Specifically requested deleted profiles
+                    query = query.Where(p => p.Status == ProfileStatusEnum.Cancelled);
+                }
+                else
+                {
+                    // Specifically requested active (non-deleted) profiles: Pending, Active, Suspended
+                    query = query.Where(p => p.Status != ProfileStatusEnum.Cancelled);
+                }
             }
             else
             {
@@ -134,9 +138,11 @@ namespace AISAM.Repositories.Repository
             // Apply search filter if provided
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
+                var searchPattern = $"%{searchTerm}%";
                 query = query.Where(p => 
-                    (p.CompanyName != null && p.CompanyName.Contains(searchTerm)) ||
-                    (p.Bio != null && p.Bio.Contains(searchTerm)));
+                    (p.Name != null && EF.Functions.ILike(p.Name, searchPattern)) ||
+                    (p.CompanyName != null && EF.Functions.ILike(p.CompanyName, searchPattern)) ||
+                    (p.Bio != null && EF.Functions.ILike(p.Bio, searchPattern)));
             }
 
             return await query
