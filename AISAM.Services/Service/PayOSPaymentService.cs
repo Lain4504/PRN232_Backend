@@ -425,7 +425,20 @@ namespace AISAM.Services.Service
         public async Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetAllPaymentsAsync()
         {
             var payments = await _paymentRepository.GetAllPaymentsAsync();
-            return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(payments.Select(p => new PaymentResponseDto { Id = p.Id }));
+            return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(payments.Select(p => new PaymentResponseDto
+            {
+                Id = p.Id,
+                UserId = p.UserId,
+                UserEmail = p.User?.Email,
+                SubscriptionId = p.SubscriptionId,
+                Amount = p.Amount,
+                Currency = p.Currency,
+                Status = p.Status,
+                PaymentMethod = p.PaymentMethod,
+                TransactionId = p.TransactionId,
+                InvoiceUrl = p.InvoiceUrl,
+                CreatedAt = p.CreatedAt
+            }));
         }
 
         public async Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetAllSubscriptionsAsync()
@@ -437,7 +450,20 @@ namespace AISAM.Services.Service
         public async Task<GenericResponse<IEnumerable<PaymentResponseDto>>> GetUserPaymentsByAdminAsync(Guid targetUserId)
         {
             var payments = await _paymentRepository.GetUserPaymentHistoryAsync(targetUserId);
-            return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(payments.Select(p => new PaymentResponseDto { Id = p.Id }));
+            return GenericResponse<IEnumerable<PaymentResponseDto>>.CreateSuccess(payments.Select(p => new PaymentResponseDto
+            {
+                Id = p.Id,
+                UserId = p.UserId,
+                UserEmail = p.User?.Email,
+                SubscriptionId = p.SubscriptionId,
+                Amount = p.Amount,
+                Currency = p.Currency,
+                Status = p.Status,
+                PaymentMethod = p.PaymentMethod,
+                TransactionId = p.TransactionId,
+                InvoiceUrl = p.InvoiceUrl,
+                CreatedAt = p.CreatedAt
+            }));
         }
 
         public async Task<GenericResponse<IEnumerable<SubscriptionResponseDto>>> GetUserSubscriptionsByAdminAsync(Guid targetUserId)
