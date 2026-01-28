@@ -36,8 +36,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - CONNECTION_STRING=Host=postgres;Port=5432;Database=aisam;Username=postgres;Password=${DB_PASSWORD:-123456789};
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/vertex-ai-backend.json
     ports:
       - "8080:8080"
+    volumes:
+      - ./AISAM.API/vertex-ai-backend.json:/app/vertex-ai-backend.json
     depends_on:
       postgres:
         condition: service_healthy

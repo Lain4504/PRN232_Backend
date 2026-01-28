@@ -154,6 +154,19 @@ if (!string.IsNullOrEmpty(fromEmail))
     builder.Configuration["EmailSettings:FromEmail"] = fromEmail;
 }
 
+// Google Project Configuration
+var googleProjectId = Environment.GetEnvironmentVariable("GOOGLE_PROJECT_ID");
+if (!string.IsNullOrEmpty(googleProjectId))
+{
+    builder.Configuration["GoogleCloud:ProjectId"] = googleProjectId;
+}
+
+var googleLocation = Environment.GetEnvironmentVariable("GOOGLE_LOCATION");
+if (!string.IsNullOrEmpty(googleLocation))
+{
+    builder.Configuration["GoogleCloud:Location"] = googleLocation;
+}
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
