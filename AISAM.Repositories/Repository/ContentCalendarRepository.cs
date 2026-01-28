@@ -78,6 +78,8 @@ namespace AISAM.Repositories.Repository
         public async Task<IEnumerable<ContentCalendar>> GetActiveSchedulesAsync(DateTime fromDate, DateTime toDate)
         {
             return await _context.ContentCalendars
+                .Include(c => c.Content)
+                    .ThenInclude(content => content.Brand)
                 .Where(c => !c.IsDeleted && c.IsActive &&
                            c.ScheduledDate >= fromDate.Date && c.ScheduledDate <= toDate.Date)
                 .OrderBy(c => c.ScheduledDate)
