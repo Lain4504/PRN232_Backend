@@ -24,7 +24,7 @@ namespace AISAM.Data.Model
 
         [MaxLength(3)]
         [Column("currency")]
-        public string Currency { get; set; } = "USD";
+        public string Currency { get; set; } = "VND";
 
         [Required]
         [Column("status")]

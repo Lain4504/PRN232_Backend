@@ -9,7 +9,7 @@ namespace AISAM.Common.Dtos.Response
         public string? UserEmail { get; set; }
         public Guid? SubscriptionId { get; set; }
         public decimal Amount { get; set; }
-        public string Currency { get; set; } = "USD";
+        public string Currency { get; set; } = "VND";
         public PaymentStatusEnum Status { get; set; }
         public string? PaymentMethod { get; set; }
         public string? TransactionId { get; set; }
