@@ -17,5 +17,8 @@ namespace AISAM.Common.Dtos.Request
         public string? StyleDescription { get; set; }
         public string? ContextDescription { get; set; }
         public string? RepresentativeCharacter { get; set; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ContentStatusEnum? Status { get; set; }
     }
 }

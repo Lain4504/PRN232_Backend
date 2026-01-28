@@ -96,5 +96,12 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.Posts.ToListAsync();
         }
+
+        public async Task<IEnumerable<Post>> GetByContentIdAsync(Guid contentId)
+        {
+            return await _context.Posts
+                .Where(p => p.ContentId == contentId && !p.IsDeleted)
+                .ToListAsync();
+        }
     }
 }

@@ -12,5 +12,6 @@ namespace AISAM.Repositories.IRepositories
         Task UpdateAsync(Post post);
         Task<PagedResult<Post>> GetPagedAsync(Guid? brandId, Guid? profileId, int page, int pageSize, bool includeDeleted = false, ContentStatusEnum? status = null);
         Task<bool> SoftDeleteAsync(Guid id);
+        Task<IEnumerable<Post>> GetByContentIdAsync(Guid contentId);
     }
 }

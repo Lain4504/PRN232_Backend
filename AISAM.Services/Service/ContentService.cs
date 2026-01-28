@@ -494,10 +494,45 @@ namespace AISAM.Services.Service
                 throw new UnauthorizedAccessException("You are not allowed to update this content");
             }
 
-            // Check if content can be updated (only draft content can be updated)
-            if (content.Status != ContentStatusEnum.Draft)
+            // Allow status update regardless of current status for manual management
+            // But general field updates are still restricted to Draft unless it's a Free profile
+            if (content.Status != ContentStatusEnum.Draft && !request.Status.HasValue)
             {
-                throw new ArgumentException("Only draft content can be updated");
+                // check if it's a free profile
+                var brandOwner = await _brandRepository.GetByIdAsync(content.BrandId);
+                var profile = await _profileRepository.GetByIdAsync(brandOwner.ProfileId);
+                if (profile?.ProfileType != ProfileTypeEnum.Free)
+                {
+                    throw new ArgumentException("Only draft content can be updated for Basic/Pro profiles");
+                }
+            }
+
+            if (request.Status.HasValue)
+            {
+                var oldStatus = content.Status;
+                content.Status = request.Status.Value;
+
+                // For Free profiles (or manual management), if status is set to Published, create a Post record if it doesn't exist
+                if (content.Status == ContentStatusEnum.Published && oldStatus != ContentStatusEnum.Published)
+                {
+                    var existingPosts = await _postRepository.GetByContentIdAsync(contentId);
+                    if (!existingPosts.Any())
+                    {
+                        var integration = await _socialIntegrationRepository.GetByBrandIdAsync(content.BrandId);
+                        if (integration != null)
+                        {
+                            var post = new Post
+                            {
+                                ContentId = content.Id,
+                                IntegrationId = integration.Id,
+                                PublishedAt = DateTime.UtcNow,
+                                Status = ContentStatusEnum.Published
+                            };
+                            await _postRepository.CreateAsync(post);
+                            _logger.LogInformation("Created manual post for content {ContentId} after status change to Published", contentId);
+                        }
+                    }
+                }
             }
 
             // Update fields if provided
