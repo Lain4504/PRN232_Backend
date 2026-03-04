@@ -488,36 +488,38 @@ namespace AISAM.Services.Service
             return plan switch
             {
                 SubscriptionPlanEnum.Free => 0,
-                SubscriptionPlanEnum.Plus => 359000,
-                SubscriptionPlanEnum.Premium => 559000,
+                SubscriptionPlanEnum.Plus => 159000,
+                SubscriptionPlanEnum.Premium => 299000,
                 _ => 0
             };
         }
 
         private SubscriptionResponseDto MapToDto(Data.Model.Subscription sub)
-        {
-            return new SubscriptionResponseDto
-            {
-                Id = sub.Id,
-                ProfileId = sub.ProfileId,
-                Plan = sub.Plan,
-                QuotaPostsPerMonth = sub.QuotaPostsPerMonth,
-                QuotaAIContentPerDay = sub.QuotaAIContentPerDay,
-                QuotaAIImagesPerDay = sub.QuotaAIImagesPerDay,
-                QuotaPlatforms = sub.QuotaPlatforms,
-                QuotaAccounts = sub.QuotaAccounts,
-                AnalysisLevel = sub.AnalysisLevel,
-                QuotaAdBudgetMonthly = sub.QuotaAdBudgetMonthly,
-                QuotaAdCampaigns = sub.QuotaAdCampaigns,
-                StartDate = sub.StartDate,
-                EndDate = sub.EndDate,
-                IsActive = sub.IsActive,
-                CreatedAt = sub.CreatedAt,
-                PayOSOrderCode = sub.PayOSOrderCode,
-                PayOSPaymentLinkId = sub.PayOSPaymentLinkId
-            };
-        }
+{
+    // Calculate EndDate if not set: add 1 month to StartDate for active subscriptions
+    var endDate = sub.EndDate ?? (sub.IsActive ? sub.StartDate.AddMonths(1) : (DateTime?)null);
 
+    return new SubscriptionResponseDto
+    {
+        Id = sub.Id,
+        ProfileId = sub.ProfileId,
+        Plan = sub.Plan,
+        QuotaPostsPerMonth = sub.QuotaPostsPerMonth,
+        QuotaAIContentPerDay = sub.QuotaAIContentPerDay,
+        QuotaAIImagesPerDay = sub.QuotaAIImagesPerDay,
+        QuotaPlatforms = sub.QuotaPlatforms,
+        QuotaAccounts = sub.QuotaAccounts,
+        AnalysisLevel = sub.AnalysisLevel,
+        QuotaAdBudgetMonthly = sub.QuotaAdBudgetMonthly,
+        QuotaAdCampaigns = sub.QuotaAdCampaigns,
+        StartDate = sub.StartDate,
+        EndDate = endDate,
+        IsActive = sub.IsActive,
+        CreatedAt = sub.CreatedAt,
+        PayOSOrderCode = sub.PayOSOrderCode,
+        PayOSPaymentLinkId = sub.PayOSPaymentLinkId
+    };
+}
         private string CreateSignature(string data, string key)
         {
             var keyBytes = Encoding.UTF8.GetBytes(key);
