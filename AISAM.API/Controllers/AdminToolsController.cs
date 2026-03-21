@@ -59,6 +59,47 @@ namespace AISAM.API.Controllers
             }
         }
 
+        [HttpPost("update-payment-method")]
+        public async Task<ActionResult<GenericResponse<object>>> UpdatePaymentMethod([FromBody] UpdatePaymentIdRequest request)
+        {
+            try
+            {
+                var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
+                if (payment == null) return NotFound(GenericResponse<object>.CreateError("Không tìm thấy giao dịch."));
+
+                payment.PaymentMethod = request.NewMethod;
+                if (!string.IsNullOrEmpty(request.NewTransactionId))
+                {
+                    payment.TransactionId = request.NewTransactionId;
+                }
+                
+                await _paymentRepository.UpdateAsync(payment);
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Cập nhật phương thức thanh toán thành công."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<object>.CreateError(ex.Message));
+            }
+        }
+
+        [HttpPost("update-profile-status")]
+        public async Task<ActionResult<GenericResponse<object>>> UpdateProfileStatus([FromBody] UpdateProfileIdRequest request)
+        {
+            try
+            {
+                var profile = await _profileRepository.GetByIdAsync(request.ProfileId);
+                if (profile == null) return NotFound(GenericResponse<object>.CreateError("Không tìm thấy hồ sơ."));
+
+                profile.Status = request.NewStatus;
+                await _profileRepository.UpdateAsync(profile);
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Cập nhật trạng thái hồ sơ thành công."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<object>.CreateError(ex.Message));
+            }
+        }
+
         [HttpPost("seed-batch-users")]
         public async Task<ActionResult<GenericResponse<object>>> SeedBatchUsers([FromBody] BatchSeedRequest request)
         {
@@ -122,14 +163,14 @@ namespace AISAM.API.Controllers
             var profile = new Profile
             {
                 UserId = user.Id,
-                Name = request.FullName, // Fixed: Name was blank
+                Name = request.FullName,
                 ProfileType = request.ProfileType,
                 CompanyName = request.CompanyName,
                 Bio = !string.IsNullOrEmpty(request.CompanyName) 
                     ? $"CEO tài {request.CompanyName}. Đam mê Content Marketing AI." 
                     : $"Chuyên gia sáng tạo nội dung số tại Việt Nam.",
                 AvatarUrl = $"https://api.dicebear.com/7.x/miniavs/svg?seed={user.Email}",
-                Status = ProfileStatusEnum.Active, // Fixed: defaults to Pending
+                Status = ProfileStatusEnum.Active,
                 CreatedAt = creationDate,
                 UpdatedAt = creationDate
             };
@@ -226,6 +267,19 @@ namespace AISAM.API.Controllers
             passwordSalt = Convert.ToBase64String(salt);
             passwordHash = Convert.ToBase64String(hash);
         }
+    }
+
+    public class UpdatePaymentIdRequest
+    {
+        public Guid PaymentId { get; set; }
+        public string NewMethod { get; set; } = "payos";
+        public string? NewTransactionId { get; set; }
+    }
+
+    public class UpdateProfileIdRequest
+    {
+        public Guid ProfileId { get; set; }
+        public ProfileStatusEnum NewStatus { get; set; } = ProfileStatusEnum.Active;
     }
 
     public class BatchSeedRequest
