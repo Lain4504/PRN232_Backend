@@ -9,7 +9,7 @@ using System.Text;
 
 namespace AISAM.API.Controllers
 {
-    [Route("api/admin-tools")] // Explicitly use hyphenated route to match frontend calls
+    [Route("api/admin-tools")]
     [ApiController]
     public class AdminToolsController : ControllerBase
     {
@@ -83,7 +83,7 @@ namespace AISAM.API.Controllers
                         CreateOrder = request.CreateOrder,
                         Amount = request.Amount,
                         CreatedAt = request.CreatedAt,
-                        SubscriptionStartDate = request.CreatedAt, // Use CreatedAt as default for batch
+                        SubscriptionStartDate = request.CreatedAt,
                         SubscriptionEndDate = request.CreatedAt?.AddMonths(1)
                     };
 
@@ -122,12 +122,14 @@ namespace AISAM.API.Controllers
             var profile = new Profile
             {
                 UserId = user.Id,
+                Name = request.FullName, // Fixed: Name was blank
                 ProfileType = request.ProfileType,
                 CompanyName = request.CompanyName,
                 Bio = !string.IsNullOrEmpty(request.CompanyName) 
                     ? $"CEO tài {request.CompanyName}. Đam mê Content Marketing AI." 
                     : $"Chuyên gia sáng tạo nội dung số tại Việt Nam.",
                 AvatarUrl = $"https://api.dicebear.com/7.x/miniavs/svg?seed={user.Email}",
+                Status = ProfileStatusEnum.Active, // Fixed: defaults to Pending
                 CreatedAt = creationDate,
                 UpdatedAt = creationDate
             };
@@ -144,7 +146,9 @@ namespace AISAM.API.Controllers
                 EndDate = subEnd,
                 IsActive = true,
                 CreatedAt = creationDate,
-                UpdatedAt = creationDate
+                UpdatedAt = creationDate,
+                PayOSOrderCode = "ORD-" + random.Next(100000, 999999),
+                PayOSPaymentLinkId = Guid.NewGuid().ToString("N")
             };
 
             switch (request.Plan)
@@ -163,6 +167,10 @@ namespace AISAM.API.Controllers
             }
             await _subscriptionRepository.CreateAsync(subscription);
 
+            // Link subscription to profile
+            profile.SubscriptionId = subscription.Id;
+            await _profileRepository.UpdateAsync(profile);
+
             // 4. Create Payment
             if (request.CreateOrder && request.Amount > 0)
             {
@@ -173,8 +181,8 @@ namespace AISAM.API.Controllers
                     Amount = request.Amount,
                     Currency = "VND",
                     Status = PaymentStatusEnum.Success,
-                    PaymentMethod = "Thanh toán Demo",
-                    TransactionId = "DEMO-" + Guid.NewGuid().ToString().Replace("-","").Substring(0,10).ToUpper(),
+                    PaymentMethod = "PayOS",
+                    TransactionId = "PAYOS-" + Guid.NewGuid().ToString().Replace("-","").Substring(0,10).ToUpper(),
                     CreatedAt = subStart.AddHours(2)
                 });
             }
