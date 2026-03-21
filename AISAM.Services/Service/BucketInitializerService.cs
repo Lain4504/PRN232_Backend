@@ -1,4 +1,4 @@
-﻿using AISAM.Data.Enumeration;
+using AISAM.Data.Enumeration;
 using AISAM.Services.Extensions;
 using Microsoft.Extensions.Hosting;
 
@@ -15,35 +15,43 @@ namespace AISAM.Services.Service
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            var existingBuckets = await _supabase.Storage.ListBuckets() ?? new List<Supabase.Storage.Bucket>();
-
-            foreach (DefaultBucketEnum bucket in Enum.GetValues(typeof(DefaultBucketEnum)))
+            try
             {
-                var name = bucket.GetName();
-                var isPublic = bucket.IsPublic();
+                var existingBuckets = await _supabase.Storage.ListBuckets() ?? new List<Supabase.Storage.Bucket>();
 
-                if (!existingBuckets.Any(b => b.Id == name))
+                foreach (DefaultBucketEnum bucket in Enum.GetValues(typeof(DefaultBucketEnum)))
                 {
-                    await _supabase.Storage.CreateBucket(name);
-                    Console.WriteLine($"[Supabase] Created bucket: {name}");
-                }
-                else
-                {
-                    Console.WriteLine($"[Supabase] Bucket already exists: {name}");
-                }
+                    var name = bucket.GetName();
+                    var isPublic = bucket.IsPublic();
 
-                // Always update public status to match configuration
-                try 
-                {
-                    await _supabase.Storage.UpdateBucket(
-                        name,
-                        new Supabase.Storage.BucketUpsertOptions { Public = isPublic }
-                    );
+                    if (!existingBuckets.Any(b => b.Id == name))
+                    {
+                        await _supabase.Storage.CreateBucket(name);
+                        Console.WriteLine($"[Supabase] Created bucket: {name}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Supabase] Bucket already exists: {name}");
+                    }
+
+                    // Always update public status to match configuration
+                    try
+                    {
+                        await _supabase.Storage.UpdateBucket(
+                            name,
+                            new Supabase.Storage.BucketUpsertOptions { Public = isPublic }
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Supabase] Warning: Failed to update bucket {name}: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Supabase] Warning: Failed to update bucket {name}: {ex.Message}");
-                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Supabase] WRITICAL ERROR: Supabase connection failed during startup. Buckets were not initialized. Error: {ex.Message}");
+                // We don't rethrow, so the app can still start.
             }
         }
 
