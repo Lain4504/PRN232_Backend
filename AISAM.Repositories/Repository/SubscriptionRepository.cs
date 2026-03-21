@@ -36,6 +36,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.Subscriptions
                 .Include(s => s.Profile)
+                    .ThenInclude(p => p.User)
                 .Where(s => s.Profile.UserId == userId && !s.IsDeleted)
                 .OrderByDescending(s => s.CreatedAt)
                 .ToListAsync();
@@ -54,6 +55,7 @@ namespace AISAM.Repositories.Repository
         {
             return await _context.Subscriptions
                 .Include(s => s.Profile)
+                    .ThenInclude(p => p.User)
                 .Where(s => !s.IsDeleted)
                 .OrderByDescending(s => s.CreatedAt)
                 .ToListAsync();

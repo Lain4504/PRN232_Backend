@@ -503,6 +503,8 @@ namespace AISAM.Services.Service
     {
         Id = sub.Id,
         ProfileId = sub.ProfileId,
+        ProfileName = sub.Profile?.Name,
+        UserEmail = sub.Profile?.User?.Email,
         Plan = sub.Plan,
         QuotaPostsPerMonth = sub.QuotaPostsPerMonth,
         QuotaAIContentPerDay = sub.QuotaAIContentPerDay,

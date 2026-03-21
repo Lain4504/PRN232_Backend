@@ -100,6 +100,52 @@ namespace AISAM.API.Controllers
             }
         }
 
+        [HttpPost("update-subscription-plan")]
+        public async Task<ActionResult<GenericResponse<object>>> UpdateSubscriptionPlan([FromBody] UpdateSubscriptionPlanRequest request)
+        {
+            try
+            {
+                var subscription = await _subscriptionRepository.GetByIdAsync(request.SubscriptionId);
+                if (subscription == null) return NotFound(GenericResponse<object>.CreateError("Không tìm thấy gói dịch vụ."));
+
+                subscription.Plan = request.NewPlan;
+                
+                // Update quotas based on plan
+                switch (request.NewPlan)
+                {
+                    case SubscriptionPlanEnum.Free: 
+                        subscription.QuotaPostsPerMonth = 5; 
+                        subscription.QuotaAIContentPerDay = 0;
+                        subscription.AnalysisLevel = 0;
+                        break;
+                    case SubscriptionPlanEnum.Plus: 
+                        subscription.QuotaPostsPerMonth = 30; 
+                        subscription.QuotaAIContentPerDay = 5; 
+                        subscription.AnalysisLevel = 1; 
+                        break;
+                    case SubscriptionPlanEnum.PlusTrial: 
+                        subscription.QuotaPostsPerMonth = 15; 
+                        subscription.QuotaAIContentPerDay = 3; 
+                        subscription.AnalysisLevel = 1; 
+                        break;
+                    case SubscriptionPlanEnum.Premium: 
+                        subscription.QuotaPostsPerMonth = 999; 
+                        subscription.QuotaAIContentPerDay = 100; 
+                        subscription.AnalysisLevel = 2; 
+                        break;
+                }
+                
+                subscription.UpdatedAt = DateTime.UtcNow;
+                await _subscriptionRepository.UpdateAsync(subscription);
+                
+                return Ok(GenericResponse<object>.CreateSuccess(null, "Cập nhật gói dịch vụ thành công."));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GenericResponse<object>.CreateError(ex.Message));
+            }
+        }
+
         [HttpPost("seed-batch-users")]
         public async Task<ActionResult<GenericResponse<object>>> SeedBatchUsers([FromBody] BatchSeedRequest request)
         {
@@ -288,6 +334,12 @@ namespace AISAM.API.Controllers
     {
         public Guid ProfileId { get; set; }
         public ProfileStatusEnum NewStatus { get; set; } = ProfileStatusEnum.Active;
+    }
+
+    public class UpdateSubscriptionPlanRequest
+    {
+        public Guid SubscriptionId { get; set; }
+        public SubscriptionPlanEnum NewPlan { get; set; }
     }
 
     public class BatchSeedRequest

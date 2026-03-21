@@ -6,6 +6,8 @@ namespace AISAM.Common.Dtos.Response
     {
         public Guid Id { get; set; }
         public Guid ProfileId { get; set; }
+        public string? ProfileName { get; set; }
+        public string? UserEmail { get; set; }
         public SubscriptionPlanEnum Plan { get; set; }
         public int QuotaPostsPerMonth { get; set; }
         public int QuotaAIContentPerDay { get; set; }
