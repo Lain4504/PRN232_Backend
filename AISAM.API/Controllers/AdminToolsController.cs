@@ -147,6 +147,9 @@ namespace AISAM.API.Controllers
 
             // 1. Create User
             CreatePasswordHash(request.Password, out string passwordHash, out string passwordSalt);
+            // Randomize the time for more realism
+            creationDate = creationDate.Date.AddHours(random.Next(8, 22)).AddMinutes(random.Next(0, 59)).AddSeconds(random.Next(0, 59));
+            
             var user = new User
             {
                 Email = request.Email,
@@ -200,6 +203,11 @@ namespace AISAM.API.Controllers
                     subscription.QuotaAIContentPerDay = 5; 
                     subscription.AnalysisLevel = 1; 
                     break;
+                case SubscriptionPlanEnum.PlusTrial: 
+                    subscription.QuotaPostsPerMonth = 15; 
+                    subscription.QuotaAIContentPerDay = 3; 
+                    subscription.AnalysisLevel = 1; 
+                    break;
                 case SubscriptionPlanEnum.Premium: 
                     subscription.QuotaPostsPerMonth = 999; 
                     subscription.QuotaAIContentPerDay = 100; 
@@ -224,7 +232,7 @@ namespace AISAM.API.Controllers
                     Status = PaymentStatusEnum.Success,
                     PaymentMethod = "PayOS",
                     TransactionId = "PAYOS-" + Guid.NewGuid().ToString().Replace("-","").Substring(0,10).ToUpper(),
-                    CreatedAt = subStart.AddHours(2)
+                    CreatedAt = subStart.AddHours(random.Next(1, 3)).AddMinutes(random.Next(0, 59))
                 });
             }
 

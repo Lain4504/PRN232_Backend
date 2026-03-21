@@ -4,6 +4,7 @@ namespace AISAM.Data.Enumeration
     {
         Free = 0,
         Plus = 1,
-        Premium = 2
+        Premium = 2,
+        PlusTrial = 3
     }
 }
