@@ -1,4 +1,4 @@
-﻿using AISAM.Data.Enumeration;
+using AISAM.Data.Enumeration;
 
 namespace AISAM.Common.Dtos.Request
 {
@@ -13,5 +13,7 @@ namespace AISAM.Common.Dtos.Request
         public bool CreateOrder { get; set; } = true;
         public decimal Amount { get; set; } = 0;
         public DateTime? CreatedAt { get; set; }
+        public DateTime? SubscriptionStartDate { get; set; }
+        public DateTime? SubscriptionEndDate { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using AISAM.Common;
+using AISAM.Common;
 using AISAM.Common.Dtos.Request;
 using AISAM.Data.Enumeration;
 using AISAM.Data.Model;
@@ -9,7 +9,7 @@ using System.Text;
 
 namespace AISAM.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/admin-tools")] // Explicitly use hyphenated route to match frontend calls
     [ApiController]
     public class AdminToolsController : ControllerBase
     {
@@ -82,7 +82,9 @@ namespace AISAM.API.Controllers
                         CompanyName = userInfo.CompanyName ?? "",
                         CreateOrder = request.CreateOrder,
                         Amount = request.Amount,
-                        CreatedAt = request.CreatedAt
+                        CreatedAt = request.CreatedAt,
+                        SubscriptionStartDate = request.CreatedAt, // Use CreatedAt as default for batch
+                        SubscriptionEndDate = request.CreatedAt?.AddMonths(1)
                     };
 
                     var result = await CreateUserWithFullEco(singleRequest);
@@ -132,12 +134,14 @@ namespace AISAM.API.Controllers
             await _profileRepository.CreateAsync(profile);
 
             // 3. Create Subscription
+            var subStart = request.SubscriptionStartDate ?? creationDate;
+            var subEnd = request.SubscriptionEndDate ?? subStart.AddMonths(1);
             var subscription = new Subscription
             {
                 ProfileId = profile.Id,
                 Plan = request.Plan,
-                StartDate = creationDate,
-                EndDate = creationDate.AddMonths(1),
+                StartDate = subStart,
+                EndDate = subEnd,
                 IsActive = true,
                 CreatedAt = creationDate,
                 UpdatedAt = creationDate
@@ -171,7 +175,7 @@ namespace AISAM.API.Controllers
                     Status = PaymentStatusEnum.Success,
                     PaymentMethod = "Thanh toán Demo",
                     TransactionId = "DEMO-" + Guid.NewGuid().ToString().Replace("-","").Substring(0,10).ToUpper(),
-                    CreatedAt = creationDate.AddHours(2)
+                    CreatedAt = subStart.AddHours(2)
                 });
             }
 
